@@ -37,6 +37,8 @@ SUBROUTINE run_pwscf ( exit_status )
   USE extrapolation,    ONLY : update_file, update_pot
   USE qmmm,             ONLY : qmmm_initialization, qmmm_shutdown, &
                                qmmm_update_positions, qmmm_update_forces
+  USE input_parameters, ONLY : use_sirius
+  USE sirius
   !
   IMPLICIT NONE
   INTEGER, INTENT(OUT) :: exit_status
@@ -44,6 +46,11 @@ SUBROUTINE run_pwscf ( exit_status )
   ! counter of electronic + ionic steps done in this run
   !
   !
+  if (use_sirius) then
+     ! initialize platform-specific stuff (libraries, environment, etc.)
+     CALL sirius_initialize(call_mpi_init=0)
+  endif
+
   exit_status = 0
   IF ( ionode ) WRITE( unit = stdout, FMT = 9010 ) ntypx, npk, lmaxx
   !
@@ -90,7 +97,11 @@ SUBROUTINE run_pwscf ( exit_status )
      IF ( .NOT. lscf) THEN
         CALL non_scf ()
      ELSE
-        CALL electrons()
+        if (use_sirius) then
+          CALL electrons_sirius()
+        else
+          CALL electrons() 
+        endif
      END IF
      !
      ! ... code stopped by user or not converged

@@ -275,6 +275,9 @@ MODULE input_parameters
         ! location of xml input according to xsd schema
         CHARACTER(len=256) :: input_xml_schema_file = ' '
 
+        LOGICAL  :: use_sirius = .FALSE.
+        CHARACTER(len=256) :: sirius_cfg
+
         NAMELIST / control / title, calculation, verbosity, restart_mode, &
           nstep, iprint, isave, tstress, tprnfor, dt, ndr, ndw, outdir,   &
           prefix, wfcdir, max_seconds, ekin_conv_thr, etot_conv_thr,      &
