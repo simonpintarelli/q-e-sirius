@@ -34,9 +34,10 @@ SUBROUTINE electrons_sirius()
                                    niter_with_fixed_ns, lda_plus_u
   USE uspp,             ONLY : okvan
   USE fft_base,         ONLY : dfftp
+  USE atom,         ONLY : rgrid
   !
   IMPLICIT NONE
-  INTEGER iat, ia, i, j, kset_id, num_gvec, num_fft_grid_points, ik, iter, ig
+  INTEGER iat, ia, i, j, kset_id, num_gvec, num_fft_grid_points, ik, iter, ig, li, lj, ijv, ilast, ir, l, mb, nb
   REAL(8), ALLOCATABLE :: rho_rg(:), veff_rg(:), vloc(:), dion(:,:), tmp(:)
   REAL(8), ALLOCATABLE :: bnd_occ(:,:), band_e(:,:)
   REAL(8) v(3), a1(3), a2(3), a3(3), maxocc, rms
@@ -49,6 +50,7 @@ SUBROUTINE electrons_sirius()
   REAL(8) vlat(3, 3), vlat_inv(3, 3), v1(3), bg_inv(3, 3)
   integer kmesh(3), kshift(3), printout
   INTEGER, EXTERNAL :: find_current_k
+  real(8), allocatable :: qij(:,:,:)
   !
   IF ( dft_is_hybrid() ) THEN
      printout = 0  ! do not print etot and energy components at each scf step
@@ -195,14 +197,47 @@ SUBROUTINE electrons_sirius()
     CALL sirius_set_atom_type_dion(c_str(atm(iat)), upf(iat)%nbeta, dion(1,1))
     DEALLOCATE(dion)
 
+    allocate(qij(upf(iat)%mesh, upf(iat)%nbeta*(upf(iat)%nbeta+1)/2, 0:2*upf(iat)%lmax))
+    qij = 0
+
     ! set radial function of augmentation charge
     if (upf(iat)%q_with_l) then
-      CALL sirius_set_atom_type_q_rf(c_str(atm(iat)), 0, upf(iat)%nqlc-1, upf(iat)%qfcoef(1,1,1,1),&
-                                    &upf(iat)%rinner(1), upf(iat)%qfuncl(1,1,0), upf(iat)%lmax)
+      do l = 0, upf(iat)%nqlc-1
+        do nb = 1, upf(iat)%nbeta
+          do mb = nb, upf(iat)%nbeta
+            ijv = mb*(mb-1)/2 + nb
+            do ir = 1, upf(iat)%kkbeta
+              qij(ir, ijv, l) =  upf(iat)%qfuncl(ir, ijv, l)
+            enddo
+          enddo
+        enddo
+      enddo
     else
-      CALL sirius_set_atom_type_q_rf(c_str(atm(iat)), upf(iat)%nqf, upf(iat)%nqlc-1, upf(iat)%qfcoef(1,1,1,1),&
-                                    &upf(iat)%rinner(1), upf(iat)%qfunc(1,1), 0)
+      do l = 0, upf(iat)%nqlc-1
+        do nb = 1, upf(iat)%nbeta
+          li = upf(iat)%lll(nb)
+          do mb = nb, upf(iat)%nbeta
+            lj = upf(iat)%lll(nb)
+            if ((l >= abs(li-lj) .and. l <= (li+lj) .and. mod(l+li+lj, 2) == 0)) then
+              ijv = mb*(mb-1)/2 + nb
+              do ir = 1, upf(iat)%kkbeta
+                if (rgrid(iat)%r(ir) >= upf(iat)%rinner(l+1)) then
+                  qij(ir, ijv, l) = upf(iat)%qfunc(ir, ijv)
+                else
+                  ilast = ir
+                endif
+              enddo
+              if (upf(iat)%rinner(l+1) > 0.0) then
+                call setqfnew(upf(iat)%nqf, upf(iat)%qfcoef(1, l+1, nb, mb), ilast, rgrid(iat)%r, l, 2, qij(1, ijv, l))
+              endif
+            endif
+          enddo ! mb
+        enddo ! nb
+      enddo
     endif
+
+    CALL sirius_set_atom_type_q_rf(c_str(atm(iat)), qij(1, 1, 0), upf(iat)%lmax)
+    deallocate(qij)
 
     ! set non-linear core correction
     CALL sirius_set_atom_type_rho_core(c_str(atm(iat)), upf(iat)%mesh, upf(iat)%rho_atc(1))
