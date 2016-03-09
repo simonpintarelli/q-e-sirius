@@ -1,5 +1,5 @@
 !
-! Copyright (C) 2001-2011 PWSCF group
+! Copyright (C) 2001-2016 Quantum ESPRESSO group
 ! This file is distributed under the terms of the
 ! GNU General Public License. See the file `License'
 ! in the root directory of the present distribution,
@@ -106,8 +106,6 @@ MODULE nlcc_ph
   !
   COMPLEX (DP), ALLOCATABLE, TARGET :: drc(:,:) ! ngm, ntyp)
   ! contain the rhoc (without structure fac) for all atomic types
-  LOGICAL :: nlcc_any
-  ! .T. if any atom-type has nlcc
   !
 END MODULE nlcc_ph
 !
@@ -122,9 +120,8 @@ MODULE phus
   SAVE
   !
   REAL (DP), ALLOCATABLE :: &
-       alphasum(:,:,:,:),   &! nhm*(nhm+1)/2,3,nat,nspin)
+       alphasum(:,:,:,:)     ! nhm*(nhm+1)/2,3,nat,nspin)
                              ! used to compute modes
-       dpqq(:,:,:,:)         ! (nhm, nhm, 3, ntyp)
   ! alphasum contains \sum_i <psi_i| d/du (|\beta_n><beta_m|) | psi_i> + (m-n)
   ! dipole moment of each Q
   COMPLEX (DP), ALLOCATABLE :: &
@@ -146,12 +143,10 @@ MODULE phus
 !
        becsum_nc(:,:,:,:),     &! nhm*(nhm+1)/2,nat,npol,npol)
        becsumort(:,:,:,:),     &! nhm*(nhm+1)/2,nat,nspin,3*nat)
-       alphasum_nc(:,:,:,:,:), &! nhm*(nhm+1)/2,3,nat,npol,npol)
-       dpqq_so(:,:,:,:,:)       ! nhm, nhm, nspin, 3, ntyp
+       alphasum_nc(:,:,:,:,:)   ! nhm*(nhm+1)/2,3,nat,npol,npol)
 !
 !  becsum contains \sum_i <\psi_i | \beta_n><\beta_m| \psi_i > + (m-n)
 !  besumort contains alphasum+\sum_i <\psi_i | \beta_n><\beta_m| \delta \psi_i >
-!  dpqq_so dipole moment of each Q multiplied by the fcoef factors
 !
   type (bec_type),  ALLOCATABLE, TARGET :: &
        alphap(:,:)           ! nkbtot, nbnd, 3, nksq)
@@ -238,7 +233,6 @@ MODULE control_ph
                            ! in input.
              ext_restart, &! if .TRUE. there is a restart file
              ext_recover, &! if .TRUE. there is a recover file
-             lrpa,        &! if .TRUE. calculates the RPA dielectric constant
              lnoloc,      &! if .TRUE. calculates the dielectric constant
                            ! neglecting local field effects
              search_sym=.TRUE.,  &! if .TRUE. search the mode symmetry

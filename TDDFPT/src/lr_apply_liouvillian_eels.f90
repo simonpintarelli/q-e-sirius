@@ -32,15 +32,13 @@ SUBROUTINE lr_apply_liouvillian_eels ( evc1, evc1_new, sevc1_new, interaction )
   USE gvecw,                ONLY : gcutw
   USE io_global,            ONLY : stdout
   USE uspp,                 ONLY : vkb
-  USE io_files,             ONLY : iunigk
+  USE io_files,             ONLY : iunigk, iunwfc, nwordwfc
   USE wavefunctions_module, ONLY : evc, psic, psic_nc
-  USE units_ph,             ONLY : lrwfc, iuwfc
   USE noncollin_module,     ONLY : noncolin, npol, nspin_mag
   USE uspp,                 ONLY : okvan
-  USE nlcc_ph,              ONLY : nlcc_any
   USE mp_bands,             ONLY : ntask_groups, me_bgrp
   USE spin_orb,             ONLY : domag
-
+  USE buffers,              ONLY : get_buffer
   USE qpoint,               ONLY : npwq, igkq, ikks, ikqs, nksq
   USE eqv,                  ONLY : evq, dpsi, dvpsi
   USE control_lr,           ONLY : nbnd_occ
@@ -108,7 +106,8 @@ SUBROUTINE lr_apply_liouvillian_eels ( evc1, evc1_new, sevc1_new, interaction )
   !
   IF ( interaction1 ) THEN
      ! 
-     ! Calculation of the charge density response, and symmetrization of it.
+     ! Calculation of the response charge density 
+     ! and its symmetrization.
      !
      !if (.not. allocated(psic)) allocate(psic(dfftp%nnr))   
      !
@@ -120,12 +119,10 @@ SUBROUTINE lr_apply_liouvillian_eels ( evc1, evc1_new, sevc1_new, interaction )
      !
      !if (allocated(psic)) deallocate(psic) 
      !
-     ! Calculation of the HXC potential
-     ! input:  the change of the charge density (dvrsc)
-     ! output: the change of the HXC potential  (dvrsc)
-     ! Note: check the implementation of the non-linear core correction.
+     ! Calculation of the response HXC potential
+     ! from the response charge density.
      !
-     CALL dv_of_drho(0, dvrsc, .false.)
+     CALL dv_of_drho (dvrsc, .false.)
      !
      ! Interpolation of the HXC potential from the thick mesh 
      ! to a smoother mesh (if doublegrid=.true.)
@@ -170,8 +167,8 @@ SUBROUTINE lr_apply_liouvillian_eels ( evc1, evc1_new, sevc1_new, interaction )
      ! Read unperturbed wavefuctions psi(k) and psi(k+q)
      !
      IF (nksq > 1) THEN 
-        CALL davcio (evc, lrwfc, iuwfc, ikk, - 1)
-        CALL davcio (evq, lrwfc, iuwfc, ikq, - 1)
+        CALL get_buffer (evc, nwordwfc, iunwfc, ikk)
+        CALL get_buffer (evq, nwordwfc, iunwfc, ikq)
      ENDIF
      !
      dpsi(:,:)  = (0.d0,0.d0)
@@ -354,7 +351,8 @@ SUBROUTINE lr_apply_liouvillian_eels ( evc1, evc1_new, sevc1_new, interaction )
         IF (noncolin) THEN
            DO ibnd = 1, nbnd_occ(ikk)
               DO ig = 1, npwq
-                 sevc1_new(ig+npwx,ibnd,ik) = sevc1_new(ig+npwx,ibnd,ik) + dvpsi(ig+npwx,ibnd)
+                 sevc1_new(ig+npwx,ibnd,ik) = sevc1_new(ig+npwx,ibnd,ik) &
+                                                   & + dvpsi(ig+npwx,ibnd)
               ENDDO
            ENDDO
         ENDIF
@@ -365,7 +363,8 @@ SUBROUTINE lr_apply_liouvillian_eels ( evc1, evc1_new, sevc1_new, interaction )
      !    evc1_new = S^{-1} * sevc1_new
      !    If not ultrasoft: evc1_new = sevc1_new
      !
-     CALL sm1_psi(.FALSE.,ik, npwx, npwq, nbnd_occ(ikk), sevc1_new(1,1,ik), evc1_new(1,1,ik))
+     CALL lr_sm1_psiq (.FALSE., ik, npwx, npwq, igkq, nbnd_occ(ikk), &
+                         & sevc1_new(1,1,ik), evc1_new(1,1,ik))
      !
   ENDDO ! loop on ik
   !

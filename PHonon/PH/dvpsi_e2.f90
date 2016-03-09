@@ -1,10 +1,9 @@
 !
-! Copyright (C) 2001-2008 Quantum ESPRESSO group
+! Copyright (C) 2001-2016 Quantum ESPRESSO group
 ! This file is distributed under the terms of the
 ! GNU General Public License. See the file `License'
 ! in the root directory of the present distribution,
 ! or http://www.gnu.org/copyleft/gpl.txt .
-!
 !
 !----------------------------------------------------------------------
 subroutine dvpsi_e2
@@ -152,7 +151,7 @@ subroutine dvpsi_e2
            aux6 (ir, ipa) = CMPLX(raux6 (ir, ipa), 0.d0,kind=DP)
         enddo
      endif
-     call dv_of_drho (0, aux6(1, ipa), .false.)
+     call dv_of_drho (aux6(1, ipa), .false.)
   enddo
 
   if (doublegrid) deallocate (auxs1)

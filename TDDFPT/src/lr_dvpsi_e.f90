@@ -15,6 +15,9 @@ SUBROUTINE lr_dvpsi_e(ik,ipol,dvpsi)
   ! dvpsi is COMPUTED and WRITTEN on file (vkb,evc,igk must be set) 
   ! OBM:                  ^ This is now handled elesewhere
   !
+  ! See J. Tobik and A. Dal Corso, JCP 120, 9934 (2004)
+  ! for the details of the theory implemented in this routine.
+  !
   ! Modified by Osman Baris Malcioglu (2009)
   ! Rebased wrt PHONON routines. S J Binnie (2011)
   !
@@ -30,12 +33,12 @@ SUBROUTINE lr_dvpsi_e(ik,ipol,dvpsi)
                                    & deallocate_bec_type,  bec_type
   USE uspp,                 ONLY : okvan, nkb, vkb
   USE uspp_param,           ONLY : nh, nhm
-  USE phus,                 ONLY : dpqq 
   USE control_flags,        ONLY : gamma_only
   USE control_lr,           ONLY : nbnd_occ
   USE lr_variables,         ONLY : lr_verbosity
   USE io_global,            ONLY : stdout
   USE qpoint,               ONLY : igkq
+  USE lrus,                 ONLY : dpqq
   !
   IMPLICIT NONE
   !
@@ -172,7 +175,7 @@ SUBROUTINE lr_dvpsi_e(ik,ipol,dvpsi)
   !
   IF (okvan) THEN
      ALLOCATE (spsi ( npwx*npol, nbnd))
-     CALL sm1_psi(.TRUE.,ik,npwx,ngk(ik),nbnd,dvpsi,spsi)
+     CALL lr_sm1_psi (.TRUE.,ik,npwx,ngk(ik),nbnd,dvpsi,spsi)
      dvpsi(:,:) = spsi(:,:)
      DEALLOCATE(spsi)
   ENDIF

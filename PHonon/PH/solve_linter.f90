@@ -1,5 +1,5 @@
 !
-! Copyright (C) 2001-2014 Quantum ESPRESSO group
+! Copyright (C) 2001-2016 Quantum ESPRESSO group
 ! This file is distributed under the terms of the
 ! GNU General Public License. See the file `License'
 ! in the root directory of the present distribution,
@@ -50,7 +50,7 @@ SUBROUTINE solve_linter (irr, imode0, npe, drhoscf)
                                    alpha_mix, rec_code_read, &
                                    where_rec, flmixdpot, ext_recover
   USE el_phon,              ONLY : elph
-  USE nlcc_ph,              ONLY : nlcc_any
+  USE uspp,                 ONLY : nlcc_any
   USE units_ph,             ONLY : iudrho, lrdrho, iudwf, lrdwf, iubar, lrbar, &
                                    iuwfc, lrwfc, iudvscf, iuint3paw, lint3paw
   USE output,               ONLY : fildrho, fildvscf
@@ -103,11 +103,12 @@ SUBROUTINE solve_linter (irr, imode0, npe, drhoscf)
   ! change of scf potential (output)
   complex(DP), allocatable :: ldos (:,:), ldoss (:,:), mixin(:), mixout(:), &
        dbecsum (:,:,:,:), dbecsum_nc(:,:,:,:,:), aux1 (:,:), tg_dv(:,:), &
-       tg_psic(:,:), aux2(:,:)
+       tg_psic(:,:), aux2(:,:), drhoc(:)
   ! Misc work space
   ! ldos : local density of states af Ef
   ! ldoss: as above, without augmentation charges
   ! dbecsum: the derivative of becsum
+  ! drhoc: response core charge density
   REAL(DP), allocatable :: becsum1(:,:,:)
 
   logical :: conv_root,  & ! true if linear system is converged
@@ -166,6 +167,7 @@ SUBROUTINE solve_linter (irr, imode0, npe, drhoscf)
   allocate (aux1 ( dffts%nnr, npol))
   allocate (h_diag ( npwx*npol, nbnd))
   allocate (aux2(npwx*npol, nbnd))
+  allocate (drhoc(dfftp%nnr))
   incr=1
   IF ( dffts%have_task_groups ) THEN
      !
@@ -486,9 +488,21 @@ SUBROUTINE solve_linter (irr, imode0, npe, drhoscf)
            call davcio_drho (drhoscfh(1,1,ipert), lrdrho, iudrho, imode0+ipert, +1)
 !           close(iudrho)
         endif
-        
+        ! 
         call zcopy (dfftp%nnr*nspin_mag,drhoscfh(1,1,ipert),1,dvscfout(1,1,ipert),1)
-        call dv_of_drho (imode0+ipert, dvscfout(1,1,ipert), .true.)
+        !
+        ! Compute the response of the core charge density
+        ! IT: Should the condition "imode0+ipert > 0" be removed?
+        !
+        if (imode0+ipert > 0) then
+           call addcore (imode0+ipert, drhoc)
+        else
+           drhoc(:) = (0.0_DP,0.0_DP) 
+        endif
+        !
+        ! Compute the response HXC potential
+        call dv_of_drho (dvscfout(1,1,ipert), .true., drhoc)
+        !
      enddo
      !
      !   And we mix with the old potential
@@ -607,6 +621,7 @@ SUBROUTINE solve_linter (irr, imode0, npe, drhoscf)
   if (doublegrid) deallocate (dvscfins)
   deallocate (dvscfin)
   deallocate(aux2)
+  deallocate(drhoc)
   IF ( ntask_groups > 1) dffts%have_task_groups=.TRUE.
   IF ( dffts%have_task_groups ) THEN
      DEALLOCATE( tg_dv )

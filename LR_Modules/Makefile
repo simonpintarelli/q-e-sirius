@@ -20,12 +20,23 @@ commutator_Hx_psi.o \
 h_psiq.o \
 incdrhoscf.o \
 incdrhoscf_nc.o \
+dv_of_drho.o \
+dgradcorr.o \
 newdq.o \
 orthogonalize.o \
 setup_nscf.o \
 set_dbecsum_nc.o \
 set_int3_nc.o \
 smallgq.o \
+lr_sm1_psi.o \
+setup_dgc.o \
+compute_vsgga.o \
+setup_dmuxc.o \
+setup_nbnd_occ.o \
+setup_alpha_pv.o \
+qdipol_cryst.o \
+adddvepsi_us.o \
+setqmod.o \
 lrcom.o
 
 TLDEPS=libfft mods

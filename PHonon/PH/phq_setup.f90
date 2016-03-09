@@ -1,5 +1,5 @@
 !
-! Copyright (C) 2001-2008 Quantum ESPRESSO group
+! Copyright (C) 2001-2016 Quantum ESPRESSO group
 ! This file is distributed under the terms of the
 ! GNU General Public License. See the file `License'
 ! in the root directory of the present distribution,
@@ -14,7 +14,8 @@ subroutine phq_setup
   !  phonon program:
   !  1) computes the total local potential (external+scf) on the smooth
   !     grid to be used in h_psi and similia
-  !  2) computes dmuxc 3) with GC if needed
+  !  2) computes the local magnetization (if necessary)
+  !  3) computes dmuxc (with GC if needed)
   !  4) set the inverse of every matrix invs
   !  5) for metals sets the occupied bands
   !  6) computes alpha_pv
@@ -52,25 +53,21 @@ subroutine phq_setup
   USE kinds,         ONLY : DP
   USE ions_base,     ONLY : tau, nat, ntyp => nsp, ityp
   USE cell_base,     ONLY : at, bg
-  USE io_global,     ONLY : stdout, ionode
+  USE io_global,     ONLY : ionode
   USE io_files,      ONLY : tmp_dir
-  USE ener,          ONLY : ef, ef_up, ef_dw
-  USE klist,         ONLY : xk, lgauss, degauss, ngauss, nks, nelec, nelup, &
-                            neldw, two_fermi_energies, wk, nkstot
-  USE ktetra,        ONLY : ltetra
-  USE lsda_mod,      ONLY : nspin, lsda, starting_magnetization, isk
-  USE scf,           ONLY : v, vrs, vltot, rho, rho_core, kedtau
+  USE klist,         ONLY : xk, nks, nkstot
+  USE lsda_mod,      ONLY : nspin, starting_magnetization
+  USE scf,           ONLY : v, vrs, vltot, kedtau
   USE fft_base,      ONLY : dfftp
   USE gvect,         ONLY : ngm
   USE gvecs,       ONLY : doublegrid
   USE symm_base,     ONLY : nrot, nsym, s, ftau, irt, t_rev, time_reversal, &
                             sr, invs, inverse_s
   USE uspp_param,    ONLY : upf
+  USE uspp,          ONLY : nlcc_any
   USE spin_orb,      ONLY : domag
-  USE constants,     ONLY : degspin, pi
-  USE noncollin_module, ONLY : noncolin, m_loc, angle1, angle2, ux, nspin_mag
-  USE wvfct,         ONLY : nbnd, et
-  USE nlcc_ph,       ONLY : drc, nlcc_any
+  USE noncollin_module, ONLY : noncolin, m_loc, angle1, angle2, ux
+  USE nlcc_ph,       ONLY : drc
   USE control_ph,    ONLY : rec_code, lgamma_gamma, search_sym, start_irr, &
                             last_irr, niter_ph, alpha_mix, all_done,  &
                             trans, epsil, recover, where_rec, &
@@ -88,38 +85,25 @@ subroutine phq_setup
   USE ph_restart,    ONLY : ph_writefile, ph_readfile
   USE control_flags, ONLY : modenum, noinv
   USE grid_irr_iq,   ONLY : comp_irr_iq
-  USE funct,         ONLY : dmxc, dmxc_spin, dmxc_nc, dft_is_gradient
+  USE funct,         ONLY : dft_is_gradient
   USE ramanm,        ONLY : lraman, elop, ramtns, eloptns, done_lraman, &
                             done_elop
 
-  USE mp,            ONLY : mp_max, mp_min
-  USE mp_pools,      ONLY : inter_pool_comm, npool
+  USE mp_pools,      ONLY : npool
   !
   USE acfdtest,      ONLY : acfdt_is_active, acfdt_num_der
-
-  USE lr_symm_base, ONLY : gi, gimq, irotmq, minus_q, invsymq, nsymq, rtau
-  USE qpoint,       ONLY : xq, xk_col
-  USE eqv,          ONLY : dmuxc
-  USE control_lr,   ONLY : alpha_pv, nbnd_occ, lgamma
+  USE lr_symm_base,  ONLY : gi, gimq, irotmq, minus_q, invsymq, nsymq, rtau
+  USE qpoint,        ONLY : xq, xk_col
+  USE control_lr,    ONLY : lgamma
 
   implicit none
 
-  real(DP) :: rhotot, rhoup, rhodw, target, small, fac, xmax, emin, emax
-  ! total charge
-  ! total up charge
-  ! total down charge
-  ! auxiliary variables used
-  ! to set nbnd_occ in the metallic case
-  ! minimum band energy
-  ! maximum band energy
-
   real(DP) :: sr_is(3,3,48)
 
-  integer :: ir, isym, jsym, irot, ik, ibnd, ipol, &
-       mu, nu, imode0, irr, ipert, na, it, nt, is, js, nsym_is, last_irr_eff
+  integer :: isym, jsym, irot, ik, ibnd, ipol, &
+       mu, nu, imode0, irr, ipert, na, it, nt, nsym_is, last_irr_eff
   ! counters
 
-  real(DP) :: auxdmuxc(4,4)
   real(DP), allocatable :: wg_up(:,:), wg_dw(:,:)
 
   logical :: sym (48), magnetic_sym
@@ -157,12 +141,12 @@ subroutine phq_setup
   ENDIF
 !!!!!!!!!!!!!!!!!!!!!!!!END OF  ACFDT TEST !!!!!!!!!!!!!!!!
   !
-  ! 2) Set non linear core correction stuff
+  ! Set non linear core correction stuff
   !
   nlcc_any = ANY ( upf(1:ntyp)%nlcc )
   if (nlcc_any) allocate (drc( ngm, ntyp))
   !
-  !  3) If necessary calculate the local magnetization. This information is
+  ! 2) If necessary calculate the local magnetization. This information is
   !      needed in find_sym
   !
   IF (.not.ALLOCATED(m_loc)) ALLOCATE( m_loc( 3, nat ) )
@@ -180,144 +164,25 @@ subroutine phq_setup
      if (dft_is_gradient()) call compute_ux(m_loc,ux,nat)
   ENDIF
   !
-  ! 3) Computes the derivative of the xc potential
+  ! 3) Computes the derivative of the XC potential
   !
-  dmuxc(:,:,:) = 0.d0
-  if (lsda) then
-     do ir = 1, dfftp%nnr
-        rhoup = rho%of_r (ir, 1) + 0.5d0 * rho_core (ir)
-        rhodw = rho%of_r (ir, 2) + 0.5d0 * rho_core (ir)
-        call dmxc_spin (rhoup, rhodw, dmuxc(ir,1,1), dmuxc(ir,2,1), &
-                                      dmuxc(ir,1,2), dmuxc(ir,2,2) )
-     enddo
-  else
-     IF (noncolin.and.domag) THEN
-        do ir = 1, dfftp%nnr
-           rhotot = rho%of_r (ir, 1) + rho_core (ir)
-           call dmxc_nc (rhotot, rho%of_r(ir,2), rho%of_r(ir,3), rho%of_r(ir,4), auxdmuxc)
-           DO is=1,nspin_mag
-              DO js=1,nspin_mag
-                 dmuxc(ir,is,js)=auxdmuxc(is,js)
-              END DO
-           END DO
-        enddo
-     ELSE
-        do ir = 1, dfftp%nnr
-           rhotot = rho%of_r (ir, 1) + rho_core (ir)
-           if (rhotot.gt.1.d-30) dmuxc (ir, 1, 1) = dmxc (rhotot)
-           if (rhotot.lt. - 1.d-30) dmuxc (ir, 1, 1) = - dmxc ( - rhotot)
-        enddo
-     END IF
-  endif
+  call setup_dmuxc()
   !
-  ! 3.1) Setup all gradient correction stuff
+  ! Setup all gradient correction stuff
   !
-  call setup_dgc
+  call setup_dgc()
   !
   ! 4) Computes the inverse of each matrix of the crystal symmetry group
   !
-  call inverse_s ( )
+  call inverse_s()
   !
   ! 5) Computes the number of occupied bands for each k point
   !
-  if (lgauss) then
-     !
-     ! discard conduction bands such that w0gauss(x,n) < small
-     !
-     ! hint:
-     !   small = 1.0333492677046d-2  ! corresponds to 2 gaussian sigma
-     !   small = 6.9626525973374d-5  ! corresponds to 3 gaussian sigma
-     !   small = 6.3491173359333d-8  ! corresponds to 4 gaussian sigma
-     !
-     small = 6.9626525973374d-5
-     !
-     ! - appropriate limit for gaussian broadening (used for all ngauss)
-     !
-     xmax = sqrt ( - log (sqrt (pi) * small) )
-     !
-     ! - appropriate limit for Fermi-Dirac
-     !
-     if (ngauss.eq. - 99) then
-        fac = 1.d0 / sqrt (small)
-        xmax = 2.d0 * log (0.5d0 * (fac + sqrt (fac * fac - 4.d0) ) )
-     endif
-     target = ef + xmax * degauss
-     do ik = 1, nks
-        do ibnd = 1, nbnd
-           if (et (ibnd, ik) .lt.target) nbnd_occ (ik) = ibnd
-        enddo
-        if (nbnd_occ (ik) .eq.nbnd) WRITE( stdout, '(5x,/,&
-             &"Possibly too few bands at point ", i4,3f10.5)') &
-             ik,  (xk (ipol, ik) , ipol = 1, 3)
-     enddo
-  else if (ltetra) then
-     call errore('phq_setup','phonon + tetrahedra not implemented', 1)
-  else
-     if (noncolin) then
-        nbnd_occ = nint (nelec)
-     else
-        IF ( two_fermi_energies ) THEN
-           !
-           ALLOCATE(wg_up(nbnd,nks))
-           ALLOCATE(wg_dw(nbnd,nks))
-           CALL iweights( nks, wk, nbnd, nelup, et, ef_up, wg_up, 1, isk )
-           CALL iweights( nks, wk, nbnd, neldw, et, ef_dw, wg_dw, 2, isk )
-           DO ik = 1, nks
-              DO ibnd=1,nbnd
-                 IF (isk(ik)==1) THEN
-                    IF (wg_up(ibnd,ik) > 0.0_DP) nbnd_occ (ik) = nbnd_occ(ik)+1
-                 ELSE
-                    IF (wg_dw(ibnd,ik) > 0.0_DP) nbnd_occ (ik) = nbnd_occ(ik)+1
-                 ENDIF
-              ENDDO
-           ENDDO
-           !
-           ! the following line to prevent NaN in Ef
-           !
-           ef = ( ef_up + ef_dw ) / 2.0_dp
-           !
-           DEALLOCATE(wg_up)
-           DEALLOCATE(wg_dw)
-        ELSE
-          if (lsda) call infomsg('phq_setup', &
-                                 'occupation numbers probably wrong')
-           do ik = 1, nks
-              nbnd_occ (ik) = nint (nelec) / degspin
-           enddo
-        ENDIF
-     endif
-  endif
+  call setup_nbnd_occ()
   !
   ! 6) Computes alpha_pv
   !
-  emin = et (1, 1)
-  do ik = 1, nks
-     do ibnd = 1, nbnd
-        emin = min (emin, et (ibnd, ik) )
-     enddo
-  enddo
-#ifdef __MPI
-  ! find the minimum across pools
-  call mp_min( emin, inter_pool_comm )
-#endif
-  if (lgauss) then
-     emax = target
-     alpha_pv = emax - emin
-  else
-     emax = et (1, 1)
-     do ik = 1, nks
-        do ibnd = 1, nbnd_occ(ik)
-           emax = max (emax, et (ibnd, ik) )
-        enddo
-     enddo
-#ifdef __MPI
-     ! find the maximum across pools
-     call mp_max( emax, inter_pool_comm )
-#endif
-     alpha_pv = 2.d0 * (emax - emin)
-  endif
-  ! avoid zero value for alpha_pv
-  alpha_pv = max (alpha_pv, 1.0d-2)
+  call setup_alpha_pv()
   !
   ! 7) set all the variables needed to use the pattern representation
   !

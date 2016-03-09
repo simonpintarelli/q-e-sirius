@@ -284,7 +284,7 @@ MODULE pw_restart
       USE ldaU,                 ONLY : lda_plus_u, lda_plus_u_kind, U_projection, &
                                        Hubbard_lmax, Hubbard_l, Hubbard_U, Hubbard_J, &
                                        Hubbard_alpha, Hubbard_J0, Hubbard_beta
-      USE spin_orb,             ONLY : lspinorb, domag
+      USE spin_orb,             ONLY : lspinorb, domag, lforcet
       USE symm_base,            ONLY : nrot, nsym, invsym, s, ft, irt, &
                                        t_rev, sname, time_reversal, no_t_rev
       USE lsda_mod,             ONLY : nspin, isk, lsda, starting_magnetization
@@ -336,8 +336,10 @@ MODULE pw_restart
       CASE( "all" )
          !
          ! ... do not overwrite the scf charge density with a non-scf one
+         ! ... (except in the 'force theorem' calculation of MAE where the
+         ! ...  charge density differs from the one read from disk)
          !
-         lrho  = lscf
+         lrho  = lscf .OR. lforcet
          lwfc  = twfcollect
          !
       CASE( "config" )
@@ -739,10 +741,9 @@ MODULE pw_restart
 ! ... CHARGE-DENSITY FILES
 !-------------------------------------------------------------------------------
       !
-      ! ... do not overwrite the scf charge density with a non-scf one
       ! ... also writes rho%ns if lda+U and rho%bec if PAW
       !
-      IF ( lscf ) CALL write_rho( rho, nspin )
+      IF ( lrho ) CALL write_rho( rho, nspin )
 !-------------------------------------------------------------------------------
 ! ... END RESTART SECTIONS
 !-------------------------------------------------------------------------------
@@ -971,8 +972,6 @@ MODULE pw_restart
       USE scf,           ONLY : rho
       USE lsda_mod,      ONLY : nspin
       USE mp_bands,      ONLY : intra_bgrp_comm
-      USE spin_orb,      ONLY : lforcet 
-      USE control_flags, ONLY : lscf, lbands
       USE mp,            ONLY : mp_sum
       !
       IMPLICIT NONE
@@ -987,7 +986,6 @@ MODULE pw_restart
                             lsymm, lrho, lefield, ldim, &
                             lef, lexx, lesm
       !
-      LOGICAL            :: need_qexml
       INTEGER            :: tmp
       !
       ierr = 0
@@ -1001,12 +999,7 @@ MODULE pw_restart
       CALL errore( 'pw_readfile', &
                    'no free units to read wavefunctions', ierr )
       !
-      need_qexml = .FALSE.
-      !
       lheader = .NOT. qexml_version_init
-      IF (lheader) need_qexml = .TRUE.
-
-
       !
       ldim    = .FALSE.
       lcell   = .FALSE.
@@ -1026,40 +1019,29 @@ MODULE pw_restart
       lexx    = .FALSE.
       lesm    = .FALSE.
       !
-
-
       SELECT CASE( what )
       CASE( 'header' )
          !
          lheader = .TRUE.
-         need_qexml = .TRUE.
          !
       CASE( 'dim' )
          !
          ldim = .TRUE.
          lbz  = .TRUE.
-         need_qexml = .TRUE.
          !
       CASE( 'pseudo' )
          !
          lions = .TRUE.
-         need_qexml = .TRUE.
          !
       CASE( 'config' )
          !
          lcell = .TRUE.
          lions = .TRUE.
-         need_qexml = .TRUE.
-         !
-      CASE( 'rho' )
-         !
-         lrho  = .TRUE.
          !
       CASE( 'wave' )
          !
          lpw   = .TRUE.
          lwfc  = .TRUE.
-         need_qexml = .TRUE.
          !
       CASE( 'nowavenobs' )
          !
@@ -1073,8 +1055,7 @@ MODULE pw_restart
          lbz     = .TRUE.
          lsymm   = .TRUE.
          lefield = .TRUE.
-         need_qexml = .TRUE.
-
+         !
       CASE( 'nowave' )
          !
          lcell   = .TRUE.
@@ -1088,7 +1069,6 @@ MODULE pw_restart
          lbs     = .TRUE.
          lsymm   = .TRUE.
          lefield = .TRUE.
-         need_qexml = .TRUE.
          !
       CASE( 'all' )
          !
@@ -1105,7 +1085,6 @@ MODULE pw_restart
          lsymm   = .TRUE.
          lefield = .TRUE.
          lrho    = .TRUE.
-         need_qexml = .TRUE.
          !
       CASE( 'reset' )
          !
@@ -1125,39 +1104,25 @@ MODULE pw_restart
       CASE( 'ef' )
          !
          lef        = .TRUE.
-         need_qexml = .TRUE.
          !
       CASE( 'exx' )
          !
          lexx       = .TRUE.
-         need_qexml = .TRUE.
          !
       CASE( 'esm' )
          !
          lesm       = .TRUE.
-         need_qexml = .TRUE.
+         !
+      CASE DEFAULT
+         !
+         CALL errore( 'pw_readfile', 'unknown case '//TRIM(what), 1 )
          !
       END SELECT
       !
-
-
-!-- To do Force Theorem calculation (AlexS)
-!
-      IF ( lforcet.and. .NOT.lscf .AND. .NOT.lbands ) THEN
-        IF ( what.eq.'config' ) THEN
-           ierr = 1
-        ELSE 
-          IF (lrho) CALL read_rho( rho, nspin )
-        ENDIF
-        RETURN
-      ENDIF
-!--
-
-
       IF ( .NOT. lheader .AND. .NOT. qexml_version_init) &
          CALL errore( 'pw_readfile', 'qexml version not set', 71 )
       !
-      IF (  ionode .AND. need_qexml ) THEN
+      IF (  ionode ) THEN
          !
          CALL qexml_init( iunpun )
          CALL qexml_openfile( TRIM( dirname ) // '/' // TRIM( xmlpun ), &
@@ -1337,7 +1302,7 @@ MODULE pw_restart
          !
       END IF
       !
-      IF (ionode .AND. need_qexml) THEN
+      IF (ionode) THEN
          !
          CALL qexml_closefile( 'read', IERR=ierr)
          !
@@ -1353,7 +1318,7 @@ MODULE pw_restart
       RETURN
       !
       ! uncomment to continue execution after an error occurs
-      ! 100 IF (ionode .AND. need_qexml) THEN
+      ! 100 IF (ionode) THEN
       !        CALL qexml_closefile( 'read', IERR=tmp)
       !     ENDIF
       !     RETURN

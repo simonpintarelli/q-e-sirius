@@ -20,6 +20,7 @@ subroutine dvscf (nu_i, dvloc, xq_x)
   USE fft_interfaces, ONLY : fwfft, invfft
   use pwcom
   USE uspp_param, ONLY: upf
+  USE uspp,       ONLY: nlcc_any
   use phcom
   use d3com
   !
@@ -73,7 +74,11 @@ subroutine dvscf (nu_i, dvloc, xq_x)
 
   call davcio_drho (aux2, lrdrho, iudrho_x, nu_i, - 1)
 
-!  call dv_of_drho (nu_i, aux2(1), .true.)
+! IT: Warning, if you uncomment the following line,
+! you have to precompute the response core charge density
+! and pass it as the input to dv_of_drho.
+! 
+!  call dv_of_drho (aux2(1), .true., ???)
 
 !  dvloc = aux2(:)
 

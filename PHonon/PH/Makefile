@@ -4,7 +4,7 @@ include ../../make.sys
 
 # location of needed modules and included files (if any)
 MODFLAGS= $(MOD_FLAG)../../iotk/src $(MOD_FLAG)../../Modules $(MOD_FLAG)../../LAXlib \
-          $(MOD_FLAG)../../FFTXlib $(MOD_FLAG)../../PW/src $(MOD_FLAG) ../../LR_Modules $(MOD_FLAG).
+          $(MOD_FLAG)../../FFTXlib $(MOD_FLAG)../../PW/src $(MOD_FLAG)../../LR_Modules $(MOD_FLAG).
 IFLAGS=
 
 PHOBJS = \
@@ -14,7 +14,6 @@ add_for_charges.o \
 add_zstar_ue.o \
 add_zstar_ue_us.o \
 addcore.o \
-adddvepsi_us.o \
 addnlcc.o \
 addnlcc_zstar_eu_us.o \
 addusddens.o \
@@ -43,7 +42,6 @@ compute_drhous.o \
 compute_drhous_nc.o \
 compute_dvloc.o \
 compute_nldyn.o \
-compute_vsgga.o \
 compute_weight.o \
 deallocate_part.o \
 deallocate_phq.o \
@@ -51,7 +49,6 @@ d2ionq.o \
 davcio_drho.o \
 dfile_autoname.o \
 dfile_star.o \
-dgradcorr.o \
 dielec.o \
 do_phonon.o \
 drho.o \
@@ -59,7 +56,6 @@ drhodv.o \
 drhodvloc.o \
 drhodvnl.o \
 drhodvus.o \
-dv_of_drho.o \
 dvanqq.o \
 dvkb3.o \
 dvpsi_e.o \
@@ -115,7 +111,6 @@ punch_plot_e.o \
 q_points.o \
 q_points_wannier.o \
 q2qstar_ph.o \
-qdipol_cryst.o \
 random_matrix.o \
 read_wfc_rspace_and_fwfft.o \
 rotate_dvscf_star.o \
@@ -131,8 +126,6 @@ set_irr_nosym.o \
 set_irr_sym.o \
 set_small_group_of_q.o \
 setlocq.o \
-setqmod.o \
-setup_dgc.o \
 sgam_ph.o \
 solve_e.o \
 solve_e_fpol.o \

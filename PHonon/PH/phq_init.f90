@@ -1,5 +1,5 @@
 !
-! Copyright (C) 2001-2008 Quantum ESPRESSO group
+! Copyright (C) 2001-2016 Quantum ESPRESSO group
 ! This file is distributed under the terms of the
 ! GNU General Public License. See the file `License'
 ! in the root directory of the present distribution,
@@ -37,7 +37,7 @@ SUBROUTINE phq_init()
   USE becmod,               ONLY : calbec
   USE constants,            ONLY : eps8, tpi
   USE gvect,                ONLY : g, ngm
-  USE klist,                ONLY : xk
+  USE klist,                ONLY : xk, ngk, igk_k
   USE lsda_mod,             ONLY : lsda, current_spin, isk
   USE buffers,              ONLY : get_buffer
   USE io_global,            ONLY : stdout
@@ -49,10 +49,10 @@ SUBROUTINE phq_init()
   USE gvecw,                ONLY : gcutw
   USE wavefunctions_module, ONLY : evc
   USE noncollin_module,     ONLY : noncolin, npol
-  USE uspp,                 ONLY : okvan, vkb
+  USE uspp,                 ONLY : okvan, vkb, nlcc_any
   USE uspp_param,           ONLY : upf
-  USE phus,                 ONLY : alphap, dpqq, dpqq_so
-  USE nlcc_ph,              ONLY : nlcc_any, drc
+  USE phus,                 ONLY : alphap
+  USE nlcc_ph,              ONLY : drc
   USE control_ph,           ONLY : trans, zue, epsil, all_done
   USE units_ph,             ONLY : lrwfc, iuwfc
 
@@ -63,7 +63,7 @@ SUBROUTINE phq_init()
                                   kpq,g_kpq,igqg,xk_gamma, lrwfcr
   USE wannier_gw,           ONLY : l_head
 
-  USE lrus,                 ONLY : becp1
+  USE lrus,                 ONLY : becp1, dpqq, dpqq_so
   USE qpoint,               ONLY : xq, igkq, npwq, nksq, eigqts, ikks, ikqs
   USE eqv,                  ONLY : vlocq, evq, eprec
   USE control_lr,           ONLY : nbnd_occ, lgamma
@@ -127,8 +127,6 @@ SUBROUTINE phq_init()
   !
   IF ( nksq > 1 ) REWIND( iunigk )
   !
- 
-  !
   ! only for electron-phonon coupling with wannier functions
   ! 
   if(elph_mat) then
@@ -163,6 +161,10 @@ SUBROUTINE phq_init()
      ! ... if there is only one k-point evc, evq, npw, igk stay in memory
      !
      IF ( nksq > 1 ) WRITE( iunigk ) npw, igk
+     ! TEMP: used in gen_us_dj, to be removed
+     ngk(ik) = npw
+     igk_k(1:npw,ik) = igk(1:npw)
+     ! TEMP: end
      !
      IF ( lgamma ) THEN
         !
@@ -227,7 +229,6 @@ SUBROUTINE phq_init()
         CALL calbec (npw, vkb, aux1, alphap(ipol,ik) )
      END DO
      !
-     !
 !!!!!!!!!!!!!!!!!!!!!!!! ACFDT TEST !!!!!!!!!!!!!!!!
   IF (acfdt_is_active) THEN
      ! ACFDT -test always read calculated wcf from non_scf calculation
@@ -280,7 +281,6 @@ SUBROUTINE phq_init()
   CALL mp_sum ( eprec, intra_bgrp_comm )
   !
   DEALLOCATE( aux1 )
-     
   !
   CALL dvanqq()
   CALL drho()

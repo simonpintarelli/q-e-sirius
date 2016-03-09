@@ -84,7 +84,7 @@ ph : bindir libfft libla mods libs pw
 neb : bindir libfft libla mods libs pw
 	( cd install ; $(MAKE) -f plugins_makefile $@ || exit 1 )
 
-tddfpt : bindir libfft libla mods libs pw ph
+tddfpt : bindir libfft libla mods libs pw
 	( cd install ; $(MAKE) -f plugins_makefile $@ || exit 1 )
 
 pp : bindir libfft libla mods libs pw
@@ -275,7 +275,7 @@ clean : doc_clean
 	for dir in \
 		CPV LAXlib FFTXlib Modules PP PW \
 		NEB ACFDT COUPLE GWW XSpectra \
-		atomic clib flib pwtools upftools \
+		atomic clib LR_Modules pwtools upftools \
 		dev-tools extlibs Environ TDDFPT \
 	; do \
 	    if test -d $$dir ; then \
