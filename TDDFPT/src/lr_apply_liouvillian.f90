@@ -6,11 +6,14 @@
 ! or http://www.gnu.org/copyleft/gpl.txt .
 !
 !-----------------------------------------------------------------------
-SUBROUTINE lr_apply_liouvillian( evc1, evc1_new, sevc1_new, interaction )
+SUBROUTINE lr_apply_liouvillian( evc1, evc1_new, interaction )
   !---------------------------------------------------------------------
   !
   ! Applies the linear response operator to response wavefunctions
-  ! (H - E)*psi(k+q) + V_HXC*psi0(k)   
+  ! S^{-1} P_c^+(k) { (H - E*S)*psi(k) + V_HXC*psi0(k) } 
+  !
+  ! Note 1: S^{-1} P_c^+(k) = P_c(k) S^{-1}
+  ! Note 2: In the norm-conserving case: S=1, S^{-1}=1.
   ! 
   ! Or to be more exact this routine is responsible for calculating
   ! L.q(i) and (L^T).p(i), where q is evc1.
@@ -34,7 +37,7 @@ SUBROUTINE lr_apply_liouvillian( evc1, evc1_new, sevc1_new, interaction )
   USE io_global,            ONLY : stdout
   USE kinds,                ONLY : dp
   USE klist,                ONLY : nks, xk, ngk, igk_k
-  USE lr_variables,         ONLY : evc0, revc0, rho_1, rho_1c, &
+  USE lr_variables,         ONLY : evc0, sevc0, revc0, rho_1, rho_1c, &
                                  & ltammd, size_evc, no_hxc, lr_exx, &
                                  & scissor, davidson, lr_verbosity
   USE lsda_mod,             ONLY : nspin
@@ -66,21 +69,18 @@ SUBROUTINE lr_apply_liouvillian( evc1, evc1_new, sevc1_new, interaction )
   IMPLICIT NONE
   !
   COMPLEX(kind=dp),INTENT(in)  :: evc1(npwx*npol,nbnd,nks)
-  COMPLEX(kind=dp),INTENT(out) :: evc1_new(npwx*npol,nbnd,nks),&
-                                & sevc1_new(npwx*npol,nbnd,nks)
-  ! output : sevc1_new = S * evc1_new
+  COMPLEX(kind=dp),INTENT(out) :: evc1_new(npwx*npol,nbnd,nks)
   LOGICAL, INTENT(in) :: interaction
   !
-  !   Local variables
+  ! Local variables
   !
   INTEGER :: ir, ibnd, ik, ig, ia, mbia
   INTEGER :: ijkb0, na, nt, ih, jh, ikb, jkb, iqs,jqs
-  REAL(kind=dp), ALLOCATABLE :: dvrs(:,:), dvrss(:)
-  REAL(kind=dp), ALLOCATABLE :: d_deeq(:,:,:,:)
-  COMPLEX(kind=dp), ALLOCATABLE :: dvrs_temp(:,:)   
-  COMPLEX(kind=dp), ALLOCATABLE :: spsi1(:,:)
-  COMPLEX(kind=dp), ALLOCATABLE :: dvrsc(:,:), dvrssc(:)
-  REAL(kind=dp), ALLOCATABLE, DIMENSION(:) :: w1, w2
+  REAL(kind=dp), ALLOCATABLE :: dvrs(:,:), dvrss(:),           &
+                                & d_deeq(:,:,:,:), w1(:), w2(:)
+  COMPLEX(kind=dp), ALLOCATABLE :: dvrs_temp(:,:), spsi1(:,:), &
+                                   & dvrsc(:,:), dvrssc(:),    &
+                                   & sevc1_new(:,:,:)
   !
   ! Environ related arrays
   !
@@ -103,8 +103,10 @@ SUBROUTINE lr_apply_liouvillian( evc1, evc1_new, sevc1_new, interaction )
   ALLOCATE( spsi1(npwx, nbnd) )
   spsi1(:,:)=(0.0d0,0.0d0)
   !
-  evc1_new(:,:,:) = (0.0d0,0.0d0)
+  ALLOCATE(sevc1_new(npwx*npol,nbnd,nks))
   sevc1_new(:,:,:) = (0.0d0,0.0d0)
+  !
+  evc1_new(:,:,:) = (0.0d0,0.0d0)
   !
   IF ( interaction ) THEN 
      !
@@ -233,7 +235,7 @@ SUBROUTINE lr_apply_liouvillian( evc1, evc1_new, sevc1_new, interaction )
   !
   ALLOCATE ( psic (dffts%nnr) )
   !
-  IF( gamma_only ) THEN
+  IF ( gamma_only ) THEN
      CALL lr_apply_liouvillian_gamma()
   ELSE
      CALL lr_apply_liouvillian_k()
@@ -249,7 +251,7 @@ SUBROUTINE lr_apply_liouvillian( evc1, evc1_new, sevc1_new, interaction )
                                  & applying interaction: normal")')
      !
      ! Here we add the two terms: 
-     ! [H(k) - E(k)] * evc1(k)  +  P_c(k) [dV_{HXC} * revc0(k)]
+     ! [H(k) - E(k)] * evc1(k) + dV_HXC * revc0(k)
      !
      CALL zaxpy(size_evc,CMPLX(1.0d0,0.0d0,kind=dp),&
                        & evc1_new(:,:,:), 1, sevc1_new(:,:,:), 1)
@@ -291,13 +293,33 @@ SUBROUTINE lr_apply_liouvillian( evc1, evc1_new, sevc1_new, interaction )
      ENDDO
   ENDIF
   !
+  ! Apply the projector on empty states P_c^+.
+  ! Note: The projector P_c^+ can be applied only
+  ! to the responce HXC term, but in order to increase
+  ! the stability of the Lanczos chain we apply it 
+  ! also to the [H(k) - E(k)] * evc1(k) term.
+  ! However, we can apply the projector P_c^+ to
+  ! [H(k) - E(k)] * evc1(k) only in the case of systems
+  ! with the energy gap (insulators, molecules, etc.).
+  ! In the case of metals, P_c^+ is a more complicated object
+  ! (see orthogonalize.f90), and hence we cannot apply it to 
+  ! [H(k) - E(k)] * evc1(k). Keep this in mind if you want to
+  ! generalize this subroutine to metals. 
+  !
+  DO ik = 1, nks
+     !
+     CALL orthogonalize(sevc1_new(:,:,ik), evc0(:,:,ik), ik, ik, &
+                                  & sevc0(:,:,ik), ngk(ik), .true.)
+     sevc1_new(:,:,ik) = -sevc1_new(:,:,ik)
+     !
+  ENDDO 
+  !
   ! Here we apply the S^{-1} operator.
   ! See equations after Eq.(47) of B. Walker et al., J. Chem. Phys.
   !  127, 164106 (2007).  
   !
-  ! S^{-1} ( H(k)*evc1(k) - E(k) * S evc1(k) ) 
-  ! or
-  ! S^{-1} ( H(k)*evc1(k) - E(k) * S evc1(k)  +  P_c(k) [dV_{HXC} * revc0(k)] ) 
+  ! interaction=.false.: S^{-1} P_c^+(k) (H(k)-E(k)*S) * evc1(k) 
+  ! interaction=.true.:  S^{-1} P_c^+(k) { (H(k)-E(k)*S) * evc1(k) + dV_HXC * revc0(k) } 
   !
   DO ik = 1, nks
      !
@@ -310,6 +332,7 @@ SUBROUTINE lr_apply_liouvillian( evc1, evc1_new, sevc1_new, interaction )
   IF (allocated(dvrss)) DEALLOCATE(dvrss)
   DEALLOCATE(d_deeq)
   DEALLOCATE(spsi1)
+  DEALLOCATE(sevc1_new)
   !
   IF (interaction)      CALL stop_clock('lr_apply_int')
   IF (.not.interaction) CALL stop_clock('lr_apply_no')

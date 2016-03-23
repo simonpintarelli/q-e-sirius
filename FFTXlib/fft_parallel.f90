@@ -15,7 +15,7 @@
 !     Written and maintained by Carlo Cavazzoni
 !     Last update Apr. 2009
 !
-!=---------------------------------------------------------------------==!
+!!=---------------------------------------------------------------------==!
 !
 MODULE fft_parallel
 !
@@ -34,14 +34,14 @@ CONTAINS
 SUBROUTINE tg_cft3s( f, dfft, isgn, use_task_groups )
   !----------------------------------------------------------------------------
   !
-  ! ... isgn = +-1 : parallel 3d fft for rho and for the potential
+  !! ... isgn = +-1 : parallel 3d fft for rho and for the potential
   !                  NOT IMPLEMENTED WITH TASK GROUPS
-  ! ... isgn = +-2 : parallel 3d fft for wavefunctions
+  !! ... isgn = +-2 : parallel 3d fft for wavefunctions
   !
-  ! ... isgn = +   : G-space to R-space, output = \sum_G f(G)exp(+iG*R)
-  ! ...              fft along z using pencils        (cft_1z)
-  ! ...              transpose across nodes           (fft_scatter)
-  ! ...                 and reorder
+  !! ... isgn = +   : G-space to R-space, output = \sum_G f(G)exp(+iG*R)
+  !! ...              fft along z using pencils        (cft_1z)
+  !! ...              transpose across nodes           (fft_scatter)
+  !! ...                 and reorder
   ! ...              fft along y (using planes) and x (cft_2xy)
   ! ... isgn = -   : R-space to G-space, output = \int_R f(R)exp(-iG*R)/Omega
   ! ...              fft along x and y(using planes)  (cft_2xy)
@@ -382,6 +382,58 @@ SUBROUTINE bw_tg_cft3_xy( f, dfft )
   !
 END SUBROUTINE bw_tg_cft3_xy
 
+#ifdef __DOUBLE_BUFFER
+  SUBROUTINE pack_group_sticks_i( f, yf, dfft, req)
+
+     USE fft_types,  ONLY : fft_dlay_descriptor
+
+     IMPLICIT NONE
+#if defined(__MPI)
+  INCLUDE 'mpif.h'
+#endif
+
+     COMPLEX(DP), INTENT(in)    :: f( : )  ! array containing all bands, and gvecs distributed across processors
+     COMPLEX(DP), INTENT(out)    :: yf( : )  ! array containing bands collected into task groups
+     TYPE (fft_dlay_descriptor), INTENT(in) :: dfft
+     INTEGER                     :: ierr,req
+     !
+     IF( dfft%tg_rdsp(dfft%nogrp) + dfft%tg_rcv(dfft%nogrp) > size( yf ) ) THEN
+        CALL fftx_error__( 'pack_group_sticks' , ' inconsistent size ', 1 )
+     ENDIF
+     IF( dfft%tg_psdsp(dfft%nogrp) + dfft%tg_snd(dfft%nogrp) > size( f ) ) THEN
+        CALL fftx_error__( 'pack_group_sticks', ' inconsistent size ', 2 )
+     ENDIF
+
+     CALL start_clock( 'IALLTOALL' )
+     !
+     !  Collect all the sticks of the different states,
+     !  in "yf" processors will have all the sticks of the OGRP
+
+#if defined(__MPI)
+
+     CALL MPI_IALLTOALLV( f(1), dfft%tg_snd, dfft%tg_psdsp, MPI_DOUBLE_COMPLEX, yf(1), dfft%tg_rcv, &
+      &                     dfft%tg_rdsp, MPI_DOUBLE_COMPLEX, dfft%ogrp_comm, req, ierr)
+     IF( ierr /= 0 ) THEN
+        CALL fftx_error__( 'pack_group_sticks_i', ' alltoall error 1 ', abs(ierr) )
+     ENDIF
+
+#else
+
+     IF( dfft%tg_rcv(dfft%nogrp) /= dfft%tg_snd(dfft%nogrp) ) THEN
+        CALL fftx_error__( 'pack_group_sticks', ' inconsistent size ', 3 )
+     ENDIF
+
+     yf( 1 : dfft%tg_rcv(dfft%nogrp) ) =  f( 1 : dfft%tg_snd(dfft%nogrp) )
+
+#endif
+
+     CALL stop_clock( 'IALLTOALL' )
+     !
+     !YF Contains all ( ~ NOGRP*dfft%nsw(me) ) Z-sticks
+     !
+     RETURN
+  END SUBROUTINE pack_group_sticks_i
+#endif
 
 !----------------------------------------------------------------------------
   SUBROUTINE pack_group_sticks( f, yf, dfft )
@@ -436,7 +488,6 @@ END SUBROUTINE bw_tg_cft3_xy
   END SUBROUTINE pack_group_sticks
 
   !
-
   SUBROUTINE unpack_group_sticks( yf, f, dfft )
 
      USE fft_types,  ONLY : fft_dlay_descriptor
@@ -476,6 +527,7 @@ END SUBROUTINE bw_tg_cft3_xy
 
      RETURN
   END SUBROUTINE unpack_group_sticks
+
 
 SUBROUTINE tg_gather( dffts, v, tg_v )
    !

@@ -7,15 +7,16 @@ program test
 #ifdef __MPI
   include 'mpif.h'
   include 'fft_param.f90'
+  INTEGER, ALLOCATABLE :: req_p(:),req_u(:)
 #endif
-  TYPE(fft_dlay_descriptor) :: dfftp, dffts, dfft3d 
+  TYPE(fft_dlay_descriptor) :: dfftp, dffts, dfft3d
   INTEGER :: nx = 128
   INTEGER :: ny = 128
   INTEGER :: nz = 256
   !
   INTEGER :: mype, npes, comm, ntgs, root, nbnd
   LOGICAL :: iope
-  INTEGER :: ierr, i, ncount, ib
+  INTEGER :: ierr, i, ncount, ib, ireq, nreq, ipsi
   INTEGER :: stdout
   INTEGER :: ngw_ , ngm_ , ngs_
   REAL*8  :: gcutm, gkcut, gcutms
@@ -28,11 +29,14 @@ program test
   REAL*8  :: tempo_min(100)
   REAL*8  :: tempo_max(100)
   REAL*8  :: tempo_avg(100)
+  !
+  REAL*8  :: tmp1(10000),tmp2(10000)
+  !
   LOGICAL :: gamma_only
   REAL*8  :: at(3,3), bg(3,3)
   REAL(DP), PARAMETER :: pi     = 3.14159265358979323846_DP
   !
-  COMPLEX(DP), ALLOCATABLE :: psis(:)
+  COMPLEX(DP), ALLOCATABLE :: psis(:,:)
   COMPLEX(DP), ALLOCATABLE :: aux(:)
   !
   integer :: nargs
@@ -214,14 +218,15 @@ program test
 
   gamma_only = .true.
   stdout     = 6
-
-
+  
 
   CALL pstickset( gamma_only, bg, gcutm, gkcut, gcutms, &
         dfftp, dffts, ngw_ , ngm_ , ngs_ , mype, root, &
         npes, comm, ntgs, iope, stdout, dfft3d )
 
-  ALLOCATE( psis( dffts%tg_nnr * dffts%nogrp ) )
+  ALLOCATE( psis( dffts%tg_nnr * dffts%nogrp, 2 ) )
+  ALLOCATE( req_p(nbnd) )
+  ALLOCATE( req_u(nbnd) )
   ALLOCATE( aux( dffts%tg_nnr * dffts%nogrp ) )
 
   tempo = 0.0d0
@@ -237,83 +242,138 @@ program test
   aux(1) = 1.0d0
 
   CALL MPI_BARRIER( MPI_COMM_WORLD, ierr)
-
   tempo(1) = MPI_WTIME()
 
-  CALL pack_group_sticks( aux, psis, dffts )
+  CALL pack_group_sticks( aux, psis(:,1), dffts )
 
   tempo(2) = MPI_WTIME()
 
-  CALL fw_tg_cft3_z( psis, dffts, aux )
+  CALL fw_tg_cft3_z( psis(:,1), dffts, aux )
 
   tempo(3) = MPI_WTIME()
 
-  CALL fw_tg_cft3_scatter( psis, dffts, aux )
+  CALL fw_tg_cft3_scatter( psis(:,1), dffts, aux )
 
   tempo(4) = MPI_WTIME()
 
-  CALL fw_tg_cft3_xy( psis, dffts )
+  CALL fw_tg_cft3_xy( psis(:,1), dffts )
 
   tempo(5) = MPI_WTIME()
 
-  CALL bw_tg_cft3_xy( psis, dffts )
+  CALL bw_tg_cft3_xy( psis(:,1), dffts )
 
   tempo(6) = MPI_WTIME()
 
-  CALL bw_tg_cft3_scatter( psis, dffts, aux )
+  CALL bw_tg_cft3_scatter( psis(:,1), dffts, aux )
 
   tempo(7) = MPI_WTIME()
 
-  CALL bw_tg_cft3_z( psis, dffts, aux )
+  CALL bw_tg_cft3_z( psis(:,1), dffts, aux )
 
   tempo(8) = MPI_WTIME()
 
-  CALL unpack_group_sticks( psis, aux, dffts )
+  CALL unpack_group_sticks( psis(:,1), aux, dffts )
 
   tempo(9) = MPI_WTIME()
   !
   ! Execute FFT calls once more and Take time
   !
   ncount = 0
-
-  DO ib = 1, nbnd, 2*dffts%nogrp
+  ! 
+  tempo(10) = MPI_WTIME()
+  !
+#ifdef __DOUBLE_BUFFER
+  ireq = 1
+  ipsi = MOD( ireq + 1, 2 ) + 1 
+  !
+  CALL pack_group_sticks_i( aux, psis(:, ipsi ), dffts, req_p( ireq ) )
+  !
+  nreq = 0
+  DO ib = 1, nbnd, 2*dffts%nogrp 
+    nreq = nreq + 1
+  END DO
+  ! 
+  DO ib = 1, nbnd, 2*dffts%nogrp 
+ 
+     ireq = ireq + 1
 
      aux = 0.0d0
      aux(1) = 1.0d0
 
-     CALL MPI_BARRIER( MPI_COMM_WORLD, ierr)
-
      tempo(1) = MPI_WTIME()
 
-     CALL pack_group_sticks( aux, psis, dffts )
+     IF( ireq <= nreq ) THEN
+        ipsi = MOD( ireq + 1, 2 ) + 1 
+        CALL pack_group_sticks_i( aux, psis(:,ipsi), dffts, req_p(ireq) )
+     END IF
+
+     ipsi = MOD(ipsi-1,2)+1 
+
+     CALL MPI_WAIT( req_p( ireq - 1 ),MPI_STATUS_IGNORE)
 
      tempo(2) = MPI_WTIME()
 
-     CALL fw_tg_cft3_z( psis, dffts, aux )
-
+     CALL fw_tg_cft3_z( psis( :, ipsi ), dffts, aux )
      tempo(3) = MPI_WTIME()
-
-     CALL fw_tg_cft3_scatter( psis, dffts, aux )
-
+     CALL fw_tg_cft3_scatter( psis( :, ipsi ), dffts, aux )
      tempo(4) = MPI_WTIME()
-
-     CALL fw_tg_cft3_xy( psis, dffts )
-
+     CALL fw_tg_cft3_xy( psis( :, ipsi ), dffts )
      tempo(5) = MPI_WTIME()
-
-     CALL bw_tg_cft3_xy( psis, dffts )
-
+     !
+     tmp1=1.d0
+     tmp2=0.d0
+     CALL DAXPY(10000, pi, tmp1, 1, tmp2, 1)
+     !
+     CALL bw_tg_cft3_xy( psis( :, ipsi ), dffts )
      tempo(6) = MPI_WTIME()
-
-     CALL bw_tg_cft3_scatter( psis, dffts, aux )
-
+     CALL bw_tg_cft3_scatter( psis( :, ipsi ), dffts, aux )
      tempo(7) = MPI_WTIME()
+     CALL bw_tg_cft3_z( psis( :, ipsi ), dffts, aux )
+     tempo(8) = MPI_WTIME()
+     !
+     CALL unpack_group_sticks( psis( :, ipsi ), aux, dffts )
+     !
+     tempo(9) = MPI_WTIME()
+     !
+     do i = 2, 10
+        tempo_mio(i) = tempo_mio(i) + (tempo(i) - tempo(i-1))
+     end do
+     !
+     ncount = ncount + 1
+     !
+  enddo
+#else
+  ipsi = 1 
+  ! 
+  DO ib = 1, nbnd, 2*dffts%nogrp 
+ 
+     aux = 0.0d0
+     aux(1) = 1.0d0
 
-     CALL bw_tg_cft3_z( psis, dffts, aux )
+     tempo(1) = MPI_WTIME()
+     CALL pack_group_sticks( aux, psis(:,ipsi), dffts )
 
+     tempo(2) = MPI_WTIME()
+
+     CALL fw_tg_cft3_z( psis( :, ipsi ), dffts, aux )
+     tempo(3) = MPI_WTIME()
+     CALL fw_tg_cft3_scatter( psis( :, ipsi ), dffts, aux )
+     tempo(4) = MPI_WTIME()
+     CALL fw_tg_cft3_xy( psis( :, ipsi ), dffts )
+     tempo(5) = MPI_WTIME()
+     !
+     tmp1=1.d0
+     tmp2=0.d0
+     CALL DAXPY(10000, pi, tmp1, 1, tmp2, 1)
+     !
+     CALL bw_tg_cft3_xy( psis( :, ipsi ), dffts )
+     tempo(6) = MPI_WTIME()
+     CALL bw_tg_cft3_scatter( psis( :, ipsi ), dffts, aux )
+     tempo(7) = MPI_WTIME()
+     CALL bw_tg_cft3_z( psis( :, ipsi ), dffts, aux )
      tempo(8) = MPI_WTIME()
 
-     CALL unpack_group_sticks( psis, aux, dffts )
+     CALL unpack_group_sticks( psis( :, ipsi ), aux, dffts )
 
      tempo(9) = MPI_WTIME()
 
@@ -324,6 +384,11 @@ program test
      ncount = ncount + 1
 
   enddo
+#endif
+
+  tempo(11) = MPI_WTIME()
+
+  tempo_mio(11) = tempo_mio(11) + (tempo(11) - tempo(11-1))
 
   DEALLOCATE( psis, aux )
 
@@ -367,6 +432,7 @@ program test
     write(*,7) tempo_min(7), tempo_max(7), tempo_avg(7)
     write(*,8) tempo_min(8), tempo_max(8), tempo_avg(8)
     write(*,9) tempo_min(9), tempo_max(9), tempo_avg(9)
+    write(*,11) tempo_min(11), tempo_max(11), tempo_avg(11)
     write(*,100) 
 
 100 FORMAT(' +--------------------+----------------+-----------------+----------------+' )
@@ -379,6 +445,7 @@ program test
 7   FORMAT(' |bw_tg_cft3_scatter  | ',    D14.3, ' | ',   D14.3,  '  | ', D14.3 ,  ' |')
 8   FORMAT(' |bw_tg_cft3_z        | ',    D14.3, ' | ',   D14.3,  '  | ', D14.3 ,  ' |')
 9   FORMAT(' |unpack_group_sticks | ',    D14.3, ' | ',   D14.3,  '  | ', D14.3 ,  ' |')
+11  FORMAT(' |wall time           | ',    D14.3, ' | ',   D14.3,  '  | ', D14.3 ,  ' |')
 
 
   end if

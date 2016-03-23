@@ -240,9 +240,9 @@ END SUBROUTINE qmmm_minimum_image
     IMPLICIT NONE
     INTEGER :: ierr,i
 
+    IF (qmmm_mode < 0) RETURN
 #if defined(__MPI)
    
-    IF (qmmm_mode < 0) RETURN
     IF (ionode .and. (qmmm_verb > 0)) &
          WRITE(stdout,'(/,5X,A)') 'QMMM: update positions'
 
@@ -341,7 +341,7 @@ END SUBROUTINE qmmm_minimum_image
        END DO
        WRITE(stdout,*)
        DO i = 1, nat_all
-          WRITE(stdout,'(5X,A,3F10.6,2X,A,F10.6,2X,A,F10.6,A,I4)') &
+          WRITE(stdout,'(5X,A,3F10.6,2X,A,F10.6,2X,A,F10.6,A,I1)') &
              'QMMM: tau_mm ', tau_mm(:,i), ' charge_mm ', charge_mm(i), ' aradii ', aradii(i), ' QA ', tau_mask(i)
        END DO
     END IF
@@ -368,10 +368,10 @@ END SUBROUTINE qmmm_minimum_image
     REAL(DP) :: rho(:,:)
     INTEGER  :: nspin
     TYPE(fft_dlay_descriptor) :: dfftp
-
-#if defined(__MPI)
     INTEGER :: ierr
     IF (qmmm_mode < 0) RETURN
+
+#if defined(__MPI)
     IF (ionode .and. (qmmm_verb > 0)) &
         WRITE(stdout,'(/,5X,A)') 'QMMM: update forces'
 

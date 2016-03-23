@@ -984,11 +984,6 @@ MODULE exx
     COMPLEX(DP) :: fp, fm
     REAL(dp) :: gk(npwx)  ! work space (automatic array)
     !
-    ! NOTE: I do not want to use vkb from uspp, as you never know if it is 
-    ! going to be used again or not, this way we are wasting some memory,
-    ! but the fault is with uspp that should not use global variables
-    ! for temporary data (lp-2012-10-03)
-    !
     IF(.not. okvan) RETURN
     !
     CALL start_clock('becxx')
@@ -1187,7 +1182,7 @@ MODULE exx
        xkq  = xkq_collect(:,ikq)
        !
        ! calculate the 1/|r-r'| (actually, k+q+g) factor and place it in fac
-       CALL g2_convolution(exx_fft%ngmt, exx_fft%gt, xk(:,current_k), xkq, fac) 
+       CALL g2_convolution(exx_fft%ngmt, exx_fft%gt, xkp, xkq, fac) 
        IF ( okvan .AND..NOT.tqr ) CALL qvan_init (xkq, xkp)
        !
        LOOP_ON_PSI_BANDS : &
@@ -1286,7 +1281,7 @@ MODULE exx
              !
              CALL fwfft ('Custom', rhoc, exx_fft%dfftt)
              !   >>>> add augmentation in G SPACE here
-             IF(okvan .AND. .NOT. TQR) THEN
+             IF(okvan .AND. .NOT. tqr) THEN
                 ! contribution from one band added to real (in real space) part of rhoc
                 IF(ibnd>=ibnd_start) &
                    CALL addusxx_g(rhoc, xkq,  xkp, 'r', &
@@ -1310,7 +1305,7 @@ MODULE exx
 !$omp end parallel do
              !
              !   >>>>  compute <psi|H_fock G SPACE here
-             IF(okvan .and. .not. TQR) THEN
+             IF(okvan .and. .not. tqr) THEN
                 IF(ibnd>=ibnd_start) &
                 CALL newdxx_g(vc, xkq, xkp, 'r', deexx, becphi_r=x1*becxx(ikq)%r(:,ibnd))
                 IF(ibnd<ibnd_end) &
@@ -1511,7 +1506,7 @@ MODULE exx
           xkq  = xkq_collect(:,ikq)
           !
           ! calculate the 1/|r-r'| (actually, k+q+g) factor and place it in fac
-          CALL g2_convolution(exx_fft%ngmt, exx_fft%gt, xk(:,current_k), xkq, fac)
+          CALL g2_convolution(exx_fft%ngmt, exx_fft%gt, xkp, xkq, fac)
           IF ( okvan .AND..NOT.tqr ) CALL qvan_init (xkq, xkp)
           !
           IBND_LOOP_K : &
@@ -1570,7 +1565,7 @@ MODULE exx
              CALL invfft ('Custom', vc, exx_fft%dfftt)
              !
              ! Add ultrasoft contribution (REAL SPACE)
-             IF(okvan .AND. TQR) CALL newdxx_r(vc, becxx(ikq)%k(:,ibnd),deexx)
+             IF(okvan .AND. tqr) CALL newdxx_r(vc, becxx(ikq)%k(:,ibnd),deexx)
              !
              ! Add PAW one-center contribution
              IF(okpaw) THEN
@@ -1976,7 +1971,7 @@ MODULE exx
           CALL get_buffer (evc, nwordwfc, iunwfc, ikk)
        !
        ! prepare the |beta> function at k+q
-       CALL init_us_2(npw, igk_k(:,ikk), xk(:,ikk), vkb)
+       CALL init_us_2(npw, igk_k(:,ikk), xkp, vkb)
        ! compute <beta_I|psi_j> at this k+q point, for all band and all projectors
        CALL calbec(npw, vkb, evc, becpsi, nbnd)
        !
@@ -1988,7 +1983,7 @@ MODULE exx
           !
           xkq = xkq_collect(:,ikq)
           !
-          CALL g2_convolution(exx_fft%ngmt, exx_fft%gt, xk(:,ikk), xkq, fac) 
+          CALL g2_convolution(exx_fft%ngmt, exx_fft%gt, xkp, xkq, fac) 
           fac(exx_fft%gstart_t:) = 2 * fac(exx_fft%gstart_t:)
           IF ( okvan .AND..NOT.tqr ) CALL qvan_init (xkq, xkp)
           !
@@ -2226,7 +2221,7 @@ MODULE exx
           CALL get_buffer (evc, nwordwfc, iunwfc, ikk)
        !
        ! prepare the |beta> function at k+q
-       CALL init_us_2(npw, igk_k(:,ikk), xk(:,ikk), vkb)
+       CALL init_us_2(npw, igk_k(:,ikk), xkp, vkb)
        ! compute <beta_I|psi_j> at this k+q point, for all band and all projectors
        CALL calbec(npw, vkb, evc, becpsi, nbnd)
        !
@@ -2276,7 +2271,7 @@ MODULE exx
              !
              xkq = xkq_collect(:,ikq)
              !
-             CALL g2_convolution(exx_fft%ngmt, exx_fft%gt, xk(:,ikk), xkq, fac)
+             CALL g2_convolution(exx_fft%ngmt, exx_fft%gt, xkp, xkq, fac)
              IF ( okvan .AND..NOT.tqr ) CALL qvan_init (xkq, xkp)
              !
              IBND_LOOP_K : &
