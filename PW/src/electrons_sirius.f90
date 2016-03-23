@@ -1,64 +1,61 @@
-SUBROUTINE electrons_sirius()
-  USE sirius
-  USE cell_base,        ONLY : at, alat, bg
-  USE ions_base,        ONLY : ityp, tau, atm, zv, nsp, nat, amass, zv
-  USE uspp_param,       ONLY : upf
-  USE gvect,            ONLY : ecutrho, ngm, mill
-  USE wvfct,            ONLY : nbnd, wg, et
-  USE gvecw,            ONLY : ecutwfc
-  USE klist,            ONLY : nks, nkstot, wk, xk, nelec, lgauss
-  USE io_global,        ONLY : stdout, ionode
-  USE control_flags,    ONLY : tr2, niter, conv_elec, restart, mixing_beta, nmix, ethr, &
+subroutine electrons_sirius()
+  use sirius
+  use cell_base,        only : at, alat, bg
+  use ions_base,        only : ityp, tau, atm, zv, nsp, nat, amass, zv
+  use uspp_param,       only : upf
+  use gvect,            only : ecutrho, ngm, mill
+  use wvfct,            only : nbnd, wg, et
+  use gvecw,            only : ecutwfc
+  use klist,            only : nks, nkstot, wk, xk, nelec, lgauss
+  use io_global,        only : stdout, ionode
+  use control_flags,    only : tr2, niter, conv_elec, restart, mixing_beta, nmix, ethr, &
                               &lmd, iprint, llondon, lxdm, iverbosity
-  USE input_parameters, ONLY : conv_thr, sirius_cfg
-  USE gvect,            ONLY : ngm_g
-  USE scf,              ONLY : scf_type, rho, create_scf_type, open_mix_file, scf_type_COPY, bcast_scf_type
-  USE io_files,         ONLY : iunwfc, iunmix, nwordwfc, output_drho, &
+  use input_parameters, only : conv_thr, sirius_cfg
+  use gvect,            only : ngm_g
+  use scf,              only : scf_type, rho, create_scf_type, open_mix_file, scf_type_copy, bcast_scf_type
+  use io_files,         only : iunwfc, iunmix, nwordwfc, output_drho, &
                                iunres, iunefield, seqopn
-  USE mp_bands,         ONLY : intra_bgrp_comm
-  USE mp_pools,         ONLY : root_pool, my_pool_id, inter_pool_comm, npool
-  USE mp_images,        ONLY : nproc_image
-  USE mp,               ONLY : mp_sum, mp_bcast
-  USE parallel_include
-  USE constants,        ONLY : bohr_radius_angs
-  USE ener,             ONLY : ef
-  USE symm_base,        ONLY : nosym
+  use mp_bands,         only : intra_bgrp_comm
+  use mp_pools,         only : root_pool, my_pool_id, inter_pool_comm, npool
+  use mp_images,        only : nproc_image
+  use mp,               only : mp_sum, mp_bcast
+  use parallel_include
+  use constants,        only : bohr_radius_angs
+  use ener,             only : ef
+  use symm_base,        only : nosym
   use start_k,          only : nk1, nk2, nk3, k1, k2, k3
-  USE funct,            ONLY : dft_is_hybrid, get_iexch, get_icorr, get_inlc, get_meta, get_igcc, get_igcx
-  USE ener,             ONLY : etot, hwf_energy, eband, deband, ehart, &
+  use funct,            only : dft_is_hybrid, get_iexch, get_icorr, get_inlc, get_meta, get_igcc, get_igcx
+  use ener,             only : etot, hwf_energy, eband, deband, ehart, &
                                vtxc, etxc, etxcc, ewld, demet, epaw, &
                                elondon, ef_up, ef_dw, exdm
-  USE noncollin_module,     ONLY : noncolin, magtot_nc, i_cons,  bfield, &
-                                   lambda, report
-  USE ldaU,                 ONLY : eth, Hubbard_U, Hubbard_lmax, &
-                                   niter_with_fixed_ns, lda_plus_u
-  USE uspp,             ONLY : okvan
-  USE fft_base,         ONLY : dfftp
-  USE atom,         ONLY : rgrid
+  use noncollin_module, only : noncolin, magtot_nc, i_cons,  bfield, lambda, report
+  use ldau,             only : eth, hubbard_u, hubbard_lmax, &
+                               niter_with_fixed_ns, lda_plus_u
+  use uspp,             only : okvan
+  use fft_base,         only : dfftp
+  use atom,             only : rgrid
   !
-  IMPLICIT NONE
-  INTEGER iat, ia, i, j, kset_id, num_gvec, num_fft_grid_points, ik, iter, ig, li, lj, ijv, ilast, ir, l, mb, nb
-  REAL(8), ALLOCATABLE :: rho_rg(:), veff_rg(:), vloc(:), dion(:,:), tmp(:)
-  REAL(8), ALLOCATABLE :: bnd_occ(:,:), band_e(:,:)
-  REAL(8) v(3), a1(3), a2(3), a3(3), maxocc, rms
+  implicit none
+  integer iat, ia, i, j, kset_id, num_gvec, num_fft_grid_points, ik, iter, ig, li, lj, ijv, ilast, ir, l, mb, nb
+  real(8), allocatable :: rho_rg(:), veff_rg(:), vloc(:), dion(:,:), tmp(:)
+  real(8), allocatable :: bnd_occ(:,:), band_e(:,:)
+  real(8) v(3), a1(3), a2(3), a3(3), maxocc, rms
   type (scf_type) :: rhoin ! used to store rho_in of current/next iteration
-  REAL(8) :: dr2
-  INTEGER, ALLOCATABLE :: gvec_index(:)
-  COMPLEX(8), ALLOCATABLE :: rho_tmp(:)
-  LOGICAL exst
-  INTEGER ierr, rank, use_sirius_mixer, num_ranks_k, dims(3)
-  REAL(8) vlat(3, 3), vlat_inv(3, 3), v1(3), bg_inv(3, 3)
+  real(8) :: dr2
+  logical exst
+  integer ierr, rank, use_sirius_mixer, num_ranks_k, dims(3)
+  real(8) vlat(3, 3), vlat_inv(3, 3), v1(3), bg_inv(3, 3)
   integer kmesh(3), kshift(3), printout
-  INTEGER, EXTERNAL :: find_current_k
+  integer, external :: find_current_k
   real(8), allocatable :: qij(:,:,:)
   !
-  IF ( dft_is_hybrid() ) THEN
+  if ( dft_is_hybrid() ) then
      printout = 0  ! do not print etot and energy components at each scf step
-  ELSE IF ( lmd ) THEN
+  else if ( lmd ) then
      printout = 1  ! print etot, not energy components at each scf step
-  ELSE
+  else
      printout = 2  ! print etot and energy components at each scf step
-  END IF
+  end if
 
   ! create an object of prameters which describe current simulation
   !CALL sirius_create_global_parameters()
@@ -172,30 +169,30 @@ SUBROUTINE electrons_sirius()
   DO iat = 1, nsp
 
     ! add new atom type
-    CALL sirius_add_atom_type(c_str(atm(iat)))
+    call sirius_add_atom_type(c_str(atm(iat)))
 
     ! set basic properties
-    CALL sirius_set_atom_type_properties(c_str(atm(iat)), c_str(atm(iat)), nint(zv(iat)+0.001d0),&
+    call sirius_set_atom_type_properties(c_str(atm(iat)), c_str(atm(iat)), nint(zv(iat)+0.001d0),&
                                         &amass(iat), upf(iat)%r(upf(iat)%mesh),&
                                         &upf(iat)%mesh)
 
     ! set radial grid
-    CALL sirius_set_atom_type_radial_grid(c_str(atm(iat)), upf(iat)%mesh, upf(iat)%r(1))
+    call sirius_set_atom_type_radial_grid(c_str(atm(iat)), upf(iat)%mesh, upf(iat)%r(1))
 
     ! set beta-projectors
-    CALL sirius_set_atom_type_beta_rf(c_str(atm(iat)), upf(iat)%nbeta, upf(iat)%lll(1),&
+    call sirius_set_atom_type_beta_rf(c_str(atm(iat)), upf(iat)%nbeta, upf(iat)%lll(1),&
                                      &upf(iat)%kbeta(1), upf(iat)%beta(1, 1), upf(iat)%mesh)
 
-    ALLOCATE(dion(upf(iat)%nbeta, upf(iat)%nbeta))
-    ! convert to Hartree
-    DO i = 1, upf(iat)%nbeta
-      DO j = 1, upf(iat)%nbeta
+    allocate(dion(upf(iat)%nbeta, upf(iat)%nbeta))
+    ! convert to hartree
+    do i = 1, upf(iat)%nbeta
+      do j = 1, upf(iat)%nbeta
         dion(i, j) = upf(iat)%dion(i, j) / 2.d0
-      END DO
-    END DO
-    ! sed D^{ion}_{i,j}
-    CALL sirius_set_atom_type_dion(c_str(atm(iat)), upf(iat)%nbeta, dion(1,1))
-    DEALLOCATE(dion)
+      end do
+    end do
+    ! sed d^{ion}_{i,j}
+    call sirius_set_atom_type_dion(c_str(atm(iat)), upf(iat)%nbeta, dion(1,1))
+    deallocate(dion)
 
     allocate(qij(upf(iat)%mesh, upf(iat)%nbeta*(upf(iat)%nbeta+1)/2, 0:2*upf(iat)%lmax))
     qij = 0
@@ -258,66 +255,56 @@ SUBROUTINE electrons_sirius()
   ! add atoms to the unit cell
   ! WARNING: sirius accepts only fractional coordinates;
   !          if QE stores coordinates in a different way, the conversion must be made here
-  DO ia = 1, nat
+  do ia = 1, nat
     v1(:) = tau(:, ia) * alat
     v1(:) = matmul(vlat_inv, v1)
-    DO j = 1, 3
+    do j = 1, 3
       v1(j) = v1(j) - floor(v1(j))
-      !IF (v1(j).lt.0.d0) v1(j) = v1(j) + 1.d0
-      IF (abs(v1(j) - 1.d0).lt.1e-12) v1(j) = 0.d0
-    ENDDO
-    CALL sirius_add_atom(c_str(atm(ityp(ia))), v1(1))
-  ENDDO
+      !if (v1(j).lt.0.d0) v1(j) = v1(j) + 1.d0
+      if (abs(v1(j) - 1.d0).lt.1e-12) v1(j) = 0.d0
+    enddo
+    call sirius_add_atom(c_str(atm(ityp(ia))), v1(1))
+  enddo
 
   ! initialize global variables/indices/arrays/etc. of the simulation
-  CALL sirius_global_initialize()
+  call sirius_global_initialize()
 
-  ! get number of G-vectors of the dense FFT grid
-  CALL sirius_get_num_gvec(num_gvec)
+  ! get number of g-vectors of the dense fft grid
+  call sirius_get_num_gvec(num_gvec)
 
-  IF (num_gvec.ne.ngm_g) THEN
-    WRITE(*,*)"wrong number of G-vectors"
-    WRITE(*,*)"num_gvec=",num_gvec
-    WRITE(*,*)"ngm_g=",ngm_g
-  ENDIF
+  if (.not.((num_gvec .eq. ngm_g) .or. (num_gvec * 2 - 1 .eq. ngm_g))) then
+    write(*,*)"wrong number of g-vectors"
+    write(*,*)"num_gvec=",num_gvec
+    write(*,*)"ngm_g=",ngm_g
+  endif
 
-  CALL sirius_get_fft_grid_size(dims(1))
+  call sirius_get_fft_grid_size(dims(1))
   if (dims(1).ne.dfftp%nr1.or.dims(2).ne.dfftp%nr2.or.dims(3).ne.dfftp%nr3) then
-    write(*,*)"Wrong FFT grid dimensions"
-    write(*,*)"QE: ", dfftp%nr1,  dfftp%nr2,  dfftp%nr3
+    write(*,*)"wrong fft grid dimensions"
+    write(*,*)"qe: ", dfftp%nr1,  dfftp%nr2,  dfftp%nr3
     write(*,*)"sirius: ", dims
-    STOP 111
+    stop 111
   endif
 
   !CALL sirius_use_internal_mixer(use_sirius_mixer)
   !write(*,*)"use_sirius_mixer=",use_sirius_mixer
 
-  ALLOCATE(rho_tmp(num_gvec))
-
-  ! get local number of dense FFT grid points
-  CALL sirius_get_num_fft_grid_points(num_fft_grid_points)
-
-  ALLOCATE(gvec_index(ngm))
-  DO i = 1, ngm
-    CALL sirius_get_gvec_index(mill(:, i), gvec_index(i))
-  ENDDO
-
+  ! get local number of dense fft grid points
+  call sirius_get_num_fft_grid_points(num_fft_grid_points)
   ! initialize density class
-  ALLOCATE(rho_rg(num_fft_grid_points))
-  CALL sirius_density_initialize(rho_rg(1))
+  allocate(rho_rg(num_fft_grid_points))
+  call sirius_density_initialize(rho_rg(1))
   ! generate initial density from atomic densities rho_at
-  CALL sirius_generate_initial_density()
-
+  call sirius_generate_initial_density()
   ! initialize potential class
-  ALLOCATE(veff_rg(num_fft_grid_points))
-  CALL sirius_potential_initialize(veff_rg(1))
+  allocate(veff_rg(num_fft_grid_points))
+  call sirius_potential_initialize(veff_rg(1))
   
   !!== i = 1
   !!== if (nosym) i = 0
   !!== kmesh(:) = (/nk1, nk2, nk3/)
   !!== kshift(:) = (/k1, k2, k3/)
   !!== call sirius_create_irreducible_kset(kmesh, kshift, i, kset_id)
-  
 
   ALLOCATE(tmp(nkstot))
   ! weights of k-points must sum to one
@@ -348,13 +335,10 @@ SUBROUTINE electrons_sirius()
   WRITE( stdout, 9002 )
   !CALL flush_unit( stdout )
 
-  CALL create_scf_type(rhoin)
-  CALL sirius_get_rho_pw(num_gvec, rho_tmp(1))
-  DO i = 1, ngm
-    rho%of_g(i, 1) = rho_tmp(gvec_index(i))
-  ENDDO
-  CALL scf_type_COPY(rho, rhoin)
-  CALL open_mix_file( iunmix, 'mix', exst )
+  call create_scf_type(rhoin)
+  call sirius_get_rho_pw(ngm, mill(1, 1), rho%of_g(1, 1))
+  call scf_type_copy(rho, rhoin)
+  call open_mix_file( iunmix, 'mix', exst )
 
   CALL sirius_start_timer(c_str("electrons"))
   DO iter = 1, niter
@@ -425,32 +409,17 @@ SUBROUTINE electrons_sirius()
       CALL sirius_mix_density(rms)
       CALL sirius_get_density_dr2(dr2)
     ELSE
-      ! get full copy of rho(G)
-      CALL sirius_get_rho_pw(num_gvec, rho_tmp(1))
-
-      ! save local fraction of plane-wave coefficients
-      DO i = 1, ngm
-        rho%of_g(i, 1) = rho_tmp(gvec_index(i))
-      ENDDO
-
+      ! get rho(G)
+      call sirius_get_rho_pw(ngm, mill(1, 1), rho%of_g(1, 1))
       ! mix density
       CALL mix_rho(rho, rhoin, mixing_beta, dr2, 0.d0, iter, nmix, &
                   &iunmix, conv_elec)
-
-      CALL bcast_scf_type ( rhoin, root_pool, inter_pool_comm )
-      CALL mp_bcast ( dr2, root_pool, inter_pool_comm )
-      CALL mp_bcast ( conv_elec, root_pool, inter_pool_comm )
-
-      rho_tmp = 0.d0
-      ! store local fraction of plane-wave coefficients
-      DO i = 1, ngm
-        rho_tmp(gvec_index(i)) = rhoin%of_g(i, 1)
-      ENDDO
-      ! TODO: sum full rho(G) array using QE way
-      CALL mpi_allreduce(MPI_IN_PLACE, rho_tmp(1), num_gvec, MPI_DOUBLE_COMPLEX, MPI_SUM, intra_bgrp_comm, ierr)
-
+      ! broadcast
+      CALL bcast_scf_type(rhoin, root_pool, inter_pool_comm)
+      CALL mp_bcast(dr2, root_pool, inter_pool_comm)
+      CALL mp_bcast(conv_elec, root_pool, inter_pool_comm)
       ! set new (mixed) rho(G)
-      CALL sirius_set_rho_pw(num_gvec, rho_tmp(1))
+      CALL sirius_set_rho_pw(ngm, mill(1, 1), rhoin%of_g(1, 1), intra_bgrp_comm)
     ENDIF
     CALL sirius_stop_timer(c_str("qe|mix"))
 
