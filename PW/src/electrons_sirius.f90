@@ -109,31 +109,31 @@ subroutine electrons_sirius()
     select case(get_igcc())
       case(0)
       case(2)
-        CALL sirius_add_xc_functional(c_str("XC_GGA_C_PW91"))
+        call sirius_add_xc_functional(c_str("XC_GGA_C_PW91"))
       case default
         STOP("interface for this gradient correlation functional is not implemented")
     end select
   endif
   
   if (okvan) then
-    CALL sirius_set_esm_type(c_str("ultrasoft_pseudopotential"))
+    call sirius_set_esm_type(c_str("ultrasoft_pseudopotential"))
   else
-    STOP("only ultrasoft pseudopotential is implemented")
+    call sirius_set_esm_type(c_str("norm_conserving_pseudopotential"))
   endif
     
   num_ranks_k = nproc_image / npool
   i = sqrt(dble(num_ranks_k) + 1d-10)
   if (i * i .ne. num_ranks_k) then
-    STOP("not a square MPI grid")
+    stop("not a square MPI grid")
   endif
 
   dims(1) = npool
   if (i.eq.1) then
-    CALL sirius_set_mpi_grid_dims(1, dims(1))
+    call sirius_set_mpi_grid_dims(1, dims(1))
   else
     dims(2) = i
     dims(3) = i
-    CALL sirius_set_mpi_grid_dims(3, dims(1))
+    call sirius_set_mpi_grid_dims(3, dims(1))
   endif
 
   ! set |G| cutoff of the dense FFT grid
@@ -194,47 +194,49 @@ subroutine electrons_sirius()
     call sirius_set_atom_type_dion(c_str(atm(iat)), upf(iat)%nbeta, dion(1,1))
     deallocate(dion)
 
-    allocate(qij(upf(iat)%mesh, upf(iat)%nbeta*(upf(iat)%nbeta+1)/2, 0:2*upf(iat)%lmax))
-    qij = 0
+    if (okvan) then
+      allocate(qij(upf(iat)%mesh, upf(iat)%nbeta*(upf(iat)%nbeta+1)/2, 0:2*upf(iat)%lmax))
+      qij = 0
 
-    ! set radial function of augmentation charge
-    if (upf(iat)%q_with_l) then
-      do l = 0, upf(iat)%nqlc-1
-        do nb = 1, upf(iat)%nbeta
-          do mb = nb, upf(iat)%nbeta
-            ijv = mb*(mb-1)/2 + nb
-            do ir = 1, upf(iat)%kkbeta
-              qij(ir, ijv, l) =  upf(iat)%qfuncl(ir, ijv, l)
+      ! set radial function of augmentation charge
+      if (upf(iat)%q_with_l) then
+        do l = 0, upf(iat)%nqlc-1
+          do nb = 1, upf(iat)%nbeta
+            do mb = nb, upf(iat)%nbeta
+              ijv = mb*(mb-1)/2 + nb
+              do ir = 1, upf(iat)%kkbeta
+                qij(ir, ijv, l) =  upf(iat)%qfuncl(ir, ijv, l)
+              enddo
             enddo
           enddo
         enddo
-      enddo
-    else
-      do l = 0, upf(iat)%nqlc-1
-        do nb = 1, upf(iat)%nbeta
-          li = upf(iat)%lll(nb)
-          do mb = nb, upf(iat)%nbeta
-            lj = upf(iat)%lll(nb)
-            if ((l >= abs(li-lj) .and. l <= (li+lj) .and. mod(l+li+lj, 2) == 0)) then
-              ijv = mb*(mb-1)/2 + nb
-              do ir = 1, upf(iat)%kkbeta
-                if (rgrid(iat)%r(ir) >= upf(iat)%rinner(l+1)) then
-                  qij(ir, ijv, l) = upf(iat)%qfunc(ir, ijv)
-                else
-                  ilast = ir
+      else
+        do l = 0, upf(iat)%nqlc-1
+          do nb = 1, upf(iat)%nbeta
+            li = upf(iat)%lll(nb)
+            do mb = nb, upf(iat)%nbeta
+              lj = upf(iat)%lll(nb)
+              if ((l >= abs(li-lj) .and. l <= (li+lj) .and. mod(l+li+lj, 2) == 0)) then
+                ijv = mb*(mb-1)/2 + nb
+                do ir = 1, upf(iat)%kkbeta
+                  if (rgrid(iat)%r(ir) >= upf(iat)%rinner(l+1)) then
+                    qij(ir, ijv, l) = upf(iat)%qfunc(ir, ijv)
+                  else
+                    ilast = ir
+                  endif
+                enddo
+                if (upf(iat)%rinner(l+1) > 0.0) then
+                  call setqfnew(upf(iat)%nqf, upf(iat)%qfcoef(1, l+1, nb, mb), ilast, rgrid(iat)%r, l, 2, qij(1, ijv, l))
                 endif
-              enddo
-              if (upf(iat)%rinner(l+1) > 0.0) then
-                call setqfnew(upf(iat)%nqf, upf(iat)%qfcoef(1, l+1, nb, mb), ilast, rgrid(iat)%r, l, 2, qij(1, ijv, l))
               endif
-            endif
-          enddo ! mb
-        enddo ! nb
-      enddo
-    endif
+            enddo ! mb
+          enddo ! nb
+        enddo
+      endif
 
-    CALL sirius_set_atom_type_q_rf(c_str(atm(iat)), qij(1, 1, 0), upf(iat)%lmax)
-    deallocate(qij)
+      call sirius_set_atom_type_q_rf(c_str(atm(iat)), qij(1, 1, 0), upf(iat)%lmax)
+      deallocate(qij)
+    endif
 
     ! set non-linear core correction
     CALL sirius_set_atom_type_rho_core(c_str(atm(iat)), upf(iat)%mesh, upf(iat)%rho_atc(1))
