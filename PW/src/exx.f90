@@ -422,40 +422,6 @@ MODULE exx
   END SUBROUTINE exx_grid_init
   !------------------------------------------------------------------------
   !
-  !-----------------------------------------------------------------------
-  SUBROUTINE exx_n_plane_waves(ecutwfc, tpiba2, g, ngm, npwx)
-    !-----------------------------------------------------------------------
-    !
-    ! Find maximum number of plane waves npwx among the entire grid of k and
-    ! of k+q points - should be called after a previous call to n_plane_waves 
-    ! (for k-points only), providing in input the value of npwx found by
-    ! n_plane_waves, to ensure that the final npwx is the largest of the two
-    !
-    USE kinds, ONLY : DP
-    USE funct, ONLY : dft_is_hybrid
-    USE uspp,  ONLY : okvan
-    IMPLICIT NONE
-    !
-    INTEGER, INTENT(in)  :: ngm
-    REAL(DP),INTENT(in)  :: ecutwfc, tpiba2, g (3, ngm)
-    INTEGER, INTENT(inout) :: npwx
-    INTEGER, ALLOCATABLE :: ngkq(:)
-    INTEGER :: npwx_
-    !
-    IF( .NOT. okvan .OR. .NOT.dft_is_hybrid() ) RETURN
-    IF( .NOT.exx_grid_initialized) &
-        CALL errore("exx_n_plane_waves","you must initialize the grid first",1)
-    ALLOCATE(ngkq(nkqs))
-    CALL n_plane_waves (ecutwfc, tpiba2, nkqs, xkq_collect, g, ngm, npwx_, ngkq)
-    DEALLOCATE(ngkq)
-    npwx = MAX (npwx, npwx_)
-    !
-    RETURN
-    !------------------------------------------------------------------------
-  END SUBROUTINE exx_n_plane_waves
-  !------------------------------------------------------------------------
-  !
-  !
   !------------------------------------------------------------------------
   SUBROUTINE exx_div_check()
     !------------------------------------------------------------------------
@@ -730,9 +696,8 @@ MODULE exx
     IF (.NOT. allocated(exxbuff)) &
         ALLOCATE( exxbuff(nrxxs*npol, ibnd_buff_start:ibnd_buff_end, nkqs))
     exxbuff=(0.0_DP,0.0_DP)
-
     !
-    !   This is parallelized over pool. Each pool computes only its k-points
+    !   This is parallelized over pools. Each pool computes only its k-points
     !
     KPOINTS_LOOP : &
     DO ik = 1, nks
@@ -740,7 +705,9 @@ MODULE exx
        IF ( nks > 1 ) &
           CALL get_buffer(evc, nwordwfc, iunwfc, ik)
        !
-       ! only useful for npool>1, but always work
+       ! ik         = index of k-point in this pool
+       ! current_ik = index of k-point over all pools
+       !
        current_ik=find_current_k(ik, nkstot, nks)
        !
        IF_GAMMA_ONLY : & 
@@ -868,7 +835,11 @@ MODULE exx
 #endif 
     ENDIF
     !
-    !   All pools must have the complete set of wavefunctions (i.e. from every kpoint)
+    !   Each wavefunction in exxbuff is computed by a single pool
+    !   Sum the results so that all pools have the complete set of
+    !   wavefunctions in exxbuff (i.e. from every kpoint: may waste a
+    !   lot of RAM but it is not easy to implement a better algorithm)
+    ! 
     IF (npool>1) CALL mp_sum(exxbuff, inter_pool_comm)
     !
     ! For US/PAW only: prepare space for <beta_I|phi_j> scalar products
@@ -882,10 +853,6 @@ MODULE exx
     ! compute <beta_I|psi_j,k+q> for the entire de-symmetrized k+q grid
     !
     CALL compute_becxx()
-    !
-    ! CHECKME: probably it's enough that each pool computes its own bec
-    !          and then I sum them like exxbuff, but check it. In this case this
-    !          call should only act when index_xk(ikq) = current_ik
     !
     ! Initialize 4-wavefunctions one-center Fock integrals
     !    \int \psi_a(r)\phi_a(r)\phi_b(r')\psi_b(r')/|r-r'|
@@ -958,9 +925,9 @@ MODULE exx
   SUBROUTINE compute_becxx ( )
     !-----------------------------------------------------------------------
     !
-    ! prepare the necessary quantities, then call calbec to compute <beta_I|phi_j,k+q>
-    ! and store it becxx(ikq). This must be called AFTER exxbuff and xkq_collected are done
-    ! (i.e. at the end of exxinit)
+    ! prepare the necessary quantities, then call calbec to compute
+    ! <beta_I|phi_j,k+q> and store it becxx(ikq). This must be called
+    ! AFTER exxbuff and xkq_collected are done (i.e. at the end of exxinit)
     !
     USE kinds,                ONLY : DP
     USE wvfct,                ONLY : npwx, nbnd
@@ -976,31 +943,46 @@ MODULE exx
 
     IMPLICIT NONE
     !
-    INTEGER  :: npwq, ibnd, i, ikq, j, h_ibnd, ibnd_loop_start
+    INTEGER  :: npwq, npwx_, ibnd, ikq, j, h_ibnd, ibnd_loop_start
     INTEGER,ALLOCATABLE     :: igkq(:)   !  order of wavefunctions at k+q[+G]
+    INTEGER,ALLOCATABLE     :: ngkq(:)   !  number of plane waves at k+q[+G]
     COMPLEX(DP),ALLOCATABLE :: vkbq(:,:) ! |beta_I> 
     COMPLEX(DP),ALLOCATABLE :: evcq(:,:) ! |psi_j,k> in g-space
     COMPLEX(DP),ALLOCATABLE :: phi(:)    ! aux space for fwfft
+    REAL(dp), ALLOCATABLE   :: gk(:)     ! work space 
     COMPLEX(DP) :: fp, fm
-    REAL(dp) :: gk(npwx)  ! work space (automatic array)
     !
     IF(.not. okvan) RETURN
     !
     CALL start_clock('becxx')
     !
-    ALLOCATE(igkq(npwx))
-    ALLOCATE(vkbq(npwx,nkb))
+    ! Find maximum number of plane waves npwq among the entire grid of k and
+    ! of k+q points - needed if plane waves are distributed (if not, the number
+    ! of plane waves for each k+q point is the same as for the k-point that is
+    ! equivalent by symmetry)
+    !
+    ALLOCATE(ngkq(nkqs))
+    CALL n_plane_waves (gcutw, nkqs, xkq_collect, g, ngm, npwq, ngkq)
+    npwq = MAX (npwx, npwq)
+    !
+    ! Dirty trick to prevent gk_sort from stopping with an error message:
+    ! set npwx to max value now, reset it to original value later
+    ! (better solution: gk_sort should check actual array dimension, not npwx)
+    !
+    npwx_= npwx
+    npwx = npwq
+    !
+    ALLOCATE(gk(npwq), igkq(npwq))
+    ALLOCATE(vkbq(npwq,nkb))
+    ALLOCATE(evcq(npwq,nbnd))
     ALLOCATE(phi(dffts%nnr))
-    ALLOCATE(evcq(npwx,nbnd))
     !
     DO ikq = 1,nkqs
-      ! each pool only does its own k-points, then it calls mp_sum (to be tested)
-      ! bands count is reset at each k-point
       !
       ! prepare the g-vectors mapping
-      CALL gk_sort(xkq_collect(:, ikq), ngm, g, gcutw, npwq, igkq, gk )
+      CALL gk_sort(xkq_collect(:, ikq), ngm, g, gcutw, ngkq(ikq), igkq, gk )
       ! prepare the |beta> function at k+q
-      CALL init_us_2(npwq, igkq, xkq_collect(:, ikq), vkbq)
+      CALL init_us_2(ngkq(ikq), igkq, xkq_collect(:, ikq), vkbq)
       !
       ! take rotated phi to G space
       IF (gamma_only) THEN
@@ -1020,14 +1002,14 @@ MODULE exx
             CALL fwfft ('Wave', phi, dffts)
             IF (ibnd < ibnd_end) THEN
                ! two ffts at the same time
-               DO j = 1, npwq
+               DO j = 1, ngkq(ikq)
                   fp = (phi (nls(igkq(j))) + phi (nlsm(igkq(j))))*0.5d0
                   fm = (phi (nls(igkq(j))) - phi (nlsm(igkq(j))))*0.5d0
                   evcq( j, ibnd)   = CMPLX( DBLE(fp), AIMAG(fm),kind=DP)
                   evcq( j, ibnd+1) = CMPLX(AIMAG(fp),- DBLE(fm),kind=DP)
                ENDDO
             ELSE
-               DO j = 1, npwq
+               DO j = 1, ngkq(ikq)
                   evcq(j, ibnd)   =  phi(nls(igkq(j)))
                ENDDO
             ENDIF
@@ -1036,19 +1018,22 @@ MODULE exx
          DO ibnd = ibnd_start,ibnd_end
             phi(:) = exxbuff(:,ibnd,ikq)
             CALL fwfft ('Wave', phi, dffts)
-            FORALL(i=1:npwq) evcq(i,ibnd) = phi(nls(igkq(i)))
+            DO j = 1, ngkq(ikq)
+               evcq(j, ibnd)   =  phi(nls(igkq(j)))
+            ENDDO
          ENDDO
       ENDIF
       !
-      ! compute <beta_I|psi_j> at this k+q point, for all band and all projectors
-      CALL calbec(npwq, vkbq, evcq, becxx(ikq), nbnd)
+      ! compute <beta_I|psi_j> at this k+q point, for all bands 
+      ! and all projectors
+      !
+      CALL calbec(ngkq(ikq), vkbq, evcq, becxx(ikq), nbnd)
       !
     ENDDO
     !
-    ! only work for k (only to be called once...):
-    ! CALL mp_sum(becxx%k, inter_pool_comm)
-    !
-    DEALLOCATE(igkq, vkbq, phi, evcq)
+    DEALLOCATE(phi, evcq, vkbq, igkq, gk, ngkq)
+    ! suite of the dirty trick: reset npwx to its original value
+    npwx = npwx_
     !
     CALL stop_clock('becxx')
     !-----------------------------------------------------------------------
@@ -1183,7 +1168,7 @@ MODULE exx
        !
        ! calculate the 1/|r-r'| (actually, k+q+g) factor and place it in fac
        CALL g2_convolution(exx_fft%ngmt, exx_fft%gt, xkp, xkq, fac) 
-       IF ( okvan .AND..NOT.tqr ) CALL qvan_init (xkq, xkp)
+       IF ( okvan .AND..NOT.tqr ) CALL qvan_init (exx_fft%ngmt, xkq, xkp)
        !
        LOOP_ON_PSI_BANDS : &
        DO im = 1,m !for each band of psi (the k cycle is outside band)
@@ -1284,11 +1269,11 @@ MODULE exx
              IF(okvan .AND. .NOT. tqr) THEN
                 ! contribution from one band added to real (in real space) part of rhoc
                 IF(ibnd>=ibnd_start) &
-                   CALL addusxx_g(rhoc, xkq,  xkp, 'r', &
+                   CALL addusxx_g(exx_fft, rhoc, xkq,  xkp, 'r', &
                    becphi_r=becxx(ikq)%r(:,ibnd), becpsi_r=becpsi%r(:,im) )
                 ! contribution from following band added to imaginary (in real space) part of rhoc
                 IF(ibnd<ibnd_end) &
-                   CALL addusxx_g(rhoc, xkq,  xkp, 'i', &
+                   CALL addusxx_g(exx_fft, rhoc, xkq,  xkp, 'i', &
                    becphi_r=becxx(ikq)%r(:,ibnd+1), becpsi_r=becpsi%r(:,im) )
              ENDIF
              !   >>>> charge density done
@@ -1307,9 +1292,11 @@ MODULE exx
              !   >>>>  compute <psi|H_fock G SPACE here
              IF(okvan .and. .not. tqr) THEN
                 IF(ibnd>=ibnd_start) &
-                CALL newdxx_g(vc, xkq, xkp, 'r', deexx, becphi_r=x1*becxx(ikq)%r(:,ibnd))
+                CALL newdxx_g(exx_fft, vc, xkq, xkp, 'r', deexx, &
+                              becphi_r=x1*becxx(ikq)%r(:,ibnd))
                 IF(ibnd<ibnd_end) &
-                CALL newdxx_g(vc, xkq, xkp, 'i', deexx,becphi_r=x2*becxx(ikq)%r(:,ibnd+1))
+                CALL newdxx_g(exx_fft, vc, xkq, xkp, 'i', deexx, &
+                              becphi_r=x2*becxx(ikq)%r(:,ibnd+1))
              ENDIF
              !
              !brings back v in real space
@@ -1507,7 +1494,7 @@ MODULE exx
           !
           ! calculate the 1/|r-r'| (actually, k+q+g) factor and place it in fac
           CALL g2_convolution(exx_fft%ngmt, exx_fft%gt, xkp, xkq, fac)
-          IF ( okvan .AND..NOT.tqr ) CALL qvan_init (xkq, xkp)
+          IF ( okvan .AND..NOT.tqr ) CALL qvan_init (exx_fft%ngmt, xkq, xkp)
           !
           IBND_LOOP_K : &
           DO ibnd=ibnd_start,ibnd_end !for each band of psi
@@ -1541,7 +1528,7 @@ MODULE exx
              !
              !   >>>> add augmentation in G space HERE
              IF(okvan .AND. .NOT. tqr) THEN
-                CALL addusxx_g(rhoc, xkq, xkp, 'c', &
+                CALL addusxx_g(exx_fft, rhoc, xkq, xkp, 'c', &
                    becphi_c=becxx(ikq)%k(:,ibnd),becpsi_c=becpsi%k(:,im))
              ENDIF
              !   >>>> charge done
@@ -1558,7 +1545,8 @@ MODULE exx
              ! Add ultrasoft contribution (RECIPROCAL SPACE)
              ! compute alpha_I,j,k+q = \sum_J \int <beta_J|phi_j,k+q> V_i,j,k,q Q_I,J(r) d3r
              IF(okvan .AND. .NOT. tqr) THEN
-                CALL newdxx_g(vc, xkq, xkp, 'c', deexx, becphi_c=becxx(ikq)%k(:,ibnd))
+                CALL newdxx_g(exx_fft, vc, xkq, xkp, 'c', deexx, &
+                              becphi_c=becxx(ikq)%k(:,ibnd))
              ENDIF
              !
              !brings back v in real space
@@ -1813,7 +1801,7 @@ MODULE exx
     REAL(DP)       :: exxenergy,  energy
     INTEGER        :: ibnd, ik
     COMPLEX(DP)    :: vxpsi ( npwx*npol, nbnd ), psi(npwx*npol,nbnd)
-    COMPLEX(DP),EXTERNAL :: ZDOTC
+    COMPLEX(DP),EXTERNAL :: zdotc
     !
     exxenergy=0._dp
     
@@ -1846,9 +1834,9 @@ MODULE exx
        CALL vexx(npwx,npw,nbnd,psi,vxpsi,becpsi)
        !
        DO ibnd=1,nbnd
-          energy = energy + DBLE(wg(ibnd,ik) * ZDOTC(npw,psi(1,ibnd),1,vxpsi(1,ibnd),1))
+          energy = energy + DBLE(wg(ibnd,ik) * zdotc(npw,psi(1,ibnd),1,vxpsi(1,ibnd),1))
           IF (noncolin) energy = energy + &
-                            DBLE(wg(ibnd,ik) * ZDOTC(npw,psi(npwx+1,ibnd),1,vxpsi(npwx+1,ibnd),1))
+                            DBLE(wg(ibnd,ik) * zdotc(npw,psi(npwx+1,ibnd),1,vxpsi(npwx+1,ibnd),1))
           !
        ENDDO
        IF (gamma_only .and. gstart == 2) THEN
@@ -1985,7 +1973,7 @@ MODULE exx
           !
           CALL g2_convolution(exx_fft%ngmt, exx_fft%gt, xkp, xkq, fac) 
           fac(exx_fft%gstart_t:) = 2 * fac(exx_fft%gstart_t:)
-          IF ( okvan .AND..NOT.tqr ) CALL qvan_init (xkq, xkp)
+          IF ( okvan .AND..NOT.tqr ) CALL qvan_init (exx_fft%ngmt, xkq, xkp)
           !
           jmax = nbnd 
           DO jbnd = nbnd,1, -1
@@ -2088,10 +2076,10 @@ MODULE exx
                 !
                 IF(okvan .and..not.tqr) THEN
                    IF(ibnd>=ibnd_start ) &
-                      CALL addusxx_g( rhoc, xkq, xkp, 'r', &
+                      CALL addusxx_g( exx_fft, rhoc, xkq, xkp, 'r', &
                       becphi_r=becxx(ikq)%r(:,ibnd), becpsi_r=becpsi%r(:,jbnd) )
                    IF(ibnd<ibnd_end) &
-                      CALL addusxx_g( rhoc, xkq, xkp, 'i', &
+                      CALL addusxx_g( exx_fft, rhoc, xkq, xkp, 'i', &
                       becphi_r=becxx(ikq)%r(:,ibnd+1), becpsi_r=becpsi%r(:,jbnd) )
                 ENDIF
                 !
@@ -2272,7 +2260,7 @@ MODULE exx
              xkq = xkq_collect(:,ikq)
              !
              CALL g2_convolution(exx_fft%ngmt, exx_fft%gt, xkp, xkq, fac)
-             IF ( okvan .AND..NOT.tqr ) CALL qvan_init (xkq, xkp)
+             IF ( okvan .AND..NOT.tqr ) CALL qvan_init (exx_fft%ngmt, xkq, xkp)
              !
              IBND_LOOP_K : &
              DO ibnd = ibnd_start, ibnd_end
@@ -2303,7 +2291,7 @@ MODULE exx
                 CALL fwfft ('Custom', rhoc, exx_fft%dfftt)
                 ! augment the "charge" in G space
                 IF(okvan .AND. .NOT. tqr) & 
-                   CALL addusxx_g(rhoc, xkq, xkp, 'c', &
+                   CALL addusxx_g(exx_fft, rhoc, xkq, xkp, 'c', &
                    becphi_c=becxx(ikq)%k(:,ibnd),becpsi_c=becpsi%k(:,jbnd))
                 !
                 vc = 0.0_DP

@@ -24,7 +24,7 @@
 #ifdef __PARA
   USE mp_global,     ONLY : my_pool_id, inter_pool_comm, root_pool, &
                             intra_pool_comm,npool
-  USE mp_world,      ONLY : mpime, world_comm,root
+  USE mp_world,      ONLY : mpime, root
   USE mp,            ONLY : mp_barrier, mp_bcast
   USE io_global,     ONLY : ionode_id
 #endif
@@ -35,7 +35,7 @@
   USE io_files,      ONLY : prefix, tmp_dir
   USE wavefunctions_module, ONLY: evc
   USE ions_base,     ONLY : nat, nsp, tau, ityp
-  USE control_flags, ONLY : iverbosity, modenum
+  USE control_flags, ONLY : iverbosity
   USE io_global,     ONLY : stdout, ionode
   USE io_epw,        ONLY : iuepb 
   USE kinds,         ONLY : DP

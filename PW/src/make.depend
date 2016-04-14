@@ -93,7 +93,6 @@ allocate_locpot.o : ../../Modules/fft_base.o
 allocate_locpot.o : ../../Modules/ions_base.o
 allocate_locpot.o : ../../Modules/recvec.o
 allocate_locpot.o : pwcom.o
-allocate_nlpot.o : ../../Modules/cell_base.o
 allocate_nlpot.o : ../../Modules/control_flags.o
 allocate_nlpot.o : ../../Modules/gvecw.o
 allocate_nlpot.o : ../../Modules/io_global.o
@@ -101,7 +100,6 @@ allocate_nlpot.o : ../../Modules/ions_base.o
 allocate_nlpot.o : ../../Modules/noncol.o
 allocate_nlpot.o : ../../Modules/recvec.o
 allocate_nlpot.o : ../../Modules/uspp.o
-allocate_nlpot.o : exx.o
 allocate_nlpot.o : ldaU.o
 allocate_nlpot.o : pwcom.o
 allocate_nlpot.o : scf_mod.o
@@ -1326,7 +1324,9 @@ pw2casino.o : ../../Modules/kind.o
 pw2casino.o : ../../Modules/mp_bands.o
 pw2casino.o : ../../Modules/mp_images.o
 pw2casino.o : ../../Modules/mp_pools.o
+pw2casino.o : ../../Modules/noncol.o
 pw2casino.o : ../../Modules/plugin_flags.o
+pw2casino.o : pwcom.o
 pw2casino_write.o : ../../FFTXlib/fft_interfaces.o
 pw2casino_write.o : ../../Modules/becmod.o
 pw2casino_write.o : ../../Modules/cell_base.o
@@ -1383,6 +1383,7 @@ pw_restart.o : ../../Modules/version.o
 pw_restart.o : ../../Modules/wavefunctions.o
 pw_restart.o : ../../Modules/xml_io_base.o
 pw_restart.o : ../../iotk/src/iotk_module.o
+pw_restart.o : acfdt_in_pw.o
 pw_restart.o : atomic_wfc_mod.o
 pw_restart.o : buffers.o
 pw_restart.o : esm.o
@@ -1529,11 +1530,13 @@ rotate_wfc_k.o : ../../Modules/mp_diag.o
 run_pwscf.o : ../../Modules/cell_base.o
 run_pwscf.o : ../../Modules/check_stop.o
 run_pwscf.o : ../../Modules/control_flags.o
+run_pwscf.o : ../../Modules/fft_base.o
 run_pwscf.o : ../../Modules/io_global.o
 run_pwscf.o : ../../Modules/mp_images.o
 run_pwscf.o : ../../Modules/parameters.o
 run_pwscf.o : ../../Modules/qmmm.o
 run_pwscf.o : pwcom.o
+run_pwscf.o : scf_mod.o
 run_pwscf.o : update_pot.o
 ruotaijk.o : ../../Modules/kind.o
 s_1psi.o : ../../Modules/becmod.o
@@ -1617,6 +1620,7 @@ setlocal.o : ../../Modules/cell_base.o
 setlocal.o : ../../Modules/constants.o
 setlocal.o : ../../Modules/control_flags.o
 setlocal.o : ../../Modules/fft_base.o
+setlocal.o : ../../Modules/io_global.o
 setlocal.o : ../../Modules/ions_base.o
 setlocal.o : ../../Modules/kind.o
 setlocal.o : ../../Modules/mp.o
@@ -1905,6 +1909,7 @@ us_exx.o : ../../Modules/cell_base.o
 us_exx.o : ../../Modules/constants.o
 us_exx.o : ../../Modules/control_flags.o
 us_exx.o : ../../Modules/fft_base.o
+us_exx.o : ../../Modules/fft_custom.o
 us_exx.o : ../../Modules/ions_base.o
 us_exx.o : ../../Modules/kind.o
 us_exx.o : ../../Modules/mp.o
@@ -2082,4 +2087,3 @@ xk_wk_collect.o : ../../Modules/io_global.o
 xk_wk_collect.o : ../../Modules/kind.o
 xk_wk_collect.o : ../../Modules/mp.o
 xk_wk_collect.o : ../../Modules/mp_pools.o
-xk_wk_collect.o : pwcom.o

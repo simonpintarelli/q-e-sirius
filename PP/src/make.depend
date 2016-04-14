@@ -266,7 +266,6 @@ importexport_binary.o : ../../Modules/mp_world.o
 importexport_binary.o : ../../Modules/wrappers.o
 importexport_binary.o : ../../Modules/xml_io_base.o
 importexport_binary.o : ../../PW/src/io_rho_xml.o
-importexport_binary.o : ../../PW/src/pw_restart.o
 importexport_binary.o : ../../PW/src/pwcom.o
 importexport_binary.o : ../../PW/src/scf_mod.o
 initial_state.o : ../../Modules/environment.o
@@ -348,6 +347,7 @@ partialdos.o : ../../PW/src/pwcom.o
 partialdos.o : projwfc.o
 paw_postproc.o : ../../Modules/atom.o
 paw_postproc.o : ../../Modules/cell_base.o
+paw_postproc.o : ../../Modules/constants.o
 paw_postproc.o : ../../Modules/fft_base.o
 paw_postproc.o : ../../Modules/ions_base.o
 paw_postproc.o : ../../Modules/kind.o
@@ -757,5 +757,3 @@ xctest.o : ../../Modules/mp_global.o
 xk_et_collect.o : ../../Modules/kind.o
 xk_et_collect.o : ../../Modules/mp.o
 xk_et_collect.o : ../../Modules/mp_pools.o
-xsf.o : ../../Modules/constants.o
-xsf.o : ../../Modules/kind.o

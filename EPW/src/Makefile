@@ -41,12 +41,15 @@ dynbloch2wan.o \
 dynwan2bloch.o \
 eliashberg.o \
 eliashbergcom.o \
+eliashberg_aniso_cont_raxis.o \
 eliashberg_aniso_iaxis.o \
+eliashberg_iso_cont_raxis.o \
 eliashberg_iso_iaxis.o \
 eliashberg_iso_raxis.o \
 eliashberg_pp.o \
 eliashberg_readfiles.o \
 eliashberg_setup.o \
+eliashberg_write.o \
 elphel2_shuffle.o \
 elphon_shuffle.o \
 elphon_shuffle_wrap.o \

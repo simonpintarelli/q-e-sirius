@@ -65,6 +65,7 @@ plugin_flags.o \
 plugin_arguments.o \
 plugin_variables.o \
 pseudo_types.o \
+pw_dot.o \
 qexml.o \
 qexml_xsd.o \
 qmmm.o \
@@ -104,8 +105,10 @@ xc_vdW_DF.o \
 xc_rVV10.o \
 xml_input.o \
 xml_io_base.o \
+xsf.o \
 wypos.o \
-zdotc_wrapper.o 
+zdotc_wrapper.o  \
+zvscal.o 
 
 # list of subrooutines and functions (not modules) previously found in flib/
 

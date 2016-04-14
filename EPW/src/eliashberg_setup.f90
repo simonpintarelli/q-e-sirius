@@ -16,12 +16,12 @@
 #include "f_defs.h"
   !
   USE kinds,         ONLY : DP
+  USE io_global,     ONLY : stdout
   USE epwcom,        ONLY : eliashberg, nkf1, nkf2, nkf3, nsiter, nqstep, &
                             nqf1, nqf2, nqf3, ntempxx, nswi, nswfc, nswc, &
                             nstemp, muc, lreal, lpade, liso, limag, laniso, &
                             lacon, kerwrite, kerread, imag_read, fila2f, temps, &
-                            wsfc, wscut, tempsmin, tempsmax, rand_q, rand_k, &
-                            pade_read
+                            wsfc, wscut, tempsmin, tempsmax, rand_q, rand_k
   USE constants_epw, ONLY : pi, kelvin2eV
   USE eliashbergcom, ONLY : estemp, nsw, nsiw, dwsph, wsphmax, wsph
   !
@@ -47,12 +47,10 @@
        CALL errore('eliashberg_init', 'lreal or lacon needs to be true',1)
   IF ( eliashberg .AND. lreal .AND.  lpade ) &
        CALL errore('eliashberg_init', 'lreal or lpade needs to be true',1)
-  IF ( eliashberg .AND. imag_read .AND. .not.limag ) &
-       CALL errore('eliashberg_init', 'imag_read requires limag true',1)
+  IF ( eliashberg .AND. imag_read .AND. .not.limag .AND. .not.laniso ) &
+       CALL errore('eliashberg_init', 'imag_read requires limag true and laniso true',1)
   IF ( eliashberg .AND. lpade .AND. .not.limag ) &                
        CALL errore('eliashberg_init', 'lpade requires limag true',1)
-  IF ( eliashberg .AND. pade_read .AND. .not.lpade ) &
-       CALL errore('eliashberg_init', 'pade_read requires lpade true',1)
   IF ( eliashberg .AND. lacon .AND. (.not.limag .OR. .not.lpade ) ) & 
        CALL errore('eliashberg_init', 'lacon requires both limag and lpade true',1)
   IF ( eliashberg .AND. lreal .AND. (kerread .OR. kerwrite) ) & 
@@ -61,32 +59,21 @@
        'wsfc should be .lt. wscut',1)
   IF ( eliashberg .AND. lreal .AND. wsfc .lt. 0.d0 ) CALL errore('eliashberg_init', &
        'wsfc should be .gt. 0.d0',1)
-  IF ( eliashberg .AND. nswi .gt. 0 .AND. ( wscut .gt. 0.d0 ) ) &
-       CALL errore('eliashberg_init', 'define either nswi or wscut',1)
+  IF ( eliashberg .AND. nswi .gt. 0 .AND. .not.limag ) &
+       CALL errore('eliashberg_init', 'nswi requires limag true',1)
   IF ( eliashberg .AND. nswi .lt. 0 ) CALL errore('eliashberg_init', &
        'nswi should be .gt. 0',1)
-  IF ( eliashberg .AND. wscut .lt. 0.d0 ) CALL errore('eliashberg_init', &
-       'wscut should be .gt. 0.d0',1)
-  IF ( eliashberg .AND. wscut .lt. 0.d0 ) CALL errore('eliashberg_init', &
-       'wscut should be .gt. 0.d0',1)
+  IF ( eliashberg .AND. wscut .lt. 0.d0 ) &
+       CALL errore('eliashberg_init', 'wscut should be .gt. 0.d0',1)
   IF ( eliashberg .AND. nstemp .lt. 1 ) CALL errore('eliashberg_init', &
        'wrong number of nstemp',1)
   IF ( eliashberg .AND. maxval(temps(:)) .gt. 0.d0 .AND. & 
        tempsmin .gt. 0.d0 .AND. tempsmax .gt. 0.d0 ) &
        CALL errore('eliashberg_init', & 
        'define either (tempsmin and tempsmax) or temp(:)',1)
-  IF ( eliashberg .AND. tempsmin .ge. 0.d0 .AND. & 
-       ( tempsmax .lt. 0.d0 .OR. tempsmax .lt. tempsmin ) ) &
+  IF ( eliashberg .AND. tempsmax .lt. tempsmin ) &
        CALL errore('eliashberg_init', & 
        'tempsmax should be greater than tempsmin',1)
-  IF ( eliashberg .AND. lreal .AND. maxval(temps(:)) .lt. 0.d0 .AND. & 
-       tempsmin .lt. 0.d0 .AND. tempsmax .lt. 0.d0  ) & 
-       CALL errore('eliashberg_init', "to solve Eliashberg equations on real axis &
-       &define either (tempsmin and tempsmax) or temps(:)",1)
-  IF ( eliashberg .AND. limag .AND. maxval(temps(:)) .lt. 0.d0 .AND. & 
-       tempsmin .lt. 0.d0 .AND. tempsmax .lt. 0.d0  )  &
-       CALL errore('eliashberg_init', 'to solve Eliashberg equations on imaginary axis &
-       &define either (tempsmin and tempsmax) or temp(:)',1)
   IF ( eliashberg .AND. nsiter .lt. 1 ) CALL errore('eliashberg_init', &
        'wrong number of nsiter',1)
   IF ( eliashberg .AND. muc .lt. 0.d0 ) CALL errore('eliashberg_init', &
@@ -99,7 +86,7 @@
        'eliashberg requires nkf1,nkf2,nkf3 to be multiple of nqf1,nqf2,nqf3 when fila2f is not used',1)
   !
   DO itemp = 1, ntempxx
-     IF (temps(itemp) .ge. 0.d0) THEN
+     IF (temps(itemp) .gt. 0.d0) THEN
         nstemp = itemp
      ENDIF
   ENDDO
@@ -130,6 +117,9 @@
         nswc  = 2 * nqstep
      ENDIF
      nsw = nswfc + nswc  
+     WRITE(stdout,'(5x,a7,f12.6,a11,f12.6)') 'wsfc = ', wsfc, '   wscut = ', wscut
+     WRITE(stdout,'(5x,a8,i8,a10,i8,a90,i8)') 'nswfc = ', nswfc, '   nswc = ', nswc, & 
+                                              '   nsw = ', nsw 
      IF ( nsw .eq. 0 ) CALL errore('eliashberg_setup','wrong number of nsw',1)
      !
   ELSEIF ( limag ) THEN
@@ -143,6 +133,9 @@
         DO itemp = 1, nstemp
            nsiw(itemp) = int(0.5d0 * ( wscut / pi / estemp(itemp) - 1.d0 )) + 1
         ENDDO
+     ELSEIF ( nswi .gt. 0 .AND. wscut .gt. 0.d0 ) THEN
+        nsiw(:) = nswi
+        WRITE(stdout,'(5x,a)') 'when nswi .gt. 0, wscut is not used for limag=.true.'
      ENDIF
      !
      IF ( ABS(wscut) < eps ) THEN 
@@ -370,7 +363,7 @@
   !
   IF ( ALLOCATED(phdos) )          DEALLOCATE( phdos )
   IF ( ALLOCATED(phdos_modeproj) ) DEALLOCATE( phdos_modeproj )
-  IF ( ALLOCATED(l_a2f) )          DEALLOCATE(l_a2f)
+  IF ( ALLOCATED(l_a2f) )          DEALLOCATE( l_a2f )
   !
 #ifdef __PARA
   ENDIF
@@ -440,7 +433,7 @@
   IF ( mpime .eq. ionode_id ) THEN
 #endif
   !
-  ! SP: Produced if user really want it 
+  ! SP: Produced if user really wants it 
   IF ( iverbosity .eq. 2 ) THEN
     OPEN(unit = iufillambda, file = TRIM(prefix)//".lambda_aniso", form = 'formatted')
     WRITE(iufillambda,'(2a12,2a7)') '# enk-e0[eV]','  lambda_nk','# kpt','# band'
@@ -461,7 +454,7 @@
   ENDDO
   CLOSE(iufillambda)
   !
-  ! SP: Produced if user really want it 
+  ! SP: Produced if user really wants it 
   IF ( iverbosity .eq. 2 ) THEN  
     OPEN( unit = iufillambda, file = TRIM(prefix)//".lambda_pairs", form = 'formatted')
     DO ibin = 1, nbin
@@ -478,17 +471,17 @@
   IF ( iverbosity .eq. 2 ) THEN
      !
      DO ibnd = 1, nbndfs
-        WRITE(name1,'(a,a8,i1,a5)') TRIM(prefix),'_lambda_', ibnd, '.cube'
-        OPEN(iufillambda, file=name1, form='formatted')
-        WRITE(iufillambda,*) 'Cubfile created from EPW calculation'
-        WRITE(iufillambda,*) 'lambda'
-        WRITE(iufillambda,'(i5,3f12.6)') 1, 0.0d0, 0.0d0, 0.0d0
-        WRITE(iufillambda,'(i5,3f12.6)') nkf1, (bg(i,1)/DBLE(nkf1),i=1,3)
-        WRITE(iufillambda,'(i5,3f12.6)') nkf2, (bg(i,2)/DBLE(nkf2),i=1,3)
-        WRITE(iufillambda,'(i5,3f12.6)') nkf3, (bg(i,3)/DBLE(nkf3),i=1,3)
-        WRITE(iufillambda,'(i5,4f12.6)') 1, 1.0d0, 0.0d0, 0.0d0, 0.0d0
-        WRITE(iufillambda,'(6f12.6)') ( lambda_k(ixkff(ik),ibnd), ik=1,nkf1*nkf2*nkf3 )
-        CLOSE(iufillambda)
+        WRITE(name1,'(a,a8,i1,a5)') TRIM(prefix),'.lambda_', ibnd, '.cube'
+        OPEN(iufillambdaFS, file=name1, form='formatted')
+        WRITE(iufillambdaFS,*) 'Cubfile created from EPW calculation'
+        WRITE(iufillambdaFS,*) 'lambda'
+        WRITE(iufillambdaFS,'(i5,3f12.6)') 1, 0.0d0, 0.0d0, 0.0d0
+        WRITE(iufillambdaFS,'(i5,3f12.6)') nkf1, (bg(i,1)/DBLE(nkf1),i=1,3)
+        WRITE(iufillambdaFS,'(i5,3f12.6)') nkf2, (bg(i,2)/DBLE(nkf2),i=1,3)
+        WRITE(iufillambdaFS,'(i5,3f12.6)') nkf3, (bg(i,3)/DBLE(nkf3),i=1,3)
+        WRITE(iufillambdaFS,'(i5,4f12.6)') 1, 1.0d0, 0.0d0, 0.0d0, 0.0d0
+        WRITE(iufillambdaFS,'(6f12.6)') ( lambda_k(ixkff(ik),ibnd), ik=1,nkf1*nkf2*nkf3 )
+        CLOSE(iufillambdaFS)
      ENDDO
      !
   ENDIF
@@ -506,8 +499,8 @@
            IF ( ixkff(ik) .gt. 0 ) THEN
               DO ibnd = 1, nbndfs
                  ! SP: Here take a 0.2 eV interval around the FS.
-                 !IF ( abs( ekfs(ibnd,ixkff(ik)) - ef0 ) .lt. fsthick ) THEN
-                 IF ( abs( ekfs(ibnd,ixkff(ik)) - ef0 ) .lt. 0.2 ) THEN
+                 IF ( abs( ekfs(ibnd,ixkff(ik)) - ef0 ) .lt. fsthick ) THEN
+                 !IF ( abs( ekfs(ibnd,ixkff(ik)) - ef0 ) .lt. 0.2 ) THEN
                     x1 = bg(1,1)*(i-1)/nkf1+bg(1,2)*(j-1)/nkf2+bg(1,3)*(k-1)/nkf3
                     x2 = bg(2,1)*(i-1)/nkf1+bg(2,2)*(j-1)/nkf2+bg(2,3)*(k-1)/nkf3
                     x3 = bg(3,1)*(i-1)/nkf1+bg(3,2)*(j-1)/nkf2+bg(3,3)*(k-1)/nkf3
