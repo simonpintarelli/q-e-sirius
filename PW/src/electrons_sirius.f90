@@ -9,7 +9,7 @@ subroutine electrons_sirius()
   use klist,            only : nks, nkstot, wk, xk, nelec, lgauss
   use io_global,        only : stdout, ionode
   use control_flags,    only : tr2, niter, conv_elec, restart, mixing_beta, nmix, ethr, &
-                              &lmd, iprint, llondon, lxdm, iverbosity
+                              &lmd, iprint, llondon, lxdm, iverbosity, gamma_only
   use input_parameters, only : conv_thr, sirius_cfg
   use gvect,            only : ngm_g
   use scf,              only : scf_type, rho, create_scf_type, open_mix_file, scf_type_copy, bcast_scf_type
@@ -120,6 +120,8 @@ subroutine electrons_sirius()
   else
     call sirius_set_esm_type(c_str("norm_conserving_pseudopotential"))
   endif
+
+  call sirius_set_gamma_point(gamma_only)
     
   num_ranks_k = nproc_image / npool
   i = sqrt(dble(num_ranks_k) + 1d-10)
