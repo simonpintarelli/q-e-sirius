@@ -376,6 +376,12 @@ SUBROUTINE lr_readin
   ! I. Timrov: Allocate space for PW scf variables (EELS: for PW nscf files,
   ! if restart=.true.), read and check them.
   !
+  ! Optical case: the variables igk_k and ngk are set up through this path:
+  ! read_file -> init_igk.
+  ! EELS: the variables igk_k and ngk will be re-set up later (because there 
+  ! will be not only poins k but also points k+q) through the path:
+  ! lr_run_nscf -> init_run -> hinit0 -> init_igk 
+  !
   CALL read_file()
   !
   !   Set wfc_dir - this is done here because read_file sets wfc_dir = tmp_dir
@@ -543,6 +549,7 @@ CONTAINS
     USE paw_variables,    ONLY : okpaw
     USE uspp,             ONLY : okvan
     USE funct,            ONLY : dft_is_hybrid
+    USE ldaU,             ONLY : lda_plus_u
 
     IMPLICIT NONE
     !
@@ -562,8 +569,11 @@ CONTAINS
     !
     !  Meta-DFT currently not supported by TDDFPT
     !
-    IF (dft_is_meta()) &
-         & CALL errore( ' iosys ', ' Meta DFT ' // 'is not implemented yet', 1 )
+    IF (dft_is_meta()) CALL errore( 'lr_readin', 'Meta DFT is not implemented yet', 1 )
+    !
+    ! Hubbard U is not supported
+    !
+    IF (lda_plus_u) CALL errore('lr_readin', 'TDDFPT with Hubbard U is not implemented',1)
     !
     !  Tetrahedron method and fixed occupations are not implemented.
     !
@@ -581,12 +591,12 @@ CONTAINS
        !
        ! Symmetry is not supported.
        !
-       IF (.NOT.nosym ) CALL errore( ' iosys ', 'Linear response calculation' // &
+       IF (.NOT.nosym ) CALL errore( 'lr_readin', 'Linear response calculation' // &
                                     & 'is not implemented with symmetry', 1 )
        !
        ! K-points are implemented but still unsupported (use at your own risk!)
        !
-       IF (.NOT. gamma_only ) CALL errore(' iosys', 'k-point algorithm is not tested yet',1)
+       IF (.NOT. gamma_only ) CALL errore('lr_readin', 'k-point algorithm is not tested yet',1)
        !
     ENDIF
     !
@@ -610,7 +620,7 @@ CONTAINS
     ! No taskgroups and EXX.
     !
     IF (dffts%have_task_groups .AND. dft_is_hybrid()) &
-         & CALL errore( ' iosys ', ' Linear response calculation ' // &
+         & CALL errore( 'lr_readin', ' Linear response calculation ' // &
          & 'not implemented for EXX+Task groups', 1 )
     !
     ! Experimental task groups warning.
@@ -622,13 +632,13 @@ CONTAINS
     ! No PAW support.
     !
     IF (okpaw) &
-         & CALL errore( ' iosys ', ' Linear response calculation ' // &
+         & CALL errore( 'lr_readin', ' Linear response calculation ' // &
          & 'not implemented for PAW', 1 )
     !
     ! No USPP+EXX support.
     !
     IF (okvan .AND. dft_is_hybrid()) &
-         & CALL errore( ' iosys ', ' Linear response calculation ' // &
+         & CALL errore( 'lr_readin', ' Linear response calculation ' // &
          & 'not implemented for EXX+Ultrasoft', 1 )
     !
     ! Spin-polarised case is not implemented, but partially accounted in

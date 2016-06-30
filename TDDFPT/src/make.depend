@@ -43,6 +43,7 @@ lr_alloc_init.o : lr_charg_resp.o
 lr_alloc_init.o : lr_variables.o
 lr_apply_liouvillian.o : ../../FFTXlib/fft_interfaces.o
 lr_apply_liouvillian.o : ../../FFTXlib/fft_parallel.o
+lr_apply_liouvillian.o : ../../LR_Modules/dv_of_drho.o
 lr_apply_liouvillian.o : ../../Modules/becmod.o
 lr_apply_liouvillian.o : ../../Modules/cell_base.o
 lr_apply_liouvillian.o : ../../Modules/control_flags.o
@@ -65,6 +66,7 @@ lr_apply_liouvillian.o : lr_exx_kernel.o
 lr_apply_liouvillian.o : lr_variables.o
 lr_apply_liouvillian_eels.o : ../../FFTXlib/fft_interfaces.o
 lr_apply_liouvillian_eels.o : ../../FFTXlib/fft_parallel.o
+lr_apply_liouvillian_eels.o : ../../LR_Modules/dv_of_drho.o
 lr_apply_liouvillian_eels.o : ../../LR_Modules/lrcom.o
 lr_apply_liouvillian_eels.o : ../../Modules/cell_base.o
 lr_apply_liouvillian_eels.o : ../../Modules/fft_base.o
@@ -183,6 +185,7 @@ lr_dav_main.o : lr_dav_routines.o
 lr_dav_main.o : lr_dav_variables.o
 lr_dav_main.o : lr_variables.o
 lr_dav_routines.o : ../../FFTXlib/scatter_mod.o
+lr_dav_routines.o : ../../LR_Modules/dv_of_drho.o
 lr_dav_routines.o : ../../Modules/cell_base.o
 lr_dav_routines.o : ../../Modules/control_flags.o
 lr_dav_routines.o : ../../Modules/fft_base.o
@@ -267,7 +270,6 @@ lr_dvpsi_eels.o : ../../Modules/wavefunctions.o
 lr_dvpsi_eels.o : ../../PW/src/buffers.o
 lr_dvpsi_eels.o : ../../PW/src/pwcom.o
 lr_eels_main.o : ../../Modules/check_stop.o
-lr_eels_main.o : ../../Modules/control_flags.o
 lr_eels_main.o : ../../Modules/environment.o
 lr_eels_main.o : ../../Modules/fft_base.o
 lr_eels_main.o : ../../Modules/io_files.o
@@ -354,7 +356,6 @@ lr_normalise.o : ../../LR_Modules/lrcom.o
 lr_normalise.o : ../../Modules/becmod.o
 lr_normalise.o : ../../Modules/cell_base.o
 lr_normalise.o : ../../Modules/control_flags.o
-lr_normalise.o : ../../Modules/gvecw.o
 lr_normalise.o : ../../Modules/io_global.o
 lr_normalise.o : ../../Modules/kind.o
 lr_normalise.o : ../../Modules/noncol.o
@@ -429,6 +430,7 @@ lr_readin.o : ../../Modules/xml_io_base.o
 lr_readin.o : ../../PW/src/esm.o
 lr_readin.o : ../../PW/src/exx.o
 lr_readin.o : ../../PW/src/io_rho_xml.o
+lr_readin.o : ../../PW/src/ldaU.o
 lr_readin.o : ../../PW/src/martyna_tuckerman.o
 lr_readin.o : ../../PW/src/newd.o
 lr_readin.o : ../../PW/src/pwcom.o
@@ -532,11 +534,9 @@ lr_test_restart.o : lr_variables.o
 lr_us.o : ../../LR_Modules/lrcom.o
 lr_us.o : ../../Modules/becmod.o
 lr_us.o : ../../Modules/control_flags.o
-lr_us.o : ../../Modules/gvecw.o
 lr_us.o : ../../Modules/io_global.o
 lr_us.o : ../../Modules/kind.o
 lr_us.o : ../../Modules/noncol.o
-lr_us.o : ../../Modules/recvec.o
 lr_us.o : ../../Modules/uspp.o
 lr_us.o : ../../PW/src/pwcom.o
 lr_us.o : ../../PW/src/realus.o
@@ -561,9 +561,7 @@ print_clock_lr.o : lr_variables.o
 sd0psi.o : ../../LR_Modules/lrcom.o
 sd0psi.o : ../../Modules/becmod.o
 sd0psi.o : ../../Modules/control_flags.o
-sd0psi.o : ../../Modules/gvecw.o
 sd0psi.o : ../../Modules/io_global.o
-sd0psi.o : ../../Modules/recvec.o
 sd0psi.o : ../../Modules/uspp.o
 sd0psi.o : ../../PW/src/pwcom.o
 sd0psi.o : ../../PW/src/realus.o

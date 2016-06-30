@@ -7,6 +7,7 @@
 !
 !--------------------------------------------------------------------------
 !
+!
 MODULE klist
   !
   ! ... The variables for the k-points
@@ -14,6 +15,7 @@ MODULE klist
   USE kinds,      ONLY : DP
   USE parameters, ONLY : npk
   !
+  IMPLICIT NONE
   SAVE
   !
   CHARACTER (len=32) :: &
@@ -44,8 +46,42 @@ MODULE klist
        two_fermi_energies ! if .TRUE.: nelup and neldw set ef_up and ef_dw
                           ! separately
   !
+CONTAINS
+  !
+  SUBROUTINE init_igk ( npwx, ngm, g, gcutw )
+    !
+    ! ... Initialize indices igk_k and number of plane waves per k-point:
+    ! ...    (k_ik+G)_i = k_ik+G_igk,   i=1,ngk(ik), igk=igk_k(i,ik)
+    !
+    INTEGER, INTENT (IN) :: npwx, ngm
+    REAL(dp), INTENT(IN) :: gcutw, g(3,ngm)
+    !
+    REAL(dp), ALLOCATABLE :: gk (:)
+    INTEGER :: ik
+    !
+
+    IF(.NOT.ALLOCATED(igk_k)) ALLOCATE ( igk_k(npwx,nks))
+    IF(.NOT.ALLOCATED(ngk)) ALLOCATE ( ngk(nks))
+    
+    ALLOCATE ( gk(npwx) )
+    igk_k(:,:) = 0
+    !
+    ! ... The following loop must NOT be called more than once in a run
+    ! ... or else there will be problems with variable-cell calculations
+    !
+    DO ik = 1, nks
+       CALL gk_sort( xk(1,ik), ngm, g, gcutw, ngk(ik), igk_k(1,ik), gk )
+    END DO
+    DEALLOCATE ( gk )
+    !
+  END SUBROUTINE init_igk
+  !
+  SUBROUTINE deallocate_igk ( ) 
+  IF ( ALLOCATED( ngk ) )        DEALLOCATE( ngk )
+  IF ( ALLOCATED( igk_k ) )      DEALLOCATE( igk_k )
+  END SUBROUTINE deallocate_igk
+
 END MODULE klist
-!
 !
 MODULE lsda_mod
   !
@@ -234,6 +270,7 @@ MODULE force_mod
   !
   REAL(DP), ALLOCATABLE :: &
        force(:,:)       ! the force on each atom
+  REAL(DP)              :: sumfor ! norm of the force matrix (total force)
   REAL(DP) :: &
        sigma(3,3)       ! the stress acting on the system
   LOGICAL :: &

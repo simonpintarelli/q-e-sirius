@@ -15,7 +15,7 @@ subroutine read_export (pp_file,kunit,uspp_spsi, ascii, single_file, raw)
 ! occhio sname is in symme which is now outside pwcom
   use  uspp,          ONLY : nkb, vkb
   use wavefunctions_module,  ONLY : evc
-  use io_files,       ONLY : nd_nmbr, outdir, prefix, iunwfc, nwordwfc, iunsat, nwordatwfc
+  use io_files,       ONLY : nd_nmbr, prefix, iunwfc, nwordwfc, iunsat, nwordatwfc
   use io_files,       ONLY : pseudo_dir, psfile
   use io_global,      ONLY : ionode, stdout
   USE ions_base,      ONLY : atm, nat, ityp, tau, nsp
@@ -26,6 +26,7 @@ subroutine read_export (pp_file,kunit,uspp_spsi, ascii, single_file, raw)
 !  use ldaU,           ONLY : swfcatom, lda_plus_u
   use ldaU,           ONLY :  lda_plus_u
   USE gvecw,              ONLY :  ecutwfc
+  USE klist, ONLY : igk_k
 
   implicit none
 
@@ -201,9 +202,7 @@ subroutine read_export (pp_file,kunit,uspp_spsi, ascii, single_file, raw)
   
   write(stdout,*)"after wfc waves"
 
-#ifdef __PARA
   call poolrecover (et, nbnd, nkstot, nks)
-#endif
  
   wfc_scal = 1.0d0
   twf0 = .true.
@@ -261,10 +260,10 @@ subroutine read_export (pp_file,kunit,uspp_spsi, ascii, single_file, raw)
            local_pw = 0
            IF( (ik >= iks) .AND. (ik <= ike) ) THEN
                
-               CALL gk_sort (xk (1, ik+iks-1), ngm, g, ecutwfc / tpiba2, npw, igk, g2kin)
+               CALL gk_sort (xk (1, ik+iks-1), ngm, g, ecutwfc / tpiba2, npw, igk_k(1,1), g2kin)
                CALL davcio (evc, 2*nwordwfc, iunwfc, (ik-iks+1), - 1)
 
-               CALL init_us_2(npw, igk, xk(1, ik), vkb)
+               CALL init_us_2(npw, igk_k(1,1), xk(1, ik), vkb)
                local_pw = ngk(ik-iks+1)
                             
                IF ( gamma_only ) THEN

@@ -99,7 +99,7 @@ PROGRAM pw2bgw
   USE constants, ONLY : eps12
   USE control_flags, ONLY : gamma_only
   USE environment, ONLY : environment_start, environment_end
-  USE io_files, ONLY : prefix, tmp_dir, outdir
+  USE io_files, ONLY : prefix, tmp_dir
   USE io_global, ONLY : ionode, ionode_id
   USE kinds, ONLY : DP
   USE lsda_mod, ONLY : nspin
@@ -148,6 +148,7 @@ PROGRAM pw2bgw
   character ( len = 256 ) :: vscg_file
   logical :: vkbg_flag
   character ( len = 256 ) :: vkbg_file
+  character ( len = 256 ) :: outdir
 
   NAMELIST / input_pw2bgw / prefix, outdir, &
     real_or_complex, symm_type, wfng_flag, wfng_file, wfng_kgrid, &
@@ -229,7 +230,6 @@ PROGRAM pw2bgw
   ENDIF
 
   tmp_dir = trimcheck ( outdir )
-  CALL mp_bcast ( outdir, ionode_id, world_comm )
   CALL mp_bcast ( tmp_dir, ionode_id, world_comm )
   CALL mp_bcast ( prefix, ionode_id, world_comm )
   CALL mp_bcast ( real_or_complex, ionode_id, world_comm )
@@ -286,15 +286,12 @@ PROGRAM pw2bgw
     'with real wavefunctions are not implemented, compute them in ' // &
     'Sigma using VXC.', 7)
 
-  ! this is needed to compute k+G indices and store them into igk_k
-  CALL hinit0 ( )
-
   CALL openfil_pp ( )
 
   if ( ionode ) WRITE ( 6, '("")' )
 
   IF ( wfng_flag ) THEN
-    output_file_name = TRIM ( outdir ) // '/' // TRIM ( wfng_file )
+    output_file_name = TRIM ( tmp_dir ) // '/' // TRIM ( wfng_file )
     IF ( ionode ) WRITE ( 6, '(5x,"call write_wfng")' )
     CALL start_clock ( 'write_wfng' )
     CALL write_wfng ( output_file_name, real_or_complex, symm_type, &
@@ -305,7 +302,7 @@ PROGRAM pw2bgw
   ENDIF
 
   IF ( vxcg_flag ) THEN
-    output_file_name = TRIM ( outdir ) // '/' // TRIM ( vxcg_file )
+    output_file_name = TRIM ( tmp_dir ) // '/' // TRIM ( vxcg_file )
     IF ( ionode ) WRITE ( 6, '(5x,"call write_vxcg")' )
     CALL start_clock ( 'write_vxcg' )
     CALL write_vxcg ( output_file_name, real_or_complex, symm_type, &
@@ -315,7 +312,7 @@ PROGRAM pw2bgw
   ENDIF
 
   IF ( vxc0_flag ) THEN
-    output_file_name = TRIM ( outdir ) // '/' // TRIM ( vxc0_file )
+    output_file_name = TRIM ( tmp_dir ) // '/' // TRIM ( vxc0_file )
     IF ( ionode ) WRITE ( 6, '(5x,"call write_vxc0")' )
     CALL start_clock ( 'write_vxc0' )
     CALL write_vxc0 ( output_file_name, vxc_zero_rho_core )
@@ -324,7 +321,7 @@ PROGRAM pw2bgw
   ENDIF
 
   IF ( vxc_flag ) THEN
-    output_file_name = TRIM ( outdir ) // '/' // TRIM ( vxc_file )
+    output_file_name = TRIM ( tmp_dir ) // '/' // TRIM ( vxc_file )
     IF ( vxc_integral .EQ. 'r' ) THEN
       IF ( ionode ) WRITE ( 6, '(5x,"call write_vxc_r")' )
       CALL start_clock ( 'write_vxc_r' )
@@ -348,7 +345,7 @@ PROGRAM pw2bgw
   ENDIF
 
   IF ( vscg_flag ) THEN
-    output_file_name = TRIM ( outdir ) // '/' // TRIM ( vscg_file )
+    output_file_name = TRIM ( tmp_dir ) // '/' // TRIM ( vscg_file )
     IF ( ionode ) WRITE ( 6, '(5x,"call write_vscg")' )
     CALL start_clock ( 'write_vscg' )
     CALL write_vscg ( output_file_name, real_or_complex, symm_type )
@@ -357,7 +354,7 @@ PROGRAM pw2bgw
   ENDIF
 
   IF ( vkbg_flag ) THEN
-    output_file_name = TRIM ( outdir ) // '/' // TRIM ( vkbg_file )
+    output_file_name = TRIM ( tmp_dir ) // '/' // TRIM ( vkbg_file )
     IF ( ionode ) WRITE ( 6, '(5x,"call write_vkbg")' )
     CALL start_clock ( 'write_vkbg' )
     CALL write_vkbg ( output_file_name, symm_type, wfng_kgrid, wfng_nk1, &
@@ -370,7 +367,7 @@ PROGRAM pw2bgw
   ! it must be called after v_xc (called from write_vxcg, write_vxc0,
   ! write_vxc_r, write_vxc_g)
   IF ( rhog_flag ) THEN
-    output_file_name = TRIM ( outdir ) // '/' // TRIM ( rhog_file )
+    output_file_name = TRIM ( tmp_dir ) // '/' // TRIM ( rhog_file )
     IF ( ionode ) WRITE ( 6, '(5x,"call write_rhog")' )
     CALL start_clock ( 'write_rhog' )
     CALL write_rhog ( output_file_name, real_or_complex, symm_type, &
@@ -430,7 +427,7 @@ SUBROUTINE write_wfng ( output_file_name, real_or_complex, symm_type, &
   USE start_k, ONLY : nk1, nk2, nk3, k1, k2, k3
   USE symm_base, ONLY : s, ftau, nsym
   USE wavefunctions_module, ONLY : evc
-  USE wvfct, ONLY : npwx, nbnd, npw, et, wg, igk
+  USE wvfct, ONLY : npwx, nbnd, npw, et, wg
   USE gvecw, ONLY : ecutwfc
   USE matrix_inversion
 #ifdef __MPI
@@ -712,9 +709,8 @@ SUBROUTINE write_wfng ( output_file_name, real_or_complex, symm_type, &
 
   DO ik = 1, nk_l
     npw = ngk ( ik )
-    igk(1:npw) = igk_k(1:npw,ik)
     DO ig = 1, npw
-      igk_l2g ( ig, ik ) = ig_l2g ( igk ( ig ) )
+      igk_l2g ( ig, ik ) = ig_l2g ( igk_k (ig, ik) )
     ENDDO
     DO ig = npw + 1, npwx
       igk_l2g ( ig, ik ) = 0
@@ -1443,7 +1439,7 @@ SUBROUTINE calc_rhog (rhog_nvmin, rhog_nvmax)
   USE scf, ONLY : rho
   USE symme, ONLY : sym_rho, sym_rho_init
   USE wavefunctions_module, ONLY : evc, psic
-  USE wvfct, ONLY : npw, igk, wg
+  USE wvfct, ONLY : npw, wg
 
   IMPLICIT NONE
 
@@ -1468,12 +1464,11 @@ SUBROUTINE calc_rhog (rhog_nvmin, rhog_nvmax)
   DO ik = iks, ike
     is = isk (ik)
     npw = ngk ( ik - iks + 1 )
-    igk(1:npw) = igk_k(1:npw, ik - iks + 1 ) 
     CALL davcio (evc, 2*nwordwfc, iunwfc, ik - iks + 1, -1)
     DO ib = rhog_nvmin, rhog_nvmax
       psic (:) = (0.0D0, 0.0D0)
       DO ig = 1, npw
-        psic (nl (igk (ig))) = evc (ig, ib)
+        psic (nl (igk_k (ig, ik-iks+1))) = evc (ig, ib)
       ENDDO
       CALL invfft ('Dense', psic, dfftp)
       DO ir = 1, dfftp%nnr
@@ -1825,7 +1820,7 @@ SUBROUTINE write_vxc_r (output_file_name, diag_nmin, diag_nmax, &
     inter_pool_comm, npool
   USE scf, ONLY : rho, rho_core, rhog_core
   USE wavefunctions_module, ONLY : evc, psic
-  USE wvfct, ONLY : npw, nbnd, igk
+  USE wvfct, ONLY : npw, nbnd
 
   IMPLICIT NONE
 
@@ -1898,13 +1893,12 @@ SUBROUTINE write_vxc_r (output_file_name, diag_nmin, diag_nmax, &
 
   DO ik = iks, ike
     npw = ngk ( ik - iks + 1 )
-    igk(1:npw) = igk_k(1:npw, ik - iks + 1 ) 
     CALL davcio (evc, 2*nwordwfc, iunwfc, ik - iks + 1, -1)
     IF (ndiag .GT. 0) THEN
       DO ib = diag_nmin, diag_nmax
         psic (:) = (0.0D0, 0.0D0)
         DO ig = 1, npw
-          psic (nl (igk (ig))) = evc (ig, ib)
+          psic (nl (igk_k (ig,ik-iks+1))) = evc (ig, ib)
         ENDDO
         CALL invfft ('Dense', psic, dfftp)
         dummyr = 0.0D0
@@ -1921,13 +1915,13 @@ SUBROUTINE write_vxc_r (output_file_name, diag_nmin, diag_nmax, &
       DO ib = offdiag_nmin, offdiag_nmax
         psic (:) = (0.0D0, 0.0D0)
         DO ig = 1, npw
-          psic (nl (igk (ig))) = evc (ig, ib)
+          psic (nl (igk_k (ig,ik-iks+1))) = evc (ig, ib)
         ENDDO
         CALL invfft ('Dense', psic, dfftp)
         DO ib2 = offdiag_nmin, offdiag_nmax
           psic2 (:) = (0.0D0, 0.0D0)
           DO ig = 1, npw
-            psic2 (nl (igk (ig))) = evc (ig, ib2)
+            psic2 (nl (igk_k (ig,ik-iks+1))) = evc (ig, ib2)
           ENDDO
           CALL invfft ('Dense', psic2, dfftp)
           dummyc = (0.0D0, 0.0D0)
@@ -2091,7 +2085,7 @@ SUBROUTINE write_vxc_g (output_file_name, diag_nmin, diag_nmax, &
 
   DO ik = iks, ike
     npw = ngk ( ik - iks + 1 )
-    igk(1:npw) = igk_k(1:npw, ik - iks + 1 ) 
+    igk(1:npw) = igk_k(1:npw, ik - iks + 1 ) ! used by vexx
     CALL davcio (evc, 2*nwordwfc, iunwfc, ik - iks + 1, -1)
     IF (ndiag .GT. 0) THEN
       DO ib = diag_nmin, diag_nmax
@@ -2443,7 +2437,7 @@ SUBROUTINE write_vkbg (output_file_name, symm_type, wfng_kgrid, &
   USE symm_base, ONLY : s, ftau, nsym
   USE uspp, ONLY : nkb, vkb, deeq
   USE uspp_param, ONLY : nhm, nh
-  USE wvfct, ONLY : npwx, npw, igk
+  USE wvfct, ONLY : npwx, npw
   USE gvecw, ONLY : ecutwfc
   USE matrix_inversion
 
@@ -2613,9 +2607,8 @@ SUBROUTINE write_vkbg (output_file_name, symm_type, wfng_kgrid, &
   igk_l2g = 0
   DO ik = 1, nks
     npw = ngk ( ik )
-    igk(1:npw) = igk_k(1:npw,ik) 
     DO ig = 1, npw
-      igk_l2g ( ig, ik ) = ig_l2g ( igk ( ig ) )
+      igk_l2g ( ig, ik ) = ig_l2g ( igk_k ( ig, ik ) )
     ENDDO
   ENDDO
   DO ik = 1, nks
@@ -2700,8 +2693,7 @@ SUBROUTINE write_vkbg (output_file_name, symm_type, wfng_kgrid, &
     local_pw = 0
     IF ( ik .GE. iks .AND. ik .LE. ike ) THEN
       npw = ngk ( ik - iks + 1 )
-      igk(1:npw) = igk_k(1:npw, ik - iks + 1 ) 
-      CALL init_us_2 ( npw, igk, xk ( 1, ik ), vkb )
+      CALL init_us_2 ( npw, igk_k(1, ik-iks+1), xk ( 1, ik ), vkb )
       local_pw = npw
     ENDIF
 

@@ -10,7 +10,7 @@ SUBROUTINE writedyn ( )
   !
   USE ions_base, ONLY : nat, tau, ityp, ntyp => nsp, atm, amass
   USE run_info,  ONLY : title
-  USE cell_base, ONLY : ibrav, celldm
+  USE cell_base, ONLY : ibrav, celldm, at
 
   USE constants, ONLY : amu_ry
   USE cgcom
@@ -25,6 +25,10 @@ SUBROUTINE writedyn ( )
   WRITE(iudyn,'(a)') title
   WRITE(iudyn,'(a)') title_ph
   WRITE(iudyn,'(i3,i5,i3,6f11.7)') ntyp,nat,ibrav,celldm
+  IF (ibrav==0) THEN
+     WRITE (iudyn,'("Basis vectors")')
+     WRITE (iudyn,'(2x,3f15.9)') ((at(i,j),i=1,3),j=1,3)
+  END IF
   DO nt = 1,ntyp
      WRITE(iudyn,*) nt," '",atm(nt),"' ",amu_ry*amass(nt)
   ENDDO
@@ -35,7 +39,7 @@ SUBROUTINE writedyn ( )
        &         //,5x,"q = ( ",3f14.9," ) ",/)') 0.0d0,0.0d0,0.0d0
   DO na = 1, nat
      DO nb = 1, nat
-        WRITE(iudyn, '(2i3)') na, nb
+        WRITE(iudyn, '(2i5)') na, nb
         WRITE(iudyn,'(3e24.12)') &
              ( (dyn(3*(na-1)+i,3*(nb-1)+j),0.d0,j=1,3),i=1,3)
      ENDDO

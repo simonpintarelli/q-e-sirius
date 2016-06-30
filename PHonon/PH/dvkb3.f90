@@ -6,7 +6,7 @@
 ! or http://www.gnu.org/copyleft/gpl.txt .
 !
 !--------------------------------------------------------------------------
-subroutine dvkb3(kpoint,dvkb)
+subroutine dvkb3(ik,dvkb)
 !----------=========-------------------------------------------------------
 !
 !
@@ -16,33 +16,35 @@ subroutine dvkb3(kpoint,dvkb)
   USE ions_base, ONLY : nat, ityp, ntyp => nsp
   USE gvect,     ONLY : g
   USE lsda_mod,  ONLY : lsda, current_spin, isk
-  USE klist,     ONLY : xk
-  USE wvfct,     ONLY : npw, npwx, igk, g2kin
+  USE klist,     ONLY : xk, ngk, igk_k
+  USE wvfct,     ONLY : npwx
   USE wavefunctions_module,    ONLY : evc
   USE uspp,      ONLY: nkb
   USE uspp_param,ONLY: nh
   USE units_ph,  ONLY: this_dvkb3_is_on_file, lrdvkb3, iudvkb3
   implicit none
 
-  integer, intent(in) :: kpoint
+  integer, intent(in) :: ik
   complex(DP), intent(out) :: dvkb (npwx,nkb,3)
 
-  integer :: jpol,  nt, na, ikb, jkb, ig
+  integer :: npw, jpol,  nt, na, ikb, jkb, ig
 
-  real(DP), allocatable  :: gk (:,:)
+  real(DP), allocatable  :: gk (:,:), g2kin(:)
 
   complex(DP), allocatable :: work (:,:)
 
-  if (this_dvkb3_is_on_file(kpoint)) then
-     call davcio (dvkb, lrdvkb3, iudvkb3, kpoint, -1)
+  if (this_dvkb3_is_on_file(ik)) then
+     call davcio (dvkb, lrdvkb3, iudvkb3, ik, -1)
   else
+     npw = ngk(ik)
      allocate (work(npwx,nkb))
-     allocate (gk(3, npwx))
-!
+     allocate (gk(3, npw))
+     allocate (g2kin(npw))
+     !
      do ig = 1, npw
-        gk (1, ig) = (xk (1, kpoint) + g (1, igk (ig) ) ) * tpiba
-        gk (2, ig) = (xk (2, kpoint) + g (2, igk (ig) ) ) * tpiba
-        gk (3, ig) = (xk (3, kpoint) + g (3, igk (ig) ) ) * tpiba
+        gk (1, ig) = (xk (1, ik) + g (1, igk_k (ig,ik) ) ) * tpiba
+        gk (2, ig) = (xk (2, ik) + g (2, igk_k (ig,ik) ) ) * tpiba
+        gk (3, ig) = (xk (3, ik) + g (3, igk_k (ig,ik) ) ) * tpiba
         g2kin (ig) = gk (1, ig) **2 + gk (2, ig) **2 + gk (3, ig) **2
         if (g2kin (ig) .lt.1.0d-10) then
            gk (1, ig) = 0.d0
@@ -55,11 +57,11 @@ subroutine dvkb3(kpoint,dvkb)
         endif
      enddo
 
-     if (lsda) current_spin = isk (kpoint)
+     if (lsda) current_spin = isk (ik)
      do jpol=1,3
-        call gen_us_dy (kpoint, at (1, jpol), dvkb(1,1,jpol))
+        call gen_us_dy (ik, at (1, jpol), dvkb(1,1,jpol))
      end do
-     call gen_us_dj (kpoint, work)
+     call gen_us_dj (ik, work)
 
      jkb = 0
      do nt = 1, ntyp
@@ -80,10 +82,11 @@ subroutine dvkb3(kpoint,dvkb)
         enddo
      enddo
 
+     deallocate(g2kin)
      deallocate(gk)
      deallocate(work)
-     call davcio (dvkb, lrdvkb3, iudvkb3, kpoint, 1)
-     this_dvkb3_is_on_file(kpoint) = .true.
+     call davcio (dvkb, lrdvkb3, iudvkb3, ik, 1)
+     this_dvkb3_is_on_file(ik) = .true.
   end if
 
   return

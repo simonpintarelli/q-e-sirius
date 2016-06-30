@@ -19,14 +19,14 @@ SUBROUTINE solve_ph ( )
   USE becmod,                ONLY : bec_type, becp, calbec, &
                                     allocate_bec_type, deallocate_bec_type
   USE klist,                 ONLY : xk
-  USE wvfct,                 ONLY : nbnd, npwx, npw, g2kin, igk, et
+  USE wvfct,                 ONLY : nbnd, npwx, npw, g2kin, et
   USE gvect,                 ONLY : g
   USE cell_base,             ONLY : tpiba2
   USE cgcom
 
   IMPLICIT NONE
 
-  INTEGER :: nu, i, ibnd, jbnd, info, iter, mode_done, kpoint
+  INTEGER :: nu, i, ibnd, jbnd, info, iter, mode_done, ik
   REAL(DP), ALLOCATABLE ::  diag(:)
   COMPLEX(DP), ALLOCATABLE :: gr(:,:), h(:,:), work(:,:)
   REAL(DP), ALLOCATABLE :: overlap(:,:)
@@ -42,11 +42,9 @@ SUBROUTINE solve_ph ( )
   ALLOCATE ( gr  ( npwx, nbnd) )
   ALLOCATE ( h   ( npwx, nbnd) )
   !
-  kpoint = 1
+  ik = 1
   DO i = 1,npw
-     g2kin(i) = ( (xk(1,kpoint)+g(1,igk(i)))**2 +                   &
-                  (xk(2,kpoint)+g(2,igk(i)))**2 +                   &
-                  (xk(3,kpoint)+g(3,igk(i)))**2 ) * tpiba2
+     g2kin(i) = ( g(1,i)**2 + g(2,i)**2 + g(3,i)**2 ) * tpiba2
   ENDDO
   !
   orthonormal = .false.
@@ -104,7 +102,7 @@ SUBROUTINE solve_ph ( )
         GOTO 10
      ENDIF
      ! calculate |b> = dV/dtau*psi
-     CALL dvpsi_kb(kpoint,nu)
+     CALL dvpsi_kb(ik,nu)
      ! initialize delta psi
      startwith0=.true.
      dpsi(:,:) = (0.d0, 0.d0)
@@ -112,7 +110,7 @@ SUBROUTINE solve_ph ( )
      ! NB: dvpsi is used also as work space and is destroyed by cgsolve
      CALL cgsolve (A_h,npw,evc,npwx,nbnd,overlap,nbnd, &
                    orthonormal,precondition,diag,      &
-                   startwith0,et(1,kpoint),dvpsi,gr,h, &
+                   startwith0,et(1,ik),dvpsi,gr,h, &
                    dvpsi,work,niter_ph,tr2_ph,iter,dpsi)
      ! < DeltaPsi | DeltaV | Psi > contribution to the dynamical matrix
      CALL drhodv(nu)

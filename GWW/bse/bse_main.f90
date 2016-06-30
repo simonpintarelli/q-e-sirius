@@ -1,9 +1,8 @@
 program bse_punch
 
 use io_global, ONLY : stdout, ionode, ionode_id
-use io_files,  ONLY : psfile, pseudo_dir,diropn,outdir
-!use io_files,  ONLY : prefix,outdir,tmp_dir,iunwfc,find_free_unit
-use io_files,  ONLY : prefix,outdir,tmp_dir,iunwfc
+use io_files,  ONLY : psfile, pseudo_dir,diropn
+use io_files,  ONLY : prefix,tmp_dir,iunwfc
 use mp_world, ONLY : mpime
 use mp_pools, ONLY : kunit
 USE wvfct,     ONLY : nbnd, et, npwx
@@ -39,6 +38,7 @@ INTEGER, EXTERNAL :: find_free_unit
 
 integer :: i, kunittmp, ios, is
 CHARACTER(LEN=256), EXTERNAL :: trimcheck
+CHARACTER(LEN=256) :: outdir
 character(len=200) :: pp_file
 logical ::  uspp_spsi, ascii, single_file, raw
 
@@ -161,7 +161,6 @@ ENDIF
    
 
   tmp_dir = trimcheck( outdir )
-  CALL mp_bcast( outdir, ionode_id, world_comm )
   CALL mp_bcast( tmp_dir, ionode_id, world_comm )
   CALL mp_bcast( prefix, ionode_id , world_comm)
   CALL mp_bcast( num_nbndv,     ionode_id , world_comm)
@@ -217,7 +216,7 @@ ENDIF
   call read_file 
 ! after read_file everything is known
 
-#if defined __PARA
+#if defined __MPI
   kunittmp = kunit
 #else
   kunittmp = 1
@@ -367,7 +366,7 @@ ENDIF
   call print_clock('build_exch')
   call print_clock('read_wannier_matrix')
 
-  CALL FLUSH( stdout )
+  FLUSH( stdout )
 
   call stop_pp
 

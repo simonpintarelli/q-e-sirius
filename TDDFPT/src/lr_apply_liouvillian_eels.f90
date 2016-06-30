@@ -10,7 +10,7 @@ SUBROUTINE lr_apply_liouvillian_eels ( evc1, evc1_new, interaction )
   !------------------------------------------------------------------------------
   !
   ! This subroutine applies the linear response operator to response wavefunctions.
-  ! S^{-1} { (H - E)*psi(k+q) + P_c^+(k+q) V_HXC(q)*psi0(k) }
+  ! S^{-1} { (H - E*S)*psi(k+q) + P_c^+(k+q) V_HXC(q)*psi0(k) }
   !
   ! Inspired by PH/solve_linter.f90
   !
@@ -25,23 +25,24 @@ SUBROUTINE lr_apply_liouvillian_eels ( evc1, evc1_new, interaction )
   USE gvect,                ONLY : nl, nlm, ngm, g, gg
   USE io_global,            ONLY : stdout
   USE kinds,                ONLY : dp
-  USE klist,                ONLY : nks, xk
+  USE klist,                ONLY : nks, xk, igk_k, ngk
   USE lr_variables,         ONLY : evc0, no_hxc
   USE lsda_mod,             ONLY : nspin, current_spin
-  USE wvfct,                ONLY : nbnd, npwx, g2kin, et, npw, igk
+  USE wvfct,                ONLY : nbnd, npwx, g2kin, et, current_k
   USE gvecw,                ONLY : gcutw
   USE io_global,            ONLY : stdout
   USE uspp,                 ONLY : vkb
-  USE io_files,             ONLY : iunigk, iunwfc, nwordwfc
+  USE io_files,             ONLY : iunwfc, nwordwfc
   USE wavefunctions_module, ONLY : evc, psic, psic_nc
   USE noncollin_module,     ONLY : noncolin, npol, nspin_mag
   USE uspp,                 ONLY : okvan
   USE mp_bands,             ONLY : ntask_groups, me_bgrp
   USE spin_orb,             ONLY : domag
   USE buffers,              ONLY : get_buffer
-  USE qpoint,               ONLY : npwq, igkq, ikks, ikqs, nksq
+  USE qpoint,               ONLY : ikks, ikqs, nksq
   USE eqv,                  ONLY : evq, dpsi, dvpsi
   USE control_lr,           ONLY : nbnd_occ
+  USE dv_of_drho_lr
  
   IMPLICIT NONE
   !
@@ -52,8 +53,11 @@ SUBROUTINE lr_apply_liouvillian_eels ( evc1, evc1_new, interaction )
   !
   LOGICAL, INTENT(in) :: interaction
   LOGICAL :: interaction1
-  INTEGER :: i,j,ir, ibnd, ik, ig, ia, ios, ikk, ikq, is, &
-             incr, v_siz, ipol
+  INTEGER :: i,j,ir, ibnd, ig, ia, ios, is, incr, v_siz, ipol
+  INTEGER :: ik,  &
+             ikk, & ! index of the point k
+             ikq, & ! index of the point k+q
+             npwq   ! number of the plane-waves at point k+q
   COMPLEX(DP), ALLOCATABLE :: hpsi(:,:), spsi(:,:), revc(:,:), &
                             & dvrsc(:,:), dvrssc(:,:), &
                             & sevc1_new(:,:,:), &
@@ -61,7 +65,6 @@ SUBROUTINE lr_apply_liouvillian_eels ( evc1, evc1_new, interaction )
                             & tg_psic(:,:), tg_dvrssc(:,:)
   ! Task groups: wfct in R-space
   ! Task groups: HXC potential
-  INTEGER, ALLOCATABLE :: ibuf(:)
   !
   CALL start_clock('lr_apply')
   !
@@ -142,31 +145,17 @@ SUBROUTINE lr_apply_liouvillian_eels ( evc1, evc1_new, interaction )
   ! 1) HXC term : P_c^+(k+q) V_HXC(q)*psi0(k) 
   ! 2) (H - E)*psi(k+q)
   !
-  ! rewind (unit = iunigk)
-  ! 
   DO ik = 1, nksq
      !
-     ikk = ikks(ik)
-     ikq = ikqs(ik)
-     !
-     ! Determination of npw, igk, and npwq, igkq;
-     ! g2kin is used here as a workspace.
-     !
-     CALL gk_sort( xk(1,ikk), ngm, g, gcutw, npw,  igk,  g2kin )
-     CALL gk_sort( xk(1,ikq), ngm, g, gcutw, npwq, igkq, g2kin ) 
+     ikk  = ikks(ik)
+     ikq  = ikqs(ik)
+     npwq = ngk(ikq)
      !
      ! Calculate beta-functions vkb at k+q (Kleinman-Bylander projectors)
-     ! The vks's are needed for the non-local potential in h_psiq,
+     ! The vkb's are needed for the non-local potential in h_psi,
      ! and for the ultrasoft term.
      !
-     CALL init_us_2 (npwq, igkq, xk(1,ikq), vkb)
-     !
-!    IF (nksq > 1) THEN
-!        read (iunigk, err = 100, iostat = ios) npw, igk
-!100     call errore ('lr_apply_liouvillian', 'reading igk', abs (ios) )
-!        read (iunigk, err = 200, iostat = ios) npwq, igkq
-!200     call errore ('lr_apply_liouvillian', 'reading igkq', abs (ios) )
-!    ENDIF
+     CALL init_us_2 (npwq, igk_k(1,ikq), xk(1,ikq), vkb)
      !
      ! Read unperturbed wavefuctions evc (wfct at k) 
      ! and evq (wfct at k+q)
@@ -219,7 +208,7 @@ SUBROUTINE lr_apply_liouvillian_eels ( evc1, evc1_new, interaction )
               !
               ! FFT to R-space
               !
-              CALL cft_wave_tg(evc, tg_psic, 1, v_siz, ibnd, nbnd_occ(ikk) )
+              CALL cft_wave_tg(ik, evc, tg_psic, 1, v_siz, ibnd, nbnd_occ(ikk) )
               !
               ! Multiply the HXC potential with unperturbed wfct's
               !
@@ -227,13 +216,13 @@ SUBROUTINE lr_apply_liouvillian_eels ( evc1, evc1_new, interaction )
               !
               ! back-FFT to G-space
               !
-              CALL cft_wave_tg(dvpsi, tg_psic, -1, v_siz, ibnd, nbnd_occ(ikk))
+              CALL cft_wave_tg(ik,dvpsi, tg_psic,-1, v_siz, ibnd, nbnd_occ(ikk))
               !
            ELSE
               !
               ! FFT to R-space
               !
-              CALL cft_wave(evc(1,ibnd), revc, +1)
+              CALL cft_wave(ik, evc(1,ibnd), revc, +1)
               !
               ! Multiply the HXC potential with unperturbed wfct's 
               !
@@ -241,7 +230,7 @@ SUBROUTINE lr_apply_liouvillian_eels ( evc1, evc1_new, interaction )
               !
               ! back-FFT to G-space
               !
-              CALL cft_wave(dvpsi(1,ibnd), revc, -1)
+              CALL cft_wave(ik, dvpsi(1,ibnd), revc, -1)
               !
            ENDIF
            !
@@ -273,22 +262,15 @@ SUBROUTINE lr_apply_liouvillian_eels ( evc1, evc1_new, interaction )
         !
      ENDIF
      !
-     ! 2) (H - E) * psi(k+q)
+     ! 2) (H - E*S) * psi(k+q)
      !
      ! Compute the kinetic energy g2kin: (k+q+G)^2
      !
      DO ig = 1, npwq
-        g2kin (ig) = ( (xk (1,ikq) + g (1, igkq(ig)) ) **2 + &
-                       (xk (2,ikq) + g (2, igkq(ig)) ) **2 + &
-                       (xk (3,ikq) + g (3, igkq(ig)) ) **2 ) * tpiba2
+        g2kin (ig) = ( (xk (1,ikq) + g (1, igk_k(ig,ikq)) ) **2 + &
+                       (xk (2,ikq) + g (2, igk_k(ig,ikq)) ) **2 + &
+                       (xk (3,ikq) + g (3, igk_k(ig,ikq)) ) **2 ) * tpiba2
      ENDDO
-     !
-     ! Apply the operator ( H - \epsilon S + alpha_pv P_v) to evc1
-     ! where alpha_pv = 0
-     !
-     !call ch_psi_all (npwq, evc1(1,1,ik), sevc1_new(1,1,ik), et(1,ikk), ik, nbnd_occ(ikk)) 
-     !
-     ! Compute H*psi
      !
      IF (noncolin) THEN
         IF (.NOT. ALLOCATED(psic_nc)) ALLOCATE(psic_nc(dfftp%nnr,npol))
@@ -296,54 +278,18 @@ SUBROUTINE lr_apply_liouvillian_eels ( evc1, evc1_new, interaction )
      !  IF (.NOT. ALLOCATED(psic)) ALLOCATE(psic(dfftp%nnr))
      ENDIF
      !
-     IF (ntask_groups > 1) dffts%have_task_groups = .TRUE. 
+     ! Apply the operator ( H - \epsilon S + alpha_pv P_v) to evc1
+     ! where alpha_pv = 0
      !
-     IF (dffts%have_task_groups) THEN
-        !
-        ! With task groups we use the H*psi routine of PW parallelized on task groups
-        ! (see PH/ch_psi_all.f90)
-        !
-        ALLOCATE(ibuf(npwx))
-        ibuf = igk
-        igk = igkq
-        CALL h_psi (npwx, npwq, nbnd_occ(ikk), evc1(:,:,ik), hpsi)
-        CALL s_psi (npwx, npwq, nbnd_occ(ikk), evc1(:,:,ik), spsi)
-        igk = ibuf
-        DEALLOCATE(ibuf)
-        !
-     ELSE
-        !
-        CALL h_psiq (npwx, npwq, nbnd_occ(ikk), evc1(:,:,ik), hpsi, spsi)
-        !
-     ENDIF
-     !
-     dffts%have_task_groups = .FALSE.
+     CALL ch_psi_all (npwq, evc1(:,:,ik), sevc1_new(:,:,ik), et(:,ikk), ik, nbnd_occ(ikk)) 
      !
      IF (noncolin) THEN
         IF (ALLOCATED(psic_nc)) DEALLOCATE(psic_nc)
      !ELSE
      !  IF (ALLOCATED(psic)) DEALLOCATE(psic)
-     ENDIF
+     ENDIF 
      !
-     ! Subtract the eigenevalues H*psi(k+q) - et*psi(k+q)
-     !
-     DO ibnd = 1, nbnd_occ(ikk)
-        DO ig = 1, npwq
-           sevc1_new(ig,ibnd,ik) = hpsi(ig,ibnd) - &
-                    &  cmplx(et(ibnd,ikk),0.0d0,dp) * spsi(ig,ibnd)
-        ENDDO
-     ENDDO
-     !
-     IF (noncolin) THEN
-        DO ibnd = 1, nbnd_occ(ikk)
-           DO ig = 1, npwq
-              sevc1_new(ig+npwx,ibnd,ik) = hpsi(ig+npwx,ibnd) - &
-                     cmplx(et(ibnd,ikk),0.0d0,dp) * spsi(ig+npwx,ibnd)
-           ENDDO
-        ENDDO
-     ENDIF
-     !
-     ! 3) Sum up the two terms : (H - E)*psi(k+q) + P_c^+(k+q) V_HXC(q)*psi0(k)
+     ! 3) Sum up the two terms : (H - E*S)*psi(k+q) + P_c^+(k+q) V_HXC(q)*psi0(k)
      !
      IF (interaction1) THEN
         !
@@ -368,8 +314,8 @@ SUBROUTINE lr_apply_liouvillian_eels ( evc1, evc1_new, interaction )
      !    evc1_new = S^{-1} * sevc1_new
      !    If not ultrasoft: evc1_new = sevc1_new
      !
-     CALL lr_sm1_psiq (.FALSE., ik, npwx, npwq, igkq, nbnd_occ(ikk), &
-                         & sevc1_new(1,1,ik), evc1_new(1,1,ik))
+     CALL lr_sm1_psiq (.FALSE., ik, npwx, npwq, nbnd_occ(ikk), &
+                               & sevc1_new(1,1,ik), evc1_new(1,1,ik))
      !
   ENDDO ! loop on ik
   !

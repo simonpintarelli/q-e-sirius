@@ -34,7 +34,7 @@ echo using F90... $f90
 
 case "$arch:$f90_version" in
 ia32:ifort* | ia64:ifort* | x86_64:ifort* | mac686:ifort* | crayxt*:ifort* )
-        try_fflags="-O2 -assume byterecl -g -traceback -par-report0 -vec-report0"
+        try_fflags="-O2 -assume byterecl -g -traceback"
         if test "$use_debug" -eq 1; then
             try_fflags="$try_fflags -fpe0 -CB"
         fi
@@ -275,9 +275,6 @@ esac
 if test "$use_shared" -eq 0 ; then
   try_ldflags="$try_ldflags $try_ldflags_static" ; fi
 
-# Checking OpenMP...
-X_AC_QE_OPENMP()
-
 if test "$use_openmp" -eq 1 ; then
   try_f90flags="$try_f90flags $try_fflags_openmp"
   try_fflags="$try_fflags $try_fflags_openmp"
@@ -305,6 +302,18 @@ then
 else
         test_fflags="`echo $f90flags | sed 's/\$([[^)]]*)//g'`"
 fi
+
+AC_MSG_CHECKING([whether the Fortran compiler can perform preprocessing])
+acx_save_FCFLAGS="$FCFLAGS"
+FCFLAGS="$F90FLAGS"
+AC_LANG_PUSH(Fortran)
+AC_COMPILE_IFELSE( AC_LANG_PROGRAM( [], [
+#define SUBSTME integer
+SUBSTME :: ii
+ ]),
+ [have_cpp=1; AC_MSG_RESULT([yes])],[have_cpp=0; AC_MSG_RESULT([no])])
+AC_LANG_POP(Fortran)
+FCFLAGS="$acx_save_FCFLAGS"
 
 AC_SUBST(pre_fdflags)
 AC_SUBST(f90flags)

@@ -17,6 +17,7 @@ cgsolve_all.o \
 cg_psi.o \
 ch_psi_all.o \
 commutator_Hx_psi.o \
+dynmat_sub.o \
 h_psiq.o \
 incdrhoscf.o \
 incdrhoscf_nc.o \
@@ -55,6 +56,6 @@ tldeps :
 	( cd ../; $(MAKE) $(TLDEPS) || exit 1 ) ; fi
 
 clean :
-	- /bin/rm -f *.o *.a *.d *.i *~ *.F90 *.mod *.L
+	- /bin/rm -f *.o *.a *.d *.i *~ *_tmp.f90 *.mod *.L
 
 include make.depend

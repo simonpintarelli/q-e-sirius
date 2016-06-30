@@ -14,7 +14,6 @@ add_shift_lc.o \
 add_shift_us.o \
 atomic_wfc_nc_proj.o \
 cft.o \
-cgracsc.o \
 chdens.o \
 chdens_bspline.o \
 compute_ppsi.o \
@@ -35,6 +34,7 @@ openfil_pp.o\
 partialdos.o \
 paw_postproc.o \
 plot_whole_cell.o \
+projections_mod.o \
 projwfc_box.o \
 punch_plot.o \
 smallgk.o \
@@ -209,6 +209,6 @@ tldeps :
 	( cd ../.. ; $(MAKE) $(TLDEPS) || exit 1 ) ; fi
 
 clean :
-	- /bin/rm -f *.x *.o *~ *.F90 *.d *.mod *.i *.L libpp.a
+	- /bin/rm -f *.x *.o *~ *_tmp.f90 *.d *.mod *.i *.L libpp.a
 
 include make.depend

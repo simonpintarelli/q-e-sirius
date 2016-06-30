@@ -129,7 +129,7 @@ all : tldeps libcp.a manycp.x cp.x cppp.x wfdd.x
 manycp.x : manycp.o libcp.a $(QEMODS) $(QEFFT) $(QELA) $(LIBOBJS)
 	$(LD) $(LDFLAGS) -o manycp.x manycp.o \
 		libcp.a $(QEMODS) $(QEFFT) $(QELA) $(LIBOBJS) $(LIBS)
-	- ( cd ../../bin ; ln -fs ../CPV/src/cp.x . )
+	- ( cd ../../bin ; ln -fs ../CPV/src/manycp.x . )
 
 cp.x : cprstart.o libcp.a $(QEMODS) $(QEFFT) $(QELA) $(LIBOBJS)
 	$(LD) $(LDFLAGS) -o cp.x cprstart.o \
@@ -159,7 +159,7 @@ tldeps :
 	( cd ../.. ; $(MAKE) $(TLDEPS) || exit 1 ) ; fi
 
 clean :
-	- /bin/rm -f cppp.x *.o *.mod cpver.h *.i core* *.F90 fort* \
+	- /bin/rm -f cppp.x *.o *.mod cpver.h *.i core* *_tmp.f90 fort* \
 		*.cpp *.d *.L *.a *.s cp.x manycp.x wfdd.x
 	-/bin/rm -rf ../../bin/manycp.x ../../bin/cppp.x ../../bin/cp.x ../../bin/wfdd.x
 

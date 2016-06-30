@@ -30,7 +30,6 @@
   ! Only for 1 proc/pool (This limitation can be removed)
   !
   ! ----------------------------------------------------------------------
-#include "f_defs.h"
   !
 #ifdef __PARA
   USE mp_global,            ONLY : my_pool_id, nproc_pool, &
@@ -186,7 +185,6 @@
     ENDIF
   ENDDO
   IF (iverbosity.eq.1) write (stdout, *) & 
-!$$  if (.true.) write (stdout, *) & 
      ik0, nset, (ndeg (iset) ,iset=1,nset)
   !
   ! -----------------------------------------------------------

@@ -49,8 +49,16 @@ PROGRAM lr_dav_main
 #ifdef __MPI
   CALL mp_startup ( )
 #endif
-  tddfpt=.TRUE. !Let the phonon routines know that they are doing tddfpt.
-  davidson=.true. ! To tell the code that we are using davidson method
+  !
+  ! Let the routines of the Environ plugin know that 
+  ! they are doing TDDFPT. 
+  !
+  tddfpt = .true.
+  !
+  ! Tell to the code that we are using the Davidson method
+  !
+  davidson = .true.
+  !
   CALL environment_start ( code1 )
   CALL start_clock('lr_dav_main')
 

@@ -26,8 +26,9 @@ SUBROUTINE lr_dealloc()
   USE becmod,         ONLY : bec_type, becp, deallocate_bec_type
   USE lrus,           ONLY : int3, int3_nc, becp1, &
                            & bbg, bbk, bbnc
-  USE qpoint,         ONLY : ikks, ikqs, igkq, eigqts
+  USE qpoint,         ONLY : ikks, ikqs, eigqts
   USE eqv,            ONLY : dmuxc, evq, dpsi, dvpsi
+  USE control_lr,     ONLY : nbnd_occ
   !
   IMPLICIT NONE
   !
@@ -76,13 +77,9 @@ SUBROUTINE lr_dealloc()
   !
   IF (eels) THEN
      IF (associated(evq))    DEALLOCATE(evq)
-     IF (associated(igkq))   DEALLOCATE(igkq)
+  ELSE
+     IF (associated(evq))    NULLIFY(evq)
   ENDIF 
-  !
-  !IF (allocated(eval1)) DEALLOCATE(eval1)
-  !IF (allocated(eval2)) DEALLOCATE(eval2)
-  !IF (allocated(vl)) DEALLOCATE(vl)
-  !IF (allocated(vr)) DEALLOCATE(vr)
   !
   IF (allocated(becp1)) THEN
      DO ik = 1,size(becp1)
@@ -90,6 +87,8 @@ SUBROUTINE lr_dealloc()
      ENDDO
      DEALLOCATE(becp1)
   ENDIF
+  !
+  IF (ALLOCATED(nbnd_occ)) DEALLOCATE(nbnd_occ)
   !
   IF (allocated(alpha_store)) DEALLOCATE(alpha_store)
   IF (allocated(beta_store))  DEALLOCATE(beta_store)

@@ -118,12 +118,13 @@ WannierHam_example:
     This example shows how to generate a model Hamiltonian in a
     Wannier functions basis, using pw.x and wannier_ham.x.
 
-QExml_example:
-    The example shows how to use qexml.f90 to read files
-    written by pw.x and cp.x
-
 MolDos_example:
     This example calculates the projection of the density of states of
     a system, containing a molecule, on the molecular orbitals of the
     molecule (separately computed).
 
+ForceTheorem_example:
+
+    This example shows how to compute the magnetic anisotropy energy (MAE) 
+    with the "Force Theorem" method (Phys. Rev. B 90, 205409 (2014), and to
+    get its local decomposition over atomic orbitals using projwfc.x.

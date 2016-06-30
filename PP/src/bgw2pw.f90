@@ -68,7 +68,7 @@
 PROGRAM bgw2pw
 
   USE environment, ONLY : environment_start, environment_end
-  USE io_files, ONLY : prefix, tmp_dir, outdir
+  USE io_files, ONLY : prefix, tmp_dir
   USE io_global, ONLY : ionode, ionode_id
   USE kinds, ONLY : DP
   USE mp, ONLY : mp_bcast
@@ -85,6 +85,7 @@ PROGRAM bgw2pw
   integer :: wfng_nband
   logical :: rhog_flag
   character ( len = 256 ) :: rhog_file
+  character ( len = 256 ) :: outdir
 
   NAMELIST / input_bgw2pw / prefix, outdir, &
     real_or_complex, wfng_flag, wfng_file, wfng_nband, &
@@ -122,7 +123,6 @@ PROGRAM bgw2pw
   ENDIF
 
   tmp_dir = trimcheck ( outdir )
-  CALL mp_bcast ( outdir, ionode_id, world_comm )
   CALL mp_bcast ( tmp_dir, ionode_id, world_comm )
   CALL mp_bcast ( prefix, ionode_id, world_comm )
   CALL mp_bcast ( real_or_complex, ionode_id, world_comm )
@@ -134,15 +134,11 @@ PROGRAM bgw2pw
 
   CALL read_file ( )
 
-  ! this is needed to compute k+G indices and store them into igk_k
- 
-  CALL hinit0 ( )
-
   CALL openfil_pp ( )
 
   IF ( wfng_flag ) THEN
-    input_file_name = TRIM ( outdir ) // '/' // TRIM ( wfng_file )
-    output_dir_name = TRIM ( outdir ) // '/' // TRIM ( prefix ) // '.save'
+    input_file_name = TRIM ( tmp_dir ) // '/' // TRIM ( wfng_file )
+    output_dir_name = TRIM ( tmp_dir ) // '/' // TRIM ( prefix ) // '.save'
     IF ( ionode ) WRITE ( 6, '(5x,"call write_evc")' )
     CALL start_clock ( 'write_evc' )
     CALL write_evc ( input_file_name, real_or_complex, wfng_nband, &
@@ -152,8 +148,8 @@ PROGRAM bgw2pw
   ENDIF
 
   IF ( rhog_flag ) THEN
-    input_file_name = TRIM ( outdir ) // '/' // TRIM ( rhog_file )
-    output_dir_name = TRIM ( outdir ) // '/' // TRIM ( prefix ) // '.save'
+    input_file_name = TRIM ( tmp_dir ) // '/' // TRIM ( rhog_file )
+    output_dir_name = TRIM ( tmp_dir ) // '/' // TRIM ( prefix ) // '.save'
     IF ( ionode ) WRITE ( 6, '(5x,"call write_cd")' )
     CALL start_clock ( 'write_cd' )
     CALL write_cd ( input_file_name, real_or_complex, output_dir_name )
@@ -202,7 +198,7 @@ SUBROUTINE write_evc ( input_file_name, real_or_complex, &
 #ifdef __MPI
   USE parallel_include, ONLY : MPI_INTEGER, MPI_DOUBLE_COMPLEX
 #endif
-  USE wvfct, ONLY : npwx, igk
+  USE wvfct, ONLY : npwx
 
   IMPLICIT NONE
 
@@ -513,9 +509,8 @@ SUBROUTINE write_evc ( input_file_name, real_or_complex, &
   npw_g = 0
   DO ik = 1, nks
     npw = ngk ( ik )
-    igk(1:npw) = igk_k(1:npw,ik)
     DO ig = 1, npw
-      igk_l2g = ig_l2g ( igk ( ig ) )
+      igk_l2g = ig_l2g ( igk_k (ig, ik) )
       IF ( igk_l2g .GT. npw_g ) npw_g = igk_l2g
     ENDDO
   ENDDO

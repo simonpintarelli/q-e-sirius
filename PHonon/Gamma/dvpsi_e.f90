@@ -7,11 +7,11 @@
 !
 !
 !----------------------------------------------------------------------
-SUBROUTINE dvpsi_e(kpoint,ipol)
+SUBROUTINE dvpsi_e(ik,ipol)
   !----------------------------------------------------------------------
   !
   ! Calculates x * psi_k  for each k-points and for the 3 polarizations
-  ! Requires on input: vkb, evc, igk
+  ! Requires on input: vkb, evc
   !
   USE kinds, ONLY: DP
   USE ions_base, ONLY : ntyp => nsp, nat, ityp
@@ -23,11 +23,11 @@ SUBROUTINE dvpsi_e(kpoint,ipol)
   USE cell_base, ONLY : tpiba
   USE gvect,     ONLY : g
   USE klist,     ONLY : xk
-  USE wvfct,     ONLY : nbnd, npwx, npw, g2kin, igk, et
+  USE wvfct,     ONLY : nbnd, npwx, npw, g2kin, et
   USE cgcom
   !
   IMPLICIT NONE
-  INTEGER :: kpoint, ipol
+  INTEGER :: ik, ipol
   INTEGER :: i,l, na,nt, ibnd,jbnd, info, ih,jkb, iter
   real(DP) :: upol(3,3)
   real(DP), ALLOCATABLE :: gk(:,:), q(:), overlap(:,:), &
@@ -48,10 +48,12 @@ SUBROUTINE dvpsi_e(kpoint,ipol)
   ALLOCATE ( dvkb1( npwx, nkb) )
   ALLOCATE ( becp_(nkb,nbnd), dbec ( nkb, nbnd), dbec_(nkb, nbnd) )
   !
+  !  g2kin is used in H_h, called by cgsolve below
+  !
   DO i = 1,npw
-     gk(1,i) = (xk(1,kpoint)+g(1,igk(i)))*tpiba
-     gk(2,i) = (xk(2,kpoint)+g(2,igk(i)))*tpiba
-     gk(3,i) = (xk(3,kpoint)+g(3,igk(i)))*tpiba
+     gk(1,i) = g(1,i)*tpiba
+     gk(2,i) = g(2,i)*tpiba
+     gk(3,i) = g(3,i)*tpiba
      g2kin(i)= gk(1,i)**2 + gk(2,i)**2 + gk(3,i)**2
   ENDDO
   !
@@ -74,8 +76,8 @@ SUBROUTINE dvpsi_e(kpoint,ipol)
   ! and these are the contributions from nonlocal pseudopotentials
   ! ( upol(3,3) are the three unit vectors along x,y,z)
   !
-  CALL gen_us_dj(kpoint,dvkb)
-  CALL gen_us_dy(kpoint,upol(1,ipol),dvkb1)
+  CALL gen_us_dj(ik,dvkb)
+  CALL gen_us_dy(ik,upol(1,ipol),dvkb1)
   !
   DO jkb = 1, nkb
      DO i = 1,npw
@@ -139,7 +141,7 @@ SUBROUTINE dvpsi_e(kpoint,ipol)
   dvpsi(:,:) = (0.d0, 0.d0)
   !
   CALL cgsolve (H_h,npw,evc,npwx,nbnd,overlap,nbnd,   &
-       orthonormal,precondition,q,startwith0,et(1,kpoint),&
+       orthonormal,precondition,q,startwith0,et(1,ik),&
        dpsi,gr,h,dpsi,work,niter_ph,tr2_ph,iter,dvpsi)
   !
   DEALLOCATE(q)

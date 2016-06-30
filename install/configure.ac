@@ -6,7 +6,7 @@
 # of the License. See the file `License' in the root directory
 # of the present distribution.
 
-AC_INIT(ESPRESSO, 5.3.0, , espresso)
+AC_INIT(ESPRESSO, 5.4.0, , espresso)
 
 AC_PREREQ(2.60)
 AC_CONFIG_MACRO_DIR([m4/])
@@ -30,13 +30,16 @@ try_iflags="-I../include"
 # Checking archiver...
 X_AC_QE_AR()
 
+# Checking OpenMP...
+X_AC_QE_OPENMP()
+
 # Checking MPIF90...
 X_AC_QE_MPIF90()
 
 # Check environ...
 X_AC_QE_ENVIRON()
 
-# Checking MPIF90...
+# Checking CC...
 X_AC_QE_CC()
 
 # Checking FFTW pointers...
@@ -92,17 +95,18 @@ X_AC_QE_ELPA()
 # Checking SIGNAL...
 X_AC_QE_SIGNAL()
 
-# xlf compilers (AIX and powerpc) want comma-separated -D directives
-X_AC_QE_AIX_DFLAGS()
-
 # Checking for ranlib...
 X_AC_QE_RANLIB()
 
-# Check if wget or curl work  
+# Checking wget or curl...
 X_AC_QE_WGET()
 
+# Show dflags before adding $(MANUAL_DFLAGS) and adapt to XLF (if needed)
 if test "$dflags" = "" ; then dflags="$try_dflags" ; fi
-echo setting DFLAGS... $dflags
+echo setting DFLAGS... $try_dflags
+
+# xlf compilers (AIX and powerpc) want comma-separated -D directives
+X_AC_QE_AIX_DFLAGS()
 
 if test "$iflags" = "" ; then iflags="$try_iflags" ; fi
 echo setting IFLAGS... $iflags

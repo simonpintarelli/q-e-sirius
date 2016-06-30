@@ -1,5 +1,5 @@
 !
-! Copyright (C) 2001-2015 Quantum ESPRESSO group
+! Copyright (C) 2001-2016 Quantum ESPRESSO group
 ! This file is distributed under the terms of the
 ! GNU General Public License. See the file `License'
 ! in the root directory of the present distribution,
@@ -77,8 +77,8 @@ PROGRAM lr_main
      WRITE(stdout,'("<lr_main>")')
   ENDIF
   !
-  ! Let the PHonon and Environ routines know that 
-  ! they are doing tddfpt.
+  ! Let the routines of the Environ plugin know that 
+  ! they are doing TDDFPT.
   !
   tddfpt = .TRUE.
   !

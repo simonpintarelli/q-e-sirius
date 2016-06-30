@@ -13,13 +13,11 @@
   ! This routine writes to files results from the solutions of the Eliashberg equations
   ! on the imaginary-axis
   !
-#include "f_defs.h"
-  !
   USE kinds,         ONLY : DP
   USE io_epw,        ONLY : iufilgap
   USE io_files,      ONLY : prefix
   USE control_flags, ONLY : iverbosity
-  USE epwcom,        ONLY : fsthick, laniso, liso
+  USE epwcom,        ONLY : fsthick, laniso, liso, limag
   USE eliashbergcom, ONLY : nsiw, estemp, Agap, wsi, & 
                             NAZnormi, AZnormi, ADeltai, NZnormi, Znormi, & 
                             Deltai, nkfs, nbndfs, ef0, ekfs
@@ -29,16 +27,18 @@
   !
   INTEGER  :: iw, itemp, ik, ibnd
   REAL(DP) :: temp
-  CHARACTER (len=256) :: name1
+  CHARACTER (len=256) :: name1, cname
   !
   temp = estemp(itemp) / kelvin2eV
+  !
+  cname = 'imag'
   !
   IF ( laniso ) THEN 
      !
      IF ( temp .lt. 10.d0 ) THEN
-        WRITE(name1,'(a,a13,f4.2)') TRIM(prefix),'.imag_aniso_0', temp
+        WRITE(name1,'(a,a1,a4,a8,f4.2)') TRIM(prefix), '.', cname, '_aniso_0', temp
      ELSEIF ( temp .ge. 10.d0 ) THEN
-        WRITE(name1,'(a,a12,f5.2)') TRIM(prefix),'.imag_aniso_', temp
+        WRITE(name1,'(a,a1,a4,a7,f5.2)') TRIM(prefix), '.', cname, '_aniso_', temp
      ENDIF
      OPEN(iufilgap, file=name1, form='formatted')
      WRITE(iufilgap,'(5a20)') '#        w [eV]', 'Enk-Ef [eV]', 'Znorm(w) [eV]', 'Delta(w) [eV]', 'NZnorm(w) [eV]'
@@ -55,7 +55,7 @@
      ENDDO ! iw
      CLOSE(iufilgap)
      !
-     CALL gap_distribution_FS ( itemp )
+     CALL gap_distribution_FS ( itemp, cname )
      !
      CALL gap_FS ( itemp )
      !
@@ -65,9 +65,9 @@
   ! SP: Only write isotropic for laniso if user really wants that
   IF ( ( laniso .AND. iverbosity .eq. 2 ) .OR. liso ) THEN
      IF ( temp .lt. 10.d0 ) THEN
-        WRITE(name1,'(a,a11,f4.2)') TRIM(prefix),'.imag_iso_0', temp
+        WRITE(name1,'(a,a1,a4,a6,f4.2)') TRIM(prefix), '.', cname, '_iso_0', temp
      ELSEIF ( temp .ge. 10.d0 ) THEN
-        WRITE(name1,'(a,a10,f5.2)') TRIM(prefix),'.imag_iso_', temp
+        WRITE(name1,'(a,a1,a4,a5,f5.2)') TRIM(prefix), '.', cname, '_iso_', temp
      ENDIF
      OPEN(iufilgap, file=name1, form='formatted')
      WRITE(iufilgap,'(4a24)') 'w', 'Znorm(w)', 'Delta(w)', 'NZnorm(w)'
@@ -82,14 +82,12 @@
   END SUBROUTINE eliashberg_write_iaxis
   !
   !-----------------------------------------------------------------------
-  SUBROUTINE eliashberg_write_cont_raxis( itemp )
+  SUBROUTINE eliashberg_write_cont_raxis( itemp, cname )
   !-----------------------------------------------------------------------
   !
   !
   ! This routine writes to files results from the solutions of the Eliashberg
   ! equations on the real-axis 
-  !
-#include "f_defs.h"
   !
   USE kinds,         ONLY : DP
   USE io_global,     ONLY : stdout
@@ -107,24 +105,16 @@
   INTEGER :: iw, itemp, ik, ibnd
   REAL(DP) :: weight, temp
   LOGICAL :: lgap
-  CHARACTER(len=256) :: name1
+  CHARACTER(len=256) :: name1, cname
   !
   temp = estemp(itemp) / kelvin2eV
   !
   IF ( laniso ) THEN 
      IF ( iverbosity .eq. 2 ) THEN
         IF ( temp .lt. 10.d0 ) THEN
-           IF ( lpade ) THEN
-              WRITE(name1,'(a,a13,f4.2)') TRIM(prefix),'.pade_aniso_0', temp
-           ELSEIF ( lacon ) THEN
-              WRITE(name1,'(a,a13,f4.2)') TRIM(prefix),'.acon_aniso_0', temp
-           ENDIF
+           WRITE(name1,'(a,a1,a4,a8,f4.2)') TRIM(prefix), '.', cname, '_aniso_0', temp
         ELSEIF ( temp .ge. 10.d0 ) THEN
-           IF ( lpade ) THEN
-              WRITE(name1,'(a,a12,f5.2)') TRIM(prefix),'.pade_aniso_', temp
-           ELSEIF ( lacon ) THEN
-              WRITE(name1,'(a,a12,f5.2)') TRIM(prefix),'.acon_aniso_', temp
-           ENDIF
+           WRITE(name1,'(a,a1,a4,a7,f5.2)') TRIM(prefix), '.', cname, '_aniso_', temp
         ENDIF
         OPEN(iufilgap, file=name1, form='formatted')
         WRITE(iufilgap,'(6a24)') 'w', 'Enk-Ef', 'Re[Znorm(w)]', 'Im[Znorm(w)]', 'Re[Delta(w)]', 'Im[Delta(w)]'
@@ -155,7 +145,7 @@
      ENDDO ! ik
      IF ( iverbosity .eq. 2 ) CLOSE(iufilgap)
      !
-     CALL gap_distribution_FS ( itemp )
+     CALL gap_distribution_FS ( itemp, cname )
      !
   ENDIF
   !
@@ -163,17 +153,9 @@
   ! SP: Only write isotropic for laniso if user really wants that
   IF ( ( laniso .AND. iverbosity .eq. 2 ) .OR. liso ) THEN
      IF ( temp .lt. 10.d0 ) THEN
-        IF ( lpade ) THEN
-           WRITE(name1,'(a,a11,f4.2)') TRIM(prefix),'.pade_iso_0', temp
-        ELSEIF ( lacon ) THEN
-           WRITE(name1,'(a,a11,f4.2)') TRIM(prefix),'.acon_iso_0', temp
-        ENDIF
+        WRITE(name1,'(a,a1,a4,a6,f4.2)') TRIM(prefix), '.', cname, '_iso_0', temp
      ELSEIF ( temp .ge. 10.d0 ) THEN
-        IF ( lpade ) THEN
-           WRITE(name1,'(a,a10,f5.2)') TRIM(prefix),'.pade_iso_', temp
-        ELSEIF ( lacon ) THEN
-           WRITE(name1,'(a,a10,f5.2)') TRIM(prefix),'.acon_iso_', temp
-        ENDIF
+        WRITE(name1,'(a,a1,a4,a5,f5.2)') TRIM(prefix), '.', cname, '_iso_', temp
      ENDIF
      OPEN(iufilgap, file=name1, form='formatted')
      WRITE(iufilgap,'(5a18)') 'w', 'Re[Znorm(w)]', 'Im[Znorm(w)]', 'Re[Delta(w)]', 'Im[Delta(w)]'
@@ -197,13 +179,11 @@
   END SUBROUTINE eliashberg_write_cont_raxis
   !
   !-----------------------------------------------------------------------
-  SUBROUTINE gap_distribution_FS ( itemp )
+  SUBROUTINE gap_distribution_FS ( itemp, cname )
   !-----------------------------------------------------------------------
   !
   ! This routine writes to files the distribution of the superconducting 
   ! gap on the Fermi surface
-  !
-#include "f_defs.h"
   !
   USE kinds,         ONLY : DP
   USE io_epw,        ONLY : iufilgap
@@ -218,7 +198,7 @@
   REAL(DP) :: weight, temp, delta_max, dbin, sigma
   REAL(DP), ALLOCATABLE :: delta_k_bin(:)
   REAL(DP), EXTERNAL :: w0gauss
-  CHARACTER (len=256) :: name1
+  CHARACTER (len=256) :: name1, cname
   !
   temp = estemp(itemp) / kelvin2eV
   !
@@ -241,21 +221,9 @@
   ENDDO
   !
   IF ( temp .lt. 10.d0 ) THEN
-     IF ( limag ) THEN
-        WRITE(name1,'(a,a18,f4.2)') TRIM(prefix),'.imag_aniso_gap0_0', temp
-     ELSEIF ( lpade ) THEN
-        WRITE(name1,'(a,a18,f4.2)') TRIM(prefix),'.pade_aniso_gap0_0', temp
-     ELSEIF ( lacon ) THEN
-        WRITE(name1,'(a,a18,f4.2)') TRIM(prefix),'.acon_aniso_gap0_0', temp
-     ENDIF
+     WRITE(name1,'(a,a1,a4,a13,f4.2)') TRIM(prefix), '.', cname, '_aniso_gap0_0', temp
   ELSEIF ( temp .ge. 10.d0 ) THEN
-     IF ( limag ) THEN
-        WRITE(name1,'(a,a17,f5.2)') TRIM(prefix),'.imag_aniso_gap0_', temp
-     ELSEIF ( lpade ) THEN
-        WRITE(name1,'(a,a17,f5.2)') TRIM(prefix),'.pade_aniso_gap0_', temp
-     ELSEIF ( lacon ) THEN
-        WRITE(name1,'(a,a17,f4.2)') TRIM(prefix),'.acon_aniso_gap0_', temp
-     ENDIF
+     WRITE(name1,'(a,a1,a4,a12,f5.2)') TRIM(prefix), '.', cname, '_aniso_gap0_', temp
   ENDIF
   !
   OPEN(iufilgap, file=name1, form='formatted')
@@ -276,9 +244,6 @@
   !
   ! This routine writes to files the superconducting gap on the Fermi surface
   !
-  !
-#include "f_defs.h"
-  !
   USE kinds,         ONLY : DP
   USE io_epw,        ONLY : iufilgapFS
   USE io_files,      ONLY : prefix
@@ -293,9 +258,11 @@
   INTEGER  :: i, j, k, itemp, ik, ibnd
   REAL(DP) :: temp, x1, x2, x3
   REAL(DP), ALLOCATABLE :: Agap_tmp(:,:)
-  CHARACTER (len=256) :: name1
+  CHARACTER (len=256) :: name1, cname
   !
   temp = estemp(itemp) / kelvin2eV
+  !
+  cname = 'imag'
   !
   ! RM - If the k-point is outside the Fermi shell,
   ! ixkff(ik)=0 and Agap_tmp(:,0) = 0.0
@@ -310,9 +277,9 @@
      !
      DO ibnd = 1, nbndfs
         IF ( temp .lt. 10.d0 ) THEN
-           WRITE(name1,'(a,a18,f4.2,a1,i1,a5)')TRIM(prefix),'.imag_aniso_gap0_0', temp, '_', ibnd, '.cube'
+           WRITE(name1,'(a,a1,a4,a13,f4.2,a1,i1,a5)')TRIM(prefix), '.', cname, '_aniso_gap0_0', temp, '_', ibnd, '.cube'
         ELSEIF ( temp .ge. 10.d0 ) THEN
-           WRITE(name1,'(a,a17,f5.2,a1,i1,a5)')TRIM(prefix),'.imag_aniso_gap0_', temp, '_', ibnd, '.cube'
+           WRITE(name1,'(a,a1,a4,a12,f5.2,a1,i1,a5)')TRIM(prefix), '.', cname, '_aniso_gap0_', temp, '_', ibnd, '.cube'
         ENDIF
         OPEN(iufilgapFS, file=name1, form='formatted')
         WRITE(iufilgapFS,*) 'Cubfile created from EPW calculation'
@@ -332,32 +299,32 @@
   !     Cartesian coordinate, band index, energy distance from Fermi level and gap value.
   !
   IF ( temp .lt. 10.d0 ) THEN
-     WRITE(name1,'(a,a20,f4.2)') TRIM(prefix),'.imag_aniso_gap_FS_0', temp
+     WRITE(name1,'(a,a1,a4,a15,f4.2)') TRIM(prefix), '.', cname, '_aniso_gap_FS_0', temp
   ELSEIF ( temp .ge. 10.d0 ) THEN
-     WRITE(name1,'(a,a19,f5.2)') TRIM(prefix),'.imag_aniso_gap_FS_', temp
+     WRITE(name1,'(a,a1,a4,a14,f5.2)') TRIM(prefix), '.', cname, '_aniso_gap_FS_', temp
   ENDIF
   OPEN(iufilgapFS, file=name1, form='formatted')
   WRITE(iufilgapFS,'(a78)') '#               k-point                  Band Enk-Ef [eV]        Delta(0) [eV]'
   DO i = 1, nkf1
-     DO j = 1, nkf2
-        DO k = 1, nkf3
-           ik = k + (j-1)*nkf3 + (i-1)*nkf2*nkf3
-           IF ( ixkff(ik) .gt. 0 ) THEN
-              DO ibnd = 1, nbndfs
-                 ! RM: Everything is in eV here.
-                 ! SP: Here take a 0.2 eV interval around the FS.
-                 IF ( abs( ekfs(ibnd,ixkff(ik)) - ef0 ) .lt. fsthick ) THEN
-                 !IF ( abs( ekfs(ibnd,ixkff(ik)) - ef0 ) .lt. 0.2 ) THEN
-                     x1 = bg(1,1)*(i-1)/nkf1+bg(1,2)*(j-1)/nkf2+bg(1,3)*(k-1)/nkf3
-                     x2 = bg(2,1)*(i-1)/nkf1+bg(2,2)*(j-1)/nkf2+bg(2,3)*(k-1)/nkf3
-                     x3 = bg(3,1)*(i-1)/nkf1+bg(3,2)*(j-1)/nkf2+bg(3,3)*(k-1)/nkf3
-                     WRITE(iufilgapFS,'(3f12.6,i8,f12.6,f24.15)') x1, x2, x3, ibnd, &
-                           ekfs(ibnd,ixkff(ik))-ef0, Agap_tmp(ibnd,ixkff(ik))
-                 ENDIF
-              ENDDO ! ibnd
-           ENDIF
-        ENDDO  ! k
-     ENDDO ! j
+    DO j = 1, nkf2
+      DO k = 1, nkf3
+        ik = k + (j-1)*nkf3 + (i-1)*nkf2*nkf3
+        !IF ( ixkff(ik) .gt. 0 ) THEN
+          DO ibnd = 1, nbndfs
+            ! RM: Everything is in eV here.
+            ! SP: Here take a 0.2 eV interval around the FS.
+            IF ( abs( ekfs(ibnd,ixkff(ik)) - ef0 ) .lt. fsthick ) THEN
+            !IF ( abs( ekfs(ibnd,ixkff(ik)) - ef0 ) .lt. 0.2 ) THEN
+               x1 = bg(1,1)*(i-1)/nkf1+bg(1,2)*(j-1)/nkf2+bg(1,3)*(k-1)/nkf3
+               x2 = bg(2,1)*(i-1)/nkf1+bg(2,2)*(j-1)/nkf2+bg(2,3)*(k-1)/nkf3
+               x3 = bg(3,1)*(i-1)/nkf1+bg(3,2)*(j-1)/nkf2+bg(3,3)*(k-1)/nkf3
+               WRITE(iufilgapFS,'(3f12.6,i8,f12.6,f24.15)') x1, x2, x3, ibnd, &
+                     ekfs(ibnd,ixkff(ik))-ef0, Agap_tmp(ibnd,ixkff(ik))
+            ENDIF
+          ENDDO ! ibnd
+        !ENDIF
+      ENDDO  ! k
+    ENDDO ! j
   ENDDO ! i
   CLOSE(iufilgapFS)
   !

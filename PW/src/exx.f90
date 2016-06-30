@@ -115,7 +115,6 @@ MODULE exx
   !------------------------------------------------------------------------
   SUBROUTINE exx_fft_create ()
     USE gvecw,        ONLY : ecutwfc
-    USE wvfct,        ONLY : npw
     USE gvect,        ONLY : ecutrho, ig_l2g
     USE control_flags,ONLY : gamma_only
     USE klist,        ONLY : qnorm
@@ -144,11 +143,7 @@ MODULE exx
     CALL data_structure_custom(exx_fft, gamma_only)
     CALL ggent(exx_fft)
     exx_fft%initialized = .true.
-
-    IF (gamma_only .AND. MAXVAL(ABS(ig_l2g(1:npw)-exx_fft%ig_l2gt(1:npw)))/=0) &
-       CALL errore('exx_fft_create', ' exx fft grid not compatible with' &
-                   //' the smooth fft grid ', 1 )
-
+    !
     RETURN
     !------------------------------------------------------------------------
   END SUBROUTINE exx_fft_create
@@ -943,6 +938,7 @@ MODULE exx
 
     IMPLICIT NONE
     !
+    INTEGER, EXTERNAL  :: n_plane_waves
     INTEGER  :: npwq, npwx_, ibnd, ikq, j, h_ibnd, ibnd_loop_start
     INTEGER,ALLOCATABLE     :: igkq(:)   !  order of wavefunctions at k+q[+G]
     INTEGER,ALLOCATABLE     :: ngkq(:)   !  number of plane waves at k+q[+G]
@@ -962,7 +958,7 @@ MODULE exx
     ! equivalent by symmetry)
     !
     ALLOCATE(ngkq(nkqs))
-    CALL n_plane_waves (gcutw, nkqs, xkq_collect, g, ngm, npwq, ngkq)
+    npwq = n_plane_waves (gcutw, nkqs, xkq_collect, g, ngm)
     npwq = MAX (npwx, npwq)
     !
     ! Dirty trick to prevent gk_sort from stopping with an error message:
@@ -1003,14 +999,14 @@ MODULE exx
             IF (ibnd < ibnd_end) THEN
                ! two ffts at the same time
                DO j = 1, ngkq(ikq)
-                  fp = (phi (nls(igkq(j))) + phi (nlsm(igkq(j))))*0.5d0
-                  fm = (phi (nls(igkq(j))) - phi (nlsm(igkq(j))))*0.5d0
+                  fp = (phi (nls(j)) + phi (nlsm(j)))*0.5d0
+                  fm = (phi (nls(j)) - phi (nlsm(j)))*0.5d0
                   evcq( j, ibnd)   = CMPLX( DBLE(fp), AIMAG(fm),kind=DP)
                   evcq( j, ibnd+1) = CMPLX(AIMAG(fp),- DBLE(fm),kind=DP)
                ENDDO
             ELSE
                DO j = 1, ngkq(ikq)
-                  evcq(j, ibnd)   =  phi(nls(igkq(j)))
+                  evcq(j, ibnd)   =  phi(nls(j))
                ENDDO
             ENDIF
          ENDDO
@@ -1094,9 +1090,9 @@ MODULE exx
     USE constants,      ONLY : fpi, e2, pi
     USE cell_base,      ONLY : omega
     USE gvect,          ONLY : ngm, g
-    USE wvfct,          ONLY : npwx, npw, igk, current_k
+    USE wvfct,          ONLY : npwx, current_k
     USE control_flags,  ONLY : gamma_only
-    USE klist,          ONLY : xk, nks, nkstot
+    USE klist,          ONLY : xk, nks, nkstot, ngk, igk_k
     USE fft_interfaces, ONLY : fwfft, invfft
     USE becmod,         ONLY : bec_type
     USE mp_bands,       ONLY : inter_bgrp_comm, intra_bgrp_comm, my_bgrp_id, nbgrp
@@ -1347,8 +1343,8 @@ MODULE exx
           ENDDO
 !$omp end parallel do
           ! add non-local \sum_I |beta_I> \alpha_Ii (the sum on i is outside)
-          IF(okvan) CALL add_nlxx_pot (lda, hpsi(:,im), xkp, npw, igk, &
-                                       deexx, eps_occ, exxalfa)
+          IF(okvan) CALL add_nlxx_pot (lda, hpsi(:,im), xkp, n, &
+                           igk_k(1,current_k), deexx, eps_occ, exxalfa)
        ENDDO &
        LOOP_ON_PSI_BANDS
        IF ( okvan .AND..NOT.tqr ) CALL qvan_clean ()
@@ -1375,9 +1371,9 @@ MODULE exx
     USE constants,      ONLY : fpi, e2, pi
     USE cell_base,      ONLY : omega
     USE gvect,          ONLY : ngm, g
-    USE wvfct,          ONLY : npwx, npw, igk, current_k
+    USE wvfct,          ONLY : npwx, current_k
     USE control_flags,  ONLY : gamma_only
-    USE klist,          ONLY : xk, nks, nkstot
+    USE klist,          ONLY : xk, nks, nkstot, igk_k
     USE fft_interfaces, ONLY : fwfft, invfft
     USE becmod,         ONLY : bec_type
     USE mp_bands,       ONLY : inter_bgrp_comm, intra_bgrp_comm, my_bgrp_id, nbgrp
@@ -1456,12 +1452,12 @@ MODULE exx
           !
 !$omp parallel do  default(shared), private(ig)
           DO ig = 1, n
-             temppsic_nc(exx_fft%nlt(igk(ig)),1) = psi(ig,im)
+             temppsic_nc(exx_fft%nlt(igk_k(ig,current_k)),1) = psi(ig,im)
           ENDDO
 !$omp end parallel do
 !$omp parallel do  default(shared), private(ig)
           DO ig = 1, n
-             temppsic_nc(exx_fft%nlt(igk(ig)),2) = psi(npwx+ig,im)
+             temppsic_nc(exx_fft%nlt(igk_k(ig,current_k)),2) = psi(npwx+ig,im)
           ENDDO
 !$omp end parallel do
           !
@@ -1472,7 +1468,7 @@ MODULE exx
           !
 !$omp parallel do  default(shared), private(ig)
           DO ig = 1, n
-             temppsic( exx_fft%nlt(igk(ig)) ) = psi(ig,im)
+             temppsic( exx_fft%nlt(igk_k(ig,current_k)) ) = psi(ig,im)
           ENDDO
 !$omp end parallel do
           CALL invfft ('CustomWave', temppsic, exx_fft%dfftt)
@@ -1602,7 +1598,7 @@ MODULE exx
           !
           !communicate result
           DO ig = 1, n
-             result_nc_g(ig,1:npol) = result_nc(exx_fft%nlt(igk(ig)),1:npol)
+             result_nc_g(ig,1:npol) = result_nc(exx_fft%nlt(igk_k(ig,current_k)),1:npol)
           ENDDO
           CALL mp_sum( result_nc_g(1:n,1:npol), inter_bgrp_comm)
           !
@@ -1624,7 +1620,7 @@ MODULE exx
           !
           !communicate result
           DO ig = 1, n
-             result_g(ig) = result(exx_fft%nlt(igk(ig)))
+             result_g(ig) = result(exx_fft%nlt(igk_k(ig,current_k)))
           ENDDO
           CALL mp_sum( result_g(1:n), inter_bgrp_comm)
           !
@@ -1637,7 +1633,7 @@ MODULE exx
        ENDIF
        !
        ! add non-local \sum_I |beta_I> \alpha_Ii (the sum on i is outside)
-       IF(okvan) CALL add_nlxx_pot (lda, hpsi(:,im), xkp, npw, igk, &
+       IF(okvan) CALL add_nlxx_pot(lda, hpsi(:,im), xkp, n, igk_k(1,current_k),&
                                        deexx, eps_occ, exxalfa)
        !
     ENDDO &
@@ -1783,7 +1779,7 @@ MODULE exx
     !
     USE io_files,               ONLY : iunwfc, nwordwfc
     USE buffers,                ONLY : get_buffer
-    USE wvfct,                  ONLY : nbnd, npwx, npw, igk, wg, current_k
+    USE wvfct,                  ONLY : nbnd, npwx, wg, current_k
     USE control_flags,          ONLY : gamma_only
     USE gvect,                  ONLY : gstart
     USE wavefunctions_module,   ONLY : evc
@@ -1799,7 +1795,7 @@ MODULE exx
 
     TYPE(bec_type) :: becpsi
     REAL(DP)       :: exxenergy,  energy
-    INTEGER        :: ibnd, ik
+    INTEGER        :: npw, ibnd, ik
     COMPLEX(DP)    :: vxpsi ( npwx*npol, nbnd ), psi(npwx*npol,nbnd)
     COMPLEX(DP),EXTERNAL :: zdotc
     !
@@ -1815,7 +1811,6 @@ MODULE exx
        ! setup variables for usage by vexx (same logic as for H_psi)
        current_k = ik
        IF ( lsda ) current_spin = isk(ik)
-       igk(1:npw) = igk_k(1:npw,ik)
        ! end setup
        IF ( nks > 1 ) THEN
           CALL get_buffer(psi, nwordwfc, iunwfc, ik)

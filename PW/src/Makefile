@@ -163,6 +163,8 @@ print_clock_pw.o \
 print_ks_energies.o \
 punch.o \
 pw_restart.o \
+add_qexsd_step.o \
+pw_init_qexsd_input.o \
 pwcom.o \
 pw2blip.o \
 pw2casino.o \
@@ -274,7 +276,7 @@ tldeps :
 	( cd ../.. ; $(MAKE) $(TLDEPS) || exit 1 ) ; fi
 
 clean :
-	- /bin/rm -f *.x *.o *.a *~ *.F90 *.d *.mod *.i *.L
+	- /bin/rm -f *.x *.o *.a *~ *_tmp.f90 *.d *.mod *.i *.L
 
 generate_vdW_kernel_table.x : libpw.a generate_vdW_kernel_table.o
 	$(LD) $(LDFLAGS) -o $@ \
