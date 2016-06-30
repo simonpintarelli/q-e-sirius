@@ -88,7 +88,10 @@ subroutine electrons_sirius()
       case(0)
       case(2)
         CALL sirius_add_xc_functional(c_str("XC_GGA_X_PW91"))
+      case(3)
+        CALL sirius_add_xc_functional(c_str("XC_GGA_X_PBE"))
       case default
+        write(*,*)get_igcx()
         STOP("interface for this gradient exchange functional is not implemented")
     end select
   endif
@@ -110,6 +113,8 @@ subroutine electrons_sirius()
       case(0)
       case(2)
         call sirius_add_xc_functional(c_str("XC_GGA_C_PW91"))
+      case(4)
+        call sirius_add_xc_functional(c_str("XC_GGA_C_PBE"))
       case default
         STOP("interface for this gradient correlation functional is not implemented")
     end select
