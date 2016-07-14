@@ -84,7 +84,7 @@
   logical :: eqvect_strict
   !! This function test if two tridimensional vectors are equal 
   logical :: nog
-  !! Tell you if G=0 or not in $S(q0)+G=q$ 
+  !! Tell you if G=0 or not in $$S(q_0)+G=q$$ 
   logical :: symmo
   !! Check whether the symmetry belongs to a symmorphic group
   logical :: exst
@@ -713,6 +713,7 @@
         WRITE(stdout,'(/5x,"Reading epmatq from .epb files"/)') 
         READ  (iuepb) nqc, xqc, et, dynq, epmatq, zstar, epsi
         CLOSE (iuepb)
+        WRITE(stdout,'(/5x,"The .epb files have been correctly read"/)')
      ENDIF
      !
      IF (epbwrite) THEN
@@ -720,6 +721,7 @@
         WRITE(stdout,'(/5x,"Writing epmatq on .epb files"/)') 
         WRITE (iuepb) nqc, xqc, et, dynq, epmatq, zstar, epsi
         CLOSE (iuepb)
+        WRITE(stdout,'(/5x,"The .epb files have been correctly written"/)')
      ENDIF
   ENDIF
   !

@@ -115,7 +115,7 @@ USE io_files,  ONLY : tmp_dir, prefix, iunpun, xmlpun, delete_if_present, &
       USE gvect,                ONLY : ig_l2g
       USE ions_base,            ONLY : nsp, ityp, atm, nat, tau, if_pos
       USE noncollin_module,     ONLY : noncolin, npol
-      USE io_files,             ONLY : nwordwfc, iunwfc, iunigk, psfile
+      USE io_files,             ONLY : nwordwfc, iunwfc, psfile
       USE buffers,              ONLY : get_buffer
       USE wavefunctions_module, ONLY : evc
       USE klist,                ONLY : nks, nkstot, xk, ngk, wk, qnorm, &
@@ -168,10 +168,11 @@ USE io_files,  ONLY : tmp_dir, prefix, iunpun, xmlpun, delete_if_present, &
       USE martyna_tuckerman,    ONLY : do_comp_mt
       USE esm,                  ONLY : do_comp_esm, esm_nfit, esm_efield, esm_w, &
                                        esm_a, esm_bc
-      USE london_module,        ONLY : scal6, lon_rcut
+      USE london_module,        ONLY : scal6, lon_rcut, in_c6
       USE xdm_module,           ONLY : xdm_a1=>a1i, xdm_a2=>a2i
-      USE tsvdw_module,         ONLY : vdw_isolated
-      USE input_parameters,     ONLY : space_group, verbosity, calculation, ion_dynamics, starting_ns_eigenvalue
+      USE tsvdw_module,         ONLY : vdw_isolated, vdw_econv_thr
+      USE input_parameters,     ONLY : space_group, verbosity, calculation, ion_dynamics, starting_ns_eigenvalue, &
+                                       vdw_corr, london, input_parameters_occupations => occupations
       USE bp,                   ONLY : lelfield, lberry, bp_mod_el_pol => el_pol, bp_mod_ion_pol => ion_pol
       !
       USE rap_point_group,      ONLY : elem, nelem, name_class
@@ -187,17 +188,19 @@ USE io_files,  ONLY : tmp_dir, prefix, iunpun, xmlpun, delete_if_present, &
       CHARACTER(15)         :: subname="pw_write_schema"
       CHARACTER(LEN=20)     :: dft_name
       CHARACTER(LEN=256)    :: dirname, filename
+      CHARACTER(LEN=80)     :: vdw_corr_
       INTEGER               :: i, ig, ik, ngg, ierr, ipol, num_k_points
       INTEGER               :: npool, nkbl, nkl, nkr, npwx_g
       INTEGER               :: ike, iks, npw_g, ispin, inlc
       INTEGER,  ALLOCATABLE :: ngk_g(:)
       INTEGER,  ALLOCATABLE :: igk_l2g(:,:), igk_l2g_kdip(:,:), mill_g(:,:)
-      LOGICAL               :: lwfc, lrho, lxsd
+      LOGICAL               :: lwfc, lrho, lxsd, occupations_are_fixed
       CHARACTER(iotk_attlenx)  :: attr
       INTEGER                  :: iclass, isym, ielem
       CHARACTER(LEN=15)        :: symop_2_class(48)
       LOGICAL                  :: opt_conv_ispresent
-      INTEGER                  :: n_opt_steps
+      INTEGER                  :: n_opt_steps, h_band
+      REAL(DP)                 :: h_energy
       !
       TYPE(output_type) :: output
       
@@ -206,7 +209,6 @@ USE io_files,  ONLY : tmp_dir, prefix, iunpun, xmlpun, delete_if_present, &
       ! reducing across MPI tasks
       !
       ALLOCATE( ngk_g( nkstot ) )
-      !
       !
       ngk_g(1:nks) = ngk(:)
       CALL mp_sum( ngk_g(1:nks), intra_bgrp_comm )
@@ -362,14 +364,16 @@ USE io_files,  ONLY : tmp_dir, prefix, iunpun, xmlpun, delete_if_present, &
          !
          IF ( lda_plus_u .AND. noncolin) CALL errore(subname,"LDA+U and non-collinear case not implemented in qexsd",10)
          !
-         CALL qexsd_init_dft(output%dft, dft_name, &
+         vdw_corr_ = vdw_corr
+         IF ( london ) vdw_corr_ = 'grimme-d2'
+         CALL qexsd_init_dft(output%dft, dft_name, .TRUE., &
                              dft_is_hybrid(), nq1, nq2, nq3, ecutfock, &
-                                  get_exx_fraction(), get_screening_parameter(), exxdiv_treatment, &
-                                  x_gamma_extrapolation, ecutvcut, &
-                             lda_plus_u, lda_plus_u_kind, 2*Hubbard_lmax+1, nspin, nsp, 2*Hubbard_lmax+1, nat, atm, ityp, &
-                                  Hubbard_U, Hubbard_J0, Hubbard_alpha, Hubbard_beta, Hubbard_J, &
-                                  starting_ns_eigenvalue, rho%ns, rho%ns_nc, U_projection, &
-                             dft_is_nonlocc(), TRIM(get_nonlocc_name()), scal6, lon_rcut, xdm_a1, xdm_a2,is_hubbard,upf(1:nsp)%psd)
+                             get_exx_fraction(), get_screening_parameter(), exxdiv_treatment, &
+                             x_gamma_extrapolation, ecutvcut, lda_plus_u, lda_plus_u_kind, 2*Hubbard_lmax+1, &
+                             nspin, nsp, 2*Hubbard_lmax+1, nat, atm, ityp, Hubbard_U, Hubbard_J0, Hubbard_alpha, &
+                             Hubbard_beta, Hubbard_J, starting_ns_eigenvalue, rho%ns, rho%ns_nc, U_projection, &
+                             dft_is_nonlocc(), TRIM(vdw_corr_), TRIM ( get_nonlocc_name()), scal6, in_c6, lon_rcut, xdm_a1, xdm_a2,&
+                             vdw_econv_thr, vdw_isolated, is_hubbard, upf(1:nsp)%psd)
          !
 !-------------------------------------------------------------------------------
 ! ... MAGNETIZATION
@@ -383,8 +387,21 @@ USE io_files,  ONLY : tmp_dir, prefix, iunpun, xmlpun, delete_if_present, &
 ! ... BAND STRUCTURE
 !-------------------------------------------------------------------------------------
          !
+         IF (TRIM(input_parameters_occupations) == 'fixed') THEN 
+            occupations_are_fixed = .TRUE. 
+            IF ( nspin == 1 ) THEN 
+               h_band = NINT ( nelec/2.d0) 
+            ELSE 
+               h_band = NINT ( nelec ) 
+            END IF  
+            h_energy =MAXVAL (et(h_band, 1:nkstot))
+         ELSE 
+            occupations_are_fixed = .FALSE. 
+            h_energy  = ef 
+         END IF 
          CALL  qexsd_init_band_structure(output%band_structure,lsda,noncolin,lspinorb, &
-                                         nbnd,nelec,ef,et,wg,nkstot,xk,ngk_g,wk)
+                                         nbnd,nelec,occupations_are_fixed, h_energy,two_fermi_energies, [ef_up,ef_dw],&
+                                         et,wg,nkstot,xk,ngk_g,wk)
          !
 !-------------------------------------------------------------------------------------------
 ! ... TOTAL ENERGY

@@ -8,7 +8,8 @@
 # of the License. See the file `License' in the root directory
 # of the present distribution.
 #
-# Maintainer: Filippo Spiga (filippo.spiga@quantum-espresso.org)
+# Maintainers: Filippo Spiga (filippo.spiga@quantum-espresso.org)
+#              Samuel Ponce
   
 fname=$1
 
@@ -24,7 +25,128 @@ eh1=`grep "highest occupied" $fname | awk '{print $7}'`
 el1=`grep "highest occupied" $fname | awk '{print $8}'`
 tf1=`grep " P = " $fname | head -1 | awk '{printf "%7.5f", $3}'`
 
- 
+# EPW
+q1=`grep "   q(" $fname | awk '{print $6 $7 $8}'`
+dos1=`grep "DOS =" $fname | awk '{print $3}'`
+e2=`grep " E(" $fname | awk '{print $4}'`
+rsig=`grep "Re\[Sigma\]=" $fname | awk '{print $7}'` 
+isig=`grep "Im\[Sigma\]=" $fname | awk '{print $10}'` 
+z1=`grep " Z=" $fname | awk '{print $13}'`
+lam=`grep "lam= " $fname | awk '{print $15}'`
+lambda=`grep "  lambda(" $fname | awk '{print $4}'`
+gamma=`grep " gamma=" $fname | awk '{print $6}'`
+omega=`grep " omega=" $fname | awk '{print $9}'`
+lam_tot=`grep " lambda :" $fname | awk '{print $3}'`
+lam_tr=`grep " lambda_tr :" $fname | awk '{print $3}'`
+logavg=`grep " logavg =" $fname | awk '{print $3}'`
+l_a2F=`grep "l_a2F =" $fname | awk '{print $6}'`
+efm=`grep "at Ef=" $fname | awk '{print $8}'`
+lam_max=`grep "lambda_max =" $fname | awk '{print $3}'`
+lam_kmax=`grep "lambda_k_max =" $fname | awk '{print $6}'`
+elph=`grep "Electron-phonon coupling strength =" $fname | awk '{print $5}'`
+allDyn=`grep "Estimated Allen-Dynes Tc =" $fname | awk '{print $5}'`
+bcsgap=`grep "Estimated BCS superconducting gap =" $fname | awk '{print $6}'`
+
+if test "$efm" != ""; then
+        echo efm
+        echo $efm
+fi
+
+if test "$lam_max" != ""; then
+        echo lam_max
+        echo $lam_max
+fi
+
+if test "$lam_kmax" != ""; then
+        echo lam_kmax
+        echo $lam_kmax
+fi
+
+if test "$elph" != ""; then
+        echo elph
+        echo $elph
+fi
+
+if test "$allDyn" != ""; then
+        echo allDyn
+        echo $allDyn
+fi
+
+if test "$bcsgap" != ""; then
+        echo bcsgap
+        echo $bcsgap
+fi
+
+if test "$q1" != ""; then
+        echo q1
+        for x in $q1; do echo $x; done
+fi
+
+if test "$dos1" != ""; then
+        echo dos1
+        echo $dos1
+fi
+
+if test "$e2" != ""; then
+        echo e2
+        for x in $e2; do echo $x; done
+fi
+
+if test "$rsig" != ""; then
+        echo rsig
+        for x in $rsig; do echo $x; done
+fi
+
+if test "$isig" != ""; then
+        echo isig
+        for x in $isig; do echo $x; done
+fi
+
+if test "$z1" != ""; then
+        echo z1
+        for x in $z1; do echo $x; done
+fi
+
+if test "$lam" != ""; then
+        echo lam
+        for x in $lam; do echo $x; done
+fi
+
+if test "$lamda" != ""; then
+        echo lamda
+        for x in $lamda; do echo $x; done
+fi
+
+if test "$gamma" != ""; then
+        echo gamma
+        for x in $gamma; do echo $x; done
+fi
+
+if test "$omega" != ""; then
+        echo omega
+        for x in $omega; do echo $x; done
+fi
+
+if test "$lam_tot" != ""; then
+        echo lam_tot
+        echo $lam_tot
+fi
+
+if test "$lam_tr" != ""; then
+        echo lam_tr
+        echo $lam_tr
+fi
+
+if test "$logavg" != ""; then
+        echo logavg
+        echo $logavg
+fi
+
+if test "$l_a2F" != ""; then
+        echo l_a2F
+        echo $l_a2F
+fi
+
 if test "$e1" != ""; then
 	echo e1
 	echo $e1

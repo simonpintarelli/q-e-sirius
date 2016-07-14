@@ -1,6 +1,6 @@
 # Makefile for EPW
 
-include ../../make.sys
+include ../../make.inc
 include make.libs
 
 #
@@ -9,7 +9,7 @@ include make.libs
 
 IFLAGS   = -I../../include  
 MODFLAGS = -I../../iotk/src -I../../Modules -I../../LAXlib -I../../iotk/src \
-	   -I../../FFTXlib -I../../PW/src -I../../LR_Modules -I../../PHonon/PH -I../../PP/src -I.
+	   -I../../FFTXlib -I../../PW/src -I../../LR_Modules -I../../PHonon/PH -I../../PP/src/ -I.
 
 #
 # The above is in alphabetical order except when order matter during compilation
@@ -21,10 +21,8 @@ elph2.o \
 epw.o \
 a2f.o \
 allocate_epwq.o \
-printout_base.o \
 bcast_epw_input.o \
 broyden.o \
-cft_wave_epw.o \
 close_epw.o \
 constants_epw.o \
 create_mesh.o \
@@ -87,21 +85,17 @@ poolgather.o \
 print_clock_epw.o \
 readdvscf.o \
 readgmap.o \
-readigk.o \
 readmat_shuffle2.o \
 readwfc.o \
 refold.o \
-reset_sym.o \
 rigid_epw.o \
 rotate_eigenm.o \
 rotate_epmat.o \
 selfen_elec.o \
 selfen_phon.o \
 set_ndnmbr.o \
-setphases.o \
 setphases_wrap.o \
 sgama2.o \
-sgam_at2.o \
 sort.o \
 spectral_func.o \
 star_q2.o \
@@ -114,13 +108,14 @@ pw2wan90epw.o \
 wigner_seitz2.o \
 wigner_seitz.o \
 write_ephmat.o 
+# setphases.o \ : SP: We keep it in case its usefull in the future but now depreciated.
 
 #default : epw
 
 
 PHOBJS = ../../PHonon/PH/libph.a
 PWOBJS = ../../PW/src/libpw.a
-W90LIB = ../../wannier90-2.0.1/libwannier.a
+W90LIB = ../../wannier90-2.0.1/libwannier.a 
 LRMODS = ../../LR_Modules/liblrmod.a
 PWOBJS = ../../PW/src/libpw.a
 QEMODS = ../../Modules/libqemod.a ../../FFTXlib/libqefft.a ../../LAXlib/libqela.a

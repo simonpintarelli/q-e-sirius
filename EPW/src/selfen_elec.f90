@@ -31,7 +31,7 @@
   !-----------------------------------------------------------------------
   USE kinds,         ONLY : DP
   USE io_global,     ONLY : stdout
-  USE io_epw,        ONLY : iunepmatf, iuetf, linewidth_elself
+  USE io_epw,        ONLY : iunepmatf, linewidth_elself
   USE phcom,         ONLY : nmodes
   USE control_lr,    ONLY : lgamma
   USE epwcom,        ONLY : nbndsub, lrepmatf, &
@@ -141,16 +141,6 @@
      ELSE
         ikk = 2 * ik - 1
         ikq = ikk + 1
-     ENDIF
-     !
-     ! we read the hamiltonian eigenvalues (those at k+q depend on q!) 
-     ! when we see references to iq, it is always = 1 
-     !
-     IF (.not. etf_mem) THEN
-        nrec = ikk
-        CALL davcio ( etf (ibndmin:ibndmax, ikk), ibndmax-ibndmin+1, iuetf, nrec, - 1)
-        nrec = ikq
-        CALL davcio ( etf (ibndmin:ibndmax, ikq), ibndmax-ibndmin+1, iuetf, nrec, - 1)
      ENDIF
      !
      ! here we must have ef, not ef0, to be consistent with ephwann_shuffle
@@ -404,7 +394,7 @@
   !-----------------------------------------------------------------------
   USE kinds,         ONLY : DP
   USE io_global,     ONLY : stdout
-  USE io_epw,        ONLY : iunepmatf, iuetf, linewidth_elself
+  USE io_epw,        ONLY : iunepmatf, linewidth_elself
   USE phcom,         ONLY : nmodes
   USE control_lr,    ONLY : lgamma
   USE epwcom,        ONLY : nbndsub, lrepmatf, &
@@ -535,16 +525,6 @@
         ikk = ikq - 1
      ENDIF
      !
-     ! we read the hamiltonian eigenvalues (those at k+q depend on q!) 
-     ! when we see references to iq, it is always = 1 
-     !
-     IF (.not. etf_mem) THEN
-        nrec = ikk
-        CALL davcio ( etf (ibndmin:ibndmax, ikk), ibndmax-ibndmin+1, iuetf, nrec, - 1)
-        nrec = ikq
-        CALL davcio ( etf (ibndmin:ibndmax, ikq), ibndmax-ibndmin+1, iuetf, nrec, - 1)
-     ENDIF
-     !
      ! here we must have ef, not ef0, to be consistent with ephwann_shuffle
      ! (but in this case they are the same)
      !
@@ -651,7 +631,7 @@
   !
   CALL mp_sum(sigmar_all,inter_pool_comm)
   CALL mp_sum(sigmai_all,inter_pool_comm)
-  CALL mp_sum(sigmai_mode,inter_pool_comm)
+  IF (iverbosity == 3) CALL mp_sum(sigmai_mode,inter_pool_comm)
   CALL mp_sum(zi_all,inter_pool_comm)
   CALL mp_sum(fermicount, inter_pool_comm)
   CALL mp_barrier(inter_pool_comm)

@@ -35,7 +35,7 @@ MODULE qexsd_input
   SUBROUTINE  qexsd_init_control_variables(obj,title,calculation,restart_mode,&
                   prefix,pseudo_dir,outdir,stress,forces,wf_collect,disk_io,  &
                   max_seconds,etot_conv_thr,forc_conv_thr,press_conv_thr,verbosity, &
-                  iprint) 
+                  iprint, nstep) 
   !---------------------------------------------------------------------------------------------------------------------
   !
   TYPE(control_variables_type)         :: obj
@@ -44,12 +44,13 @@ MODULE qexsd_input
   LOGICAL,INTENT(IN)                   :: stress,forces,wf_collect
   REAL(DP),INTENT(IN)                  :: max_seconds,etot_conv_thr,forc_conv_thr,&
                                           press_conv_thr   
-  INTEGER,INTENT(IN)                   :: iprint
+  INTEGER,INTENT(IN)                   :: iprint, nstep
   !
   !
   CHARACTER(LEN=*),PARAMETER           :: TAGNAME='control_variables'
   CHARACTER(LEN=256)                   :: verbosity_value, disk_io_value
   INTEGER                              :: int_max_seconds
+  LOGICAL                              :: nstep_ispresent
 
   int_max_seconds=nint(max_seconds)
   IF ( TRIM( verbosity ) .EQ. 'default' ) THEN 
@@ -62,13 +63,30 @@ MODULE qexsd_input
   ELSE
      disk_io_value=TRIM(disk_io)
   END IF
+  !
+  SELECT CASE ( TRIM (calculation)) 
+    CASE ('scf', 'nscf', 'bands') 
+       IF ( nstep == 1) THEN 
+          nstep_ispresent = .FALSE. 
+       ELSE 
+          nstep_ispresent = .TRUE. 
+       END IF 
+   CASE DEFAULT 
+       IF ( nstep == 50 ) THEN 
+          nstep_ispresent = .FALSE. 
+       ELSE 
+          nstep_ispresent = .TRUE.
+       END IF 
+  END SELECT 
+  !
   CALL qes_init_control_variables(obj,tagname,title=title,calculation=calculation,&
                                   restart_mode=restart_mode,prefix=prefix,        &
                                   pseudo_dir=pseudo_dir,outdir=outdir,disk_io=disk_io_value,&
                                   verbosity=TRIM(verbosity_value),stress=stress,forces=forces,    &
                                   wf_collect=wf_collect,max_seconds=int_max_seconds,  &
                                   etot_conv_thr=etot_conv_thr,forc_conv_thr=forc_conv_thr, &
-                                  press_conv_thr=press_conv_thr,print_every=iprint)
+                                  press_conv_thr=press_conv_thr,print_every=iprint, NSTEP = nstep, &
+                                  NSTEP_ISPRESENT = nstep_ispresent )
 
   END SUBROUTINE qexsd_init_control_variables
   !
@@ -90,7 +108,7 @@ MODULE qexsd_input
   !
   !-------------------------------------------------------------------------------------
   SUBROUTINE qexsd_init_bands(obj, nbnd, smearing, degauss, occupations, tot_charge, nspin, & 
-                              input_occupations, input_occupations_minority)
+                              input_occupations, input_occupations_minority, tot_mag)
   !
   IMPLICIT NONE
   ! 
@@ -99,6 +117,7 @@ MODULE qexsd_input
   CHARACTER(LEN=*),INTENT(IN)                  :: occupations,smearing
   REAL(DP),INTENT(IN)                          :: degauss,tot_charge
   REAL(DP),DIMENSION(:),OPTIONAL,INTENT(IN)    :: input_occupations, input_occupations_minority
+  REAL(DP),OPTIONAL,INTENT(IN)                 :: tot_mag
   !
   CHARACTER(25)                                :: smearing_local
   INTEGER                                      :: spin_degeneracy, inpOcc_size = 0
@@ -106,7 +125,8 @@ MODULE qexsd_input
   TYPE(smearing_type)                          :: smearing_obj
   TYPE(occupations_type)                       :: occup_obj
   TYPE(inputoccupations_type),ALLOCATABLE      :: inpOcc_objs(:)
-  LOGICAL                                      :: inp_occ_arepresent = .FALSE.
+  LOGICAL                                      :: tot_mag_ispresent = .FALSE., &
+                                                  inp_occ_arepresent = .FALSE.
   ! 
   IF (TRIM(occupations) .NE. "smearing")  THEN
      CALL qes_init_smearing ( smearing_obj, "smearing", degauss=0.d0, smearing="")
@@ -152,12 +172,15 @@ MODULE qexsd_input
                                         REAL(spin_degeneracy,KIND=DP) , nbnd-1, input_occupations(2:nbnd) )   
      END IF
   END IF
+  !
+  IF (PRESENT ( tot_mag)) tot_mag_ispresent = .TRUE.
         
-  CALL qes_init_bands(obj,TAGNAME,nbnd_ispresent=(nbnd .GT. 0), nbnd = nbnd,&
-                      smearing_ispresent = smearing_obj%lread, smearing = smearing_obj,& 
-                      tot_charge_ispresent=.TRUE., tot_charge = tot_charge, occupations=occup_obj, &
-                      inputoccupations_ispresent=inp_occ_arepresent, ndim_inputOccupations= inpOcc_size, &
-                      inputOccupations = inpOcc_objs)
+  CALL qes_init_bands(obj,TAGNAME,NBND_ISPRESENT=(nbnd .GT. 0), NBND = nbnd,&
+                      SMEARING_ISPRESENT = smearing_obj%lread, SMEARING = smearing_obj,& 
+                      TOT_CHARGE_ISPRESENT=.TRUE., TOT_CHARGE = tot_charge,  &
+                      TOT_MAGNETIZATION_ISPRESENT = tot_mag_ispresent, TOT_MAGNETIZATION = tot_mag, &
+                      OCCUPATIONS=occup_obj, INPUTOCCUPATIONS_ISPRESENT=inp_occ_arepresent, &
+                      NDIM_INPUTOCCUPATIONS= inpOcc_size, INPUTOCCUPATIONS = inpOcc_objs)
   CALL qes_reset_smearing(smearing_obj)
   CALL qes_reset_occupations(occup_obj)
   IF (inp_occ_arepresent) THEN 
@@ -286,13 +309,15 @@ MODULE qexsd_input
           kdim=NINT(sum(wk(1:nk-1)))+1
           ALLOCATE (kp_obj(kdim))
           kcount=1
-          CALL qes_init_k_point(kp_obj(kcount),"k_point",1.d0,.TRUE.,xk(:,1))
+          CALL qes_init_k_point(kp_obj(kcount),"k_point",1.d0,.TRUE.,LABEL= "", LABEL_ISPRESENT=.FALSE., &
+                                K_POINT = xk(:,1))
           kcount=kcount+1
           DO ik=1,nk-1
              DO jk=1,NINT(wk(ik))
                 my_xk=xk(:,ik)+(DBLE(jk)/wk(ik))*(xk(:,ik+1)-xk(:,ik))
                 my_xk=my_xk*scale_factor
-                CALL qes_init_k_point(kp_obj(kcount),"k_point",1.d0,.TRUE.,my_xk)
+                CALL qes_init_k_point(kp_obj(kcount),"k_point",1.d0,.TRUE.,LABEL="", LABEL_ISPRESENT = .FALSE., &
+                                      K_POINT = my_xk)
                 kcount=kcount+1
              END DO
           END DO
@@ -301,7 +326,7 @@ MODULE qexsd_input
           ALLOCATE  (kp_obj(kdim))      
           DO ik=1,kdim
              my_xk=xk(:,ik)*scale_factor
-             CALL qes_init_k_point(kp_obj(ik),"k_point",wk(ik),.TRUE.,my_xk)
+             CALL qes_init_k_point(kp_obj(ik),"k_point",wk(ik),.TRUE.,label="",label_ispresent=.FALSE.,K_POINT=my_xk)
           END DO
       END IF
       CALL qes_init_k_points_IBZ(obj,TAGNAME,monkhorst_pack_ispresent=.FALSE.,&
@@ -448,19 +473,24 @@ MODULE qexsd_input
    IMPLICIT NONE
    ! 
    TYPE (boundary_conditions_type)              ::  obj
-   CHARACTER(LEN=*),INTENT(IN)                  :: assume_isolated,esm_bc
-   INTEGER,INTENT(IN)                           :: esm_nfit
-   REAL(DP),INTENT(IN)                          :: esm_w,esm_efield
+   CHARACTER(LEN=*),INTENT(IN)                  :: assume_isolated
+   CHARACTER(LEN=*),OPTIONAL,INTENT(IN)         :: esm_bc
+   INTEGER,OPTIONAL,INTENT(IN)                  :: esm_nfit
+   REAL(DP),OPTIONAL,INTENT(IN)                 :: esm_w,esm_efield
    ! 
    TYPE (esm_type)                              :: esm_obj
+   LOGICAL                                      :: esm_ispresent = .FALSE.
    CHARACTER(LEN=*),PARAMETER                   :: TAGNAME="boundary_conditions"
    !
-   CALL qes_init_esm(esm_obj,"esm",bc=TRIM(esm_bc),nfit=esm_nfit,w=esm_w,efield=esm_efield)
-   CALL qes_init_boundary_conditions(obj,TAGNAME,assume_isolated=assume_isolated,&
-                                     esm=esm_obj)
-   CALL qes_reset_esm(esm_obj)
+   IF ( TRIM(assume_isolated) .EQ. "esm" ) THEN 
+      esm_ispresent = .TRUE. 
+      CALL qes_init_esm(esm_obj,"esm",bc=TRIM(esm_bc),nfit=esm_nfit,w=esm_w,efield=esm_efield)
+   END IF 
+   CALL qes_init_boundary_conditions(obj,TAGNAME,ASSUME_ISOLATED =assume_isolated,&
+                                     ESM_ISPRESENT = esm_ispresent, ESM = esm_obj)
+   IF ( esm_ispresent ) CALL qes_reset_esm(esm_obj)
    END SUBROUTINE qexsd_init_boundary_conditions
-   !
+   ! 
    !
    !--------------------------------------------------------------------------------------
    SUBROUTINE qexsd_init_ekin_functional(obj,ecfixed,qcutz,q2sigma)

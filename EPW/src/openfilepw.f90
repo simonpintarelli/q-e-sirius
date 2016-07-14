@@ -28,9 +28,7 @@
   USE wvfct,            ONLY : nbnd, npwx
   USE noncollin_module, ONLY : npol,nspin_mag
   use phcom,            ONLY : lrwfc, fildvscf, iudvscf, lrdvkb3, lrdrho
-  use epwcom,           ONLY : fildvscf0, iudvscf0, tphases, elinterp, &
-                               iuncuf, nbndsub, lrcuf
-  USE fft_base,         ONLY : dfftp
+  use epwcom,           ONLY : elinterp, nbndsub
   USE fft_base,         ONLY : dfftp
   !
   implicit none
@@ -64,45 +62,22 @@
   !
   !   file for setting unitary gauges of eigenstates
   !
-  !
   ! RM - nspin corresponds to nspin_mag according to QE5.0.3
   !    - this will have to change when we move to QE5.0.3 
   !
   lrdrho = 2 * dfftp%nr1x *dfftp%nr2x *dfftp%nr3x * nspin_mag
-  IF (fildvscf0 .eq. fildvscf) THEN
-     iudvscf0 = iudvscf
-  ELSE
-     iudvscf0 = find_free_unit()
-     IF ( me_pool == 0 .and. tphases) THEN
-        tmp_dir_save=tmp_dir 
-        spot=INDEX(fildvscf0,'/',.true.)
-        tmp_dir=fildvscf0(1:spot) 
-        CALL diropn (iudvscf0, 'dvscf', lrdrho, exst)
-        tmp_dir=tmp_dir_save
-     END IF
-  ENDIF
-  !
-  !
-  IF (elinterp) then
-    !
-    !  open the file for writing the rotation matrix and the
-    !  electron-phonon matrix on the fine mesh (too big to stay
-    !  in memory for BC53). Use direct access because the nested
-    !  loops on modes and k points. @ FG
-    !
-    !  currently not used.  Should probably add this back in for big systems
-    !  The size is about nbnd^2
-    !
-    iuncuf    = find_free_unit()
-    IF (nbndsub .ne. 0) THEN
-       lrcuf  = 2 * nbndsub * nbndsub
-    ELSE
-       lrcuf  = 2 * nbnd * nbnd
-    ENDIF
-    filint    = trim(prefix)//'.cuf'
-    CALL diropn (iuncuf, 'cuf', lrcuf, exst)  
-    !
-  ENDIF
+  !IF (fildvscf0 .eq. fildvscf) THEN
+  !   iudvscf0 = iudvscf
+  !ELSE
+  !   iudvscf0 = find_free_unit()
+  !   IF ( me_pool == 0 .and. tphases) THEN
+  !      tmp_dir_save=tmp_dir 
+  !      spot=INDEX(fildvscf0,'/',.true.)
+  !      tmp_dir=fildvscf0(1:spot) 
+  !      CALL diropn (iudvscf0, 'dvscf', lrdrho, exst)
+  !      tmp_dir=tmp_dir_save
+  !   END IF
+  !ENDIF
   !
   !
   !    In the USPP case we also need a file in  order to store derivatives 

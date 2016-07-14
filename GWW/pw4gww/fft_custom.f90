@@ -177,7 +177,7 @@ CONTAINS
   USE mp_world,   ONLY : world_comm, nproc
   USE stick_base
   USE fft_support, ONLY : good_fft_dimension
-  USE fft_types,  ONLY : fft_dlay_allocate, fft_dlay_set, fft_dlay_scalar
+  USE fft_types,  ONLY : fft_dlay_allocate, fft_dlay_set, fft_dlay_scalar, fft_dlay_set_dims
   !
   !
   IMPLICIT NONE
@@ -227,9 +227,7 @@ CONTAINS
   !  Subroutine body
   !
 
-  call mp_barrier( world_comm )
-  write(stdout,*) 'ATT1.0'
-  FLUSH(stdout)
+ 
   
   
   tk = .false.
@@ -245,9 +243,7 @@ CONTAINS
   ! compute number of points per plane
   ncplane  = fc%nrx1t * fc%nrx2t
   ncplanes = fc%nrx1t * fc%nrx2t
-  call mp_barrier( world_comm )
-  write(stdout,*) 'ATT1.1'
-  FLUSH(stdout)
+  
 
   !
   ! check the number of plane per process
@@ -264,9 +260,6 @@ CONTAINS
   !     Now compute for each point of the big plane how many column have
   !     non zero vectors on the smooth and thick mesh
   !
-  call mp_barrier( world_comm )
-  write(stdout,*) 'ATT1.2'
-  FLUSH(stdout)
 
   n1 = fc%nr1t + 1
   n2 = fc%nr2t + 1
@@ -285,16 +278,11 @@ CONTAINS
 ! ...     The value of the element (i,j) of the map ( st ) is equal to the
 ! ...     number of G-vector belonging to the (i,j) stick.
 !
-  call mp_barrier( world_comm )
-  write(stdout,*) 'ATT1.3'
-  FLUSH(stdout)
+
 
   CALL sticks_maps( tk, ub, lb, fc%bg_t(:,1), fc%bg_t(:,2), fc%bg_t(:,3), fc%gcutmt, gkcut, fc%gcutmt, st, &
        &stw, sts ,me_pool,nproc_pool,intra_pool_comm)
-  write(stdout,*) 'ATT1.3.1'
-  FLUSH(stdout)
-
-  
+    
   nct  = count( st  > 0 )
   ncts = count( sts > 0 )
 
@@ -323,8 +311,6 @@ CONTAINS
 ! ...     nct counts columns containing G-vectors for the dense grid
 ! ...     ncts counts columns contaning G-vectors for the smooth grid
 !
-  write(stdout,*) 'ATT1.5'
-  FLUSH(stdout)
 
 
   CALL sticks_countg( tk, ub, lb, st, stw, sts, in1, in2, ngc, ngkc, ngcs )
@@ -337,8 +323,7 @@ CONTAINS
   CALL sticks_pairup( tk, ub, lb, idx, in1, in2, ngc, ngkc, ngcs, nct, &
           ncp, nkcp, ncps, ngp, ngkp, ngps, st, stw, sts ,nproc_pool)
 
-  write(stdout,*) 'ATT1.6'
-  FLUSH(stdout)
+
 
   !  set the total number of G vectors
 
@@ -352,15 +337,14 @@ CONTAINS
     ENDIF
   ENDIF
 
-  CALL fft_dlay_allocate( fc%dfftt, me_pool,root_pool,nproc_pool,intra_pool_comm ,0, fc%nrx1t,  fc%nrx2t  )
- 
+  CALL fft_dlay_set_dims( fc%dfftt, fc%nr1t, fc%nr2t, fc%nr3t, fc%nrx1t, fc%nrx2t, fc%nrx3t )
 
+  CALL fft_dlay_allocate( fc%dfftt, me_pool,root_pool,nproc_pool,intra_pool_comm ,0 )
+ 
   !  here set the fft data layout structures for dense and smooth mesh,
   !  according to stick distribution
 
-  CALL fft_dlay_set( fc%dfftt, &
-       tk, nct, fc%nr1t, fc%nr2t, fc%nr3t, fc%nrx1t, fc%nrx2t, fc%nrx3t, ub, lb, idx, in1(:), in2(:), ncp, nkcp, ngp, ngkp, st, stw)
-
+  CALL fft_dlay_set( fc%dfftt, tk, nct, ub, lb, idx, in1(:), in2(:), ncp, nkcp, ngp, ngkp, st, stw)
 
   !  if tk = .FALSE. only half reciprocal space is considered, then we
   !  need to correct the number of sticks
@@ -447,8 +431,9 @@ CONTAINS
   nxx   = fc%nrxxt
   nxxs  = fc%nrxxt
 
-  CALL fft_dlay_allocate( fc%dfftt, me_pool,root_pool,nproc_pool, intra_pool_comm,0,max(fc%nrx1t, fc%nrx3t),  fc%nrx2t  )
- 
+  CALL fft_dlay_set_dims( fc%dfftt, fc%nr1t, fc%nr2t, fc%nr3t, fc%nrx1t, fc%nrx2t, fc%nrx3t )
+
+  CALL fft_dlay_allocate( fc%dfftt, me_pool,root_pool,nproc_pool, intra_pool_comm,0 )
 
   CALL calculate_gkcut()
 
@@ -501,8 +486,7 @@ CONTAINS
 10   CONTINUE
   ENDDO
 
-  CALL fft_dlay_scalar( fc%dfftt, ub, lb, fc%nr1t, fc%nr2t, fc%nr3t, fc%nrx1t, fc%nrx2t, fc%nrx3t, stw )
-
+  CALL fft_dlay_scalar( fc%dfftt, ub, lb, stw )
 
   DEALLOCATE( stw )
 
@@ -593,25 +577,17 @@ SUBROUTINE initialize_fft_custom(fc)
   fc%tpiba_t=tpiba
   fc%tpiba2_t=tpiba2
 
-  call mp_barrier( world_comm )
-  write(stdout,*) 'ATT1'
-  FLUSH(stdout)
+
   call  set_custom_grid(fc)
 
-  call mp_barrier( world_comm )
-  write(stdout,*) 'ATT2'
-  FLUSH(stdout)
 
   call data_structure_custom(fc)
 
-  call mp_barrier( world_comm )
-  write(stdout,*) 'ATT3'
-  FLUSH(stdout)
+
   
   allocate(fc%nlt(fc%ngmt))
   allocate(fc%nltm(fc%ngmt))
-  write(stdout,*) 'ATT4'
-  FLUSH(stdout)
+
   
   call ggent(fc)
   
@@ -646,25 +622,18 @@ SUBROUTINE initialize_fft_custom_cell(fc)
   !fc%tpiba_t=tpiba
   !fc%tpiba2_t=tpiba2
 
-  call mp_barrier( world_comm )
-  write(stdout,*) 'ATT1'
-  FLUSH(stdout)
+
   call  set_custom_grid(fc)
 
-  call mp_barrier( world_comm )
-  write(stdout,*) 'ATT2'
-  FLUSH(stdout)
+
 
   call data_structure_custom(fc)
 
-  call mp_barrier( world_comm )
-  write(stdout,*) 'ATT3'
-  FLUSH(stdout)
+
   
   allocate(fc%nlt(fc%ngmt))
   allocate(fc%nltm(fc%ngmt))
-  write(stdout,*) 'ATT4'
-  FLUSH(stdout)
+
   
   call ggent(fc)
   

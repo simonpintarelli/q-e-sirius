@@ -56,6 +56,8 @@ TYPE :: k_point_type
    !
    LOGICAL  :: weight_ispresent
    REAL(DP) :: weight
+   LOGICAL  :: label_ispresent
+   CHARACTER(len=256) :: label
    REAL(DP), DIMENSION(3) :: k_point
    !
 END TYPE k_point_type
@@ -144,18 +146,6 @@ TYPE :: electronicPolarization_type
    !
 END TYPE electronicPolarization_type
 
-TYPE :: vector_type
-   !
-   CHARACTER(len=100) :: tagname
-   LOGICAL  :: lread = .true.
-   LOGICAL  :: lwrite = .true.
-   !
-   !
-   INTEGER  :: ndim_vec
-   REAL(DP), DIMENSION(:), ALLOCATABLE :: vec
-   !
-END TYPE vector_type
-
 TYPE :: BerryPhaseOutput_type
    !
    CHARACTER(len=100) :: tagname
@@ -172,6 +162,18 @@ TYPE :: BerryPhaseOutput_type
 
    !
 END TYPE BerryPhaseOutput_type
+
+TYPE :: vector_type
+   !
+   CHARACTER(len=100) :: tagname
+   LOGICAL  :: lread = .true.
+   LOGICAL  :: lwrite = .true.
+   !
+   !
+   INTEGER  :: ndim_vec
+   REAL(DP), DIMENSION(:), ALLOCATABLE :: vec
+   !
+END TYPE vector_type
 
 TYPE :: ks_energies_type
    !
@@ -532,6 +534,7 @@ TYPE :: boundary_conditions_type
    LOGICAL  :: lwrite = .true.
    !
    CHARACTER(len=256) :: assume_isolated
+   LOGICAL  :: esm_ispresent
    TYPE(esm_type) :: esm
    !
 END TYPE boundary_conditions_type
@@ -655,6 +658,12 @@ TYPE :: band_structure_type
    REAL(DP) :: nelec
    LOGICAL  :: fermi_energy_ispresent
    REAL(DP) :: fermi_energy
+   LOGICAL  :: highestOccupiedLevel_ispresent
+   REAL(DP) :: highestOccupiedLevel
+   LOGICAL  :: two_fermi_energies_ispresent
+   !
+   INTEGER  :: ndim_two_fermi_energies
+   REAL(DP), DIMENSION(:), ALLOCATABLE :: two_fermi_energies
    INTEGER  :: nks
    TYPE(ks_energies_type), DIMENSION(:), ALLOCATABLE :: ks_energies
    !
@@ -827,6 +836,8 @@ TYPE :: bands_type
    TYPE(smearing_type) :: smearing
    LOGICAL  :: tot_charge_ispresent
    REAL(DP) :: tot_charge
+   LOGICAL  :: tot_magnetization_ispresent
+   REAL(DP) :: tot_magnetization
    TYPE(occupations_type) :: occupations
    LOGICAL  :: inputOccupations_ispresent
    TYPE(inputOccupations_type), DIMENSION(:), ALLOCATABLE :: inputOccupations
@@ -848,19 +859,17 @@ TYPE :: spin_type
    !
 END TYPE spin_type
 
-TYPE :: vdW_type
+TYPE :: HubbardCommon_type
    !
    CHARACTER(len=100) :: tagname
    LOGICAL  :: lread = .true.
    LOGICAL  :: lwrite = .true.
    !
-   CHARACTER(len=256) :: vdw_corr
-   REAL(DP) :: london_s6
-   REAL(DP) :: london_rcut
-   REAL(DP) :: xdm_a1
-   REAL(DP) :: xdm_a2
+   CHARACTER(len=256) :: specie
+   CHARACTER(len=256) :: label
+   REAL(DP) :: HubbardCommon
    !
-END TYPE vdW_type
+END TYPE HubbardCommon_type
 
 TYPE :: HubbardProj_type
    !
@@ -915,17 +924,34 @@ TYPE :: HubbardJ_type
    !
 END TYPE HubbardJ_type
 
-TYPE :: HubbardCommon_type
+TYPE :: vdW_type
    !
    CHARACTER(len=100) :: tagname
    LOGICAL  :: lread = .true.
    LOGICAL  :: lwrite = .true.
    !
-   CHARACTER(len=256) :: specie
-   CHARACTER(len=256) :: label
-   REAL(DP) :: HubbardCommon
+   CHARACTER(len=256) :: vdw_corr
+   LOGICAL  :: non_local_term_ispresent
+   CHARACTER(len=256) :: non_local_term
+   LOGICAL  :: london_s6_ispresent
+   REAL(DP) :: london_s6
+   LOGICAL  :: ts_vdw_econv_thr_ispresent
+   REAL(DP) :: ts_vdw_econv_thr
+   LOGICAL  :: ts_vdw_isolated_ispresent
+   LOGICAL  :: ts_vdw_isolated
+   LOGICAL  :: london_rcut_ispresent
+   REAL(DP) :: london_rcut
+   LOGICAL  :: xdm_a1_ispresent
+   REAL(DP) :: xdm_a1
+   LOGICAL  :: xdm_a2_ispresent
+   REAL(DP) :: xdm_a2
+   LOGICAL  :: london_c6_ispresent
+   TYPE(HubbardCommon_type), DIMENSION(:), ALLOCATABLE :: london_c6
    !
-END TYPE HubbardCommon_type
+   INTEGER  :: ndim_london_c6
+
+   !
+END TYPE vdW_type
 
 TYPE :: dftU_type
    !
@@ -1185,6 +1211,8 @@ TYPE :: control_variables_type
    LOGICAL  :: wf_collect
    CHARACTER(len=256) :: disk_io
    INTEGER  :: max_seconds
+   LOGICAL  :: nstep_ispresent
+   INTEGER  :: nstep
    REAL(DP) :: etot_conv_thr
    REAL(DP) :: forc_conv_thr
    REAL(DP) :: press_conv_thr

@@ -31,7 +31,7 @@
   IMPLICIT NONE
   !
   INTEGER :: itemp, iter, N
-  REAL(DP) :: dFE, tcpu, rdeltaout(nsw), rdeltain(nsw), cdeltaout(nsw), cdeltain(nsw)
+  REAL(DP) :: tcpu, rdeltaout(nsw), rdeltain(nsw), cdeltaout(nsw), cdeltain(nsw)
   REAL(DP), EXTERNAL :: get_clock
   LOGICAL :: conv
   !
@@ -65,7 +65,7 @@
           ! SP : Only print the Free energy if the user want it
           !
           IF ( iverbosity .eq. 2 ) THEN
-            CALL free_energy( itemp, dFE )
+            CALL free_energy( itemp )
           ENDIF
           WRITE(stdout,'(a)') '  '
           CALL stop_clock( 'iaxis_imag' )
@@ -248,8 +248,8 @@
   errdelta = reldelta / absdelta
   Deltaold(:) = Deltai(:)
   !
-  WRITE(stdout,'(5x,a,i6,a,d18.9,a,d18.9,a,d18.9)') 'iter = ', iter, '   error = ', errdelta, &
-                                              '   Znormi(1) = ', Znormi(1), '   Deltai(1) = ', Deltai(1)
+  WRITE(stdout,'(5x,a,i6,a,ES20.10,a,ES20.10,a,ES20.10)') 'iter = ', iter, '   error = ', errdelta, &
+                                         '   Znormi(1) = ', Znormi(1), '   Deltai(1) = ', Deltai(1)
   !
   IF ( errdelta .lt. conv_thr_iaxis ) conv = .true.
   IF ( errdelta .lt. conv_thr_iaxis .OR. iter .eq. nsiter ) THEN

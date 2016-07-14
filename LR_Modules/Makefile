@@ -1,6 +1,6 @@
 # Makefile for LR_Modules
 
-include ../make.sys
+include ../make.inc
 
 # location of needed modules and included files (if any)
 MODFLAGS=$(MOD_FLAG)../FFTXlib $(MOD_FLAG)../Modules $(MOD_FLAG)../PW/src $(MOD_FLAG).
@@ -19,6 +19,7 @@ ch_psi_all.o \
 commutator_Hx_psi.o \
 dynmat_sub.o \
 h_psiq.o \
+h_prec.o \
 incdrhoscf.o \
 incdrhoscf_nc.o \
 dv_of_drho.o \

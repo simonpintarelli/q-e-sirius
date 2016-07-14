@@ -29,9 +29,10 @@
                                 ip_hubbard_u => hubbard_u, ip_hubbard_j0 => hubbard_j0,                               &
                                 ip_hubbard_beta => hubbard_beta, ip_hubbard_alpha => hubbard_alpha,                   &
                                 ip_hubbard_j => hubbard_j,  starting_ns_eigenvalue, u_projection_type,                &
-                                london_s6, london_rcut, london_c6, xdm_a1, xdm_a2,                                    &
+                                vdw_corr, london, london_s6, london_c6, london_rcut, london_c6, xdm_a1, xdm_a2,       &
+                                ts_vdw_econv_thr, ts_vdw_isolated,                                                    &
                                 ip_noncolin => noncolin, ip_spinorbit => lspinorb,                                    &
-                                nbnd, smearing, degauss, ip_occupations=>occupations, tot_charge,                     &
+                                nbnd, smearing, degauss, ip_occupations=>occupations, tot_charge, tot_magnetization,  &
                                 ip_k_points => k_points, ecutwfc, ip_ecutrho => ecutrho, ip_nr1 => nr1, ip_nr2=>nr2,  &
                                 ip_nr3 => nr3, ip_nr1s => nr1s, ip_nr2s => nr2s,ip_nr3s => nr3s, ip_nr1b=>nr1b,       &
                                 ip_nr2b=>nr2b, ip_nr3b => nr3b,                                                       &
@@ -67,6 +68,7 @@
   USE funct,             ONLY:   get_dft_is_hybrid => dft_is_hybrid, get_inlc,        &
                                  get_dft_is_nonlocc => dft_is_nonlocc, get_nonlocc_name, get_dft_short
   USE uspp_param,        ONLY:   upf
+  USE control_flags,     ONLY:   cf_nstep => nstep 
   USE qes_module
   USE qexsd_module,      ONLY: qexsd_init_atomic_species, qexsd_init_atomic_structure, qexsd_init_dft
   USE qexsd_input  
@@ -89,7 +91,8 @@
   INTEGER                                  ::   lung,l 
   CHARACTER,EXTERNAL                       ::   capital
   CHARACTER(len=20)                        ::   dft_shortname
-  CHARACTER(len=25)                        ::   dft_longname   
+  CHARACTER(len=25)                        ::   dft_longname
+  CHARACTER(LEN=80)                        ::  vdw_corr_  
   !
   ! 
   obj%tagname=TRIM(obj_tagname)
@@ -101,7 +104,7 @@
                                     restart_mode=restart_mode,prefix=prefix,pseudo_dir=pseudo_dir,outdir=outdir,       &
                                     stress=tstress,forces=tprnfor, wf_collect=wf_collect,disk_io=disk_io,              &
                                     max_seconds=max_seconds,etot_conv_thr=etot_conv_thr,forc_conv_thr=forc_conv_thr,   &
-                                    press_conv_thr=press_conv_thr,verbosity=verbosity,iprint=iprint)
+                                    press_conv_thr=press_conv_thr,verbosity=verbosity,iprint=iprint, NSTEP = cf_nstep )
   !------------------------------------------------------------------------------------------------------------------------
   !                                                 ATOMIC SPECIES                                                      
   !------------------------------------------------------------------------------------------------------------------------
@@ -175,13 +178,15 @@
      END IF
   END IF
   !
-  CALL qexsd_init_dft (obj%dft,TRIM(dft_name),dft_is_hybrid,max(ip_nqx1,1) ,max(ip_nqx2,1), max(ip_nqx3,1), &
-                       ip_ecutfock,exx_fraction,      &
-                       screening_parameter,exxdiv_treatment, x_gamma_extrapolation, ip_ecutvcut,          &
-                       ip_lda_plus_U,ip_lda_plus_u_kind,2*hubbard_lmax+1,ip_nspin,ntyp,0,ip_nat,atm,    &
-                       ip_ityp,ip_hubbard_u,ip_hubbard_j0,ip_hubbard_alpha,ip_hubbard_beta,ip_hubbard_j,           &
+  vdw_corr_ = vdw_corr
+  IF ( london ) vdw_corr_ = 'grimme-d2'
+  CALL qexsd_init_dft (obj%dft,TRIM(dft_name),.FALSE., dft_is_hybrid,ip_nqx1,ip_nqx2,ip_nqx3,ip_ecutfock,exx_fraction,&
+                       screening_parameter,exxdiv_treatment, x_gamma_extrapolation, ip_ecutvcut,                      &
+                       ip_lda_plus_U,ip_lda_plus_u_kind,2*hubbard_lmax+1,ip_nspin,ntyp,0,ip_nat,atm,                  &
+                       ip_ityp,ip_hubbard_u,ip_hubbard_j0,ip_hubbard_alpha,ip_hubbard_beta,ip_hubbard_j,              &
                        starting_ns_eigenvalue,ns_null,ns_nc_null,u_projection_type,dft_is_nonlocc,                    &
-                       TRIM(get_nonlocc_name()),london_s6,london_rcut,xdm_a1,xdm_a2,is_hubbard,upf(1:ntyp)%psd)
+                       vdw_corr_, TRIM (get_nonlocc_name()), london_s6, london_c6, london_rcut,                       &
+                       xdm_a1,xdm_a2, ts_vdw_econv_thr, ts_vdw_isolated,  is_hubbard,upf(1:ntyp)%psd)
   !------------------------------------------------------------------------------------------------------------------------
   !                                                   SPIN ELEMENT
   !-------------------------------------------------------------------------------------------------------------------------
@@ -195,7 +200,6 @@
   !                                                    BANDS ELEMENT
   !-------------------------------------------------------------------------------------------------------------------------
   IF (tf_inp) THEN
-     print '("le occupazioni da input sono",20f10.6)',f_inp
      SELECT CASE (ip_nspin) 
         CASE (2)  
            CALL qexsd_init_bands(obj%bands, nbnd, smearing, degauss, ip_occupations, tot_charge, ip_nspin, &
@@ -205,7 +209,12 @@
                                                                                 input_occupations=f_inp(:,1) )
      END SELECT    
   ELSE 
-     CALL qexsd_init_bands(obj%bands, nbnd, smearing, degauss, ip_occupations, tot_charge, ip_nspin)
+     IF ( tot_magnetization .LT. 0 ) THEN 
+        CALL qexsd_init_bands(obj%bands, nbnd, smearing, degauss, ip_occupations, tot_charge, ip_nspin)
+     ELSE
+        CALL qexsd_init_bands(obj%bands, nbnd, smearing, degauss, ip_occupations, tot_charge, ip_nspin, &
+                              TOT_MAG  = tot_magnetization)
+     END IF
   END IF 
   !----------------------------------------------------------------------------------------------------------------------------
   !                                                    BASIS ELEMENT
@@ -260,7 +269,11 @@
      obj%boundary_conditions_ispresent=.FALSE.
   ELSE 
      obj%boundary_conditions_ispresent = .TRUE.
-     CALL qexsd_init_boundary_conditions(obj%boundary_conditions, assume_isolated, esm_bc,esm_nfit, esm_w,esm_efield)
+     IF ( TRIM ( assume_isolated) .EQ. "esm") THEN 
+        CALL qexsd_init_boundary_conditions(obj%boundary_conditions, assume_isolated, esm_bc,esm_nfit, esm_w,esm_efield)
+     ELSE 
+        CALL qexsd_init_boundary_conditions(obj%boundary_conditions, assume_isolated) 
+     END IF 
   END IF
   !----------------------------------------------------------------------------------------------------------------------------
   !                                                              EKIN FUNCTIONAL 

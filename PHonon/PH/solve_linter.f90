@@ -69,7 +69,7 @@ SUBROUTINE solve_linter (irr, imode0, npe, drhoscf)
 
   USE lrus,         ONLY : int3_paw
   USE lr_symm_base, ONLY : irotmq, minus_q, nsymq, rtau
-  USE eqv,          ONLY : dvpsi, dpsi, evq, eprec
+  USE eqv,          ONLY : dvpsi, dpsi, evq
   USE qpoint,       ONLY : xq, nksq, ikks, ikqs
   USE control_lr,   ONLY : alpha_pv, nbnd_occ, lgamma
   USE dv_of_drho_lr
@@ -241,14 +241,15 @@ SUBROUTINE solve_linter (irr, imode0, npe, drhoscf)
      IF (noncolin) dbecsum_nc = (0.d0, 0.d0)
      !
      do ik = 1, nksq
+        !
         ikk = ikks(ik)
         ikq = ikqs(ik)
         npw = ngk(ikk)
         npwq= ngk(ikq)
-        if (lsda) current_spin = isk (ikk)
-        call init_us_2 (npwq, igk_k(1,ikq), xk (1, ikq), vkb)
         !
-        ! reads unperturbed wavefuctions psi(k) and psi(k+q)
+        if (lsda) current_spin = isk (ikk)
+        !
+        ! read unperturbed wavefunctions psi(k) and psi(k+q)
         !
         if (nksq.gt.1) then
            if (lgamma) then
@@ -260,27 +261,15 @@ SUBROUTINE solve_linter (irr, imode0, npe, drhoscf)
 
         endif
         !
-        ! compute the kinetic energy, needed by ch_psi_all
+        ! compute beta functions and kinetic energy for k-point ikq
+        ! needed by h_psi, called by ch_psi_all, called by cgsolve_all
         !
-        do ig = 1, npwq
-           g2kin (ig) = ( (xk (1,ikq) + g (1, igk_k(ig,ikq)) ) **2 + &
-                          (xk (2,ikq) + g (2, igk_k(ig,ikq)) ) **2 + &
-                          (xk (3,ikq) + g (3, igk_k(ig,ikq)) ) **2 ) * tpiba2
-        enddo
-
-        h_diag=0.d0
-        do ibnd = 1, nbnd_occ (ikk)
-           do ig = 1, npwq
-              h_diag(ig,ibnd)=1.d0/max(1.0d0,g2kin(ig)/eprec(ibnd,ik))
-           enddo
-           IF (noncolin) THEN
-              do ig = 1, npwq
-                 h_diag(ig+npwx,ibnd)=1.d0/max(1.0d0,g2kin(ig)/eprec(ibnd,ik))
-              enddo
-           END IF
-        enddo
+        CALL init_us_2 (npwq, igk_k(1,ikq), xk (1, ikq), vkb)
+        CALL g2_kin (ikq) 
         !
-        ! diagonal elements of the unperturbed hamiltonian
+        ! compute preconditioning matrix h_diag used by cgsolve_all
+        !
+        CALL h_prec (ik, evq, h_diag)
         !
         do ipert = 1, npe
            mode = imode0 + ipert

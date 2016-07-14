@@ -76,9 +76,9 @@ SUBROUTINE qes_write_status(iun, obj)
    attr = " "
 
    CALL iotk_write_begin(iun, TRIM(obj%tagname), attr=TRIM(attr))
-   !
-   WRITE(iun, '(I12)') obj%status
-   !
+      !
+         WRITE(iun, '(I12)') obj%status
+         !
    CALL iotk_write_end(iun, TRIM(obj%tagname))
    !
 END SUBROUTINE qes_write_status
@@ -216,6 +216,9 @@ SUBROUTINE qes_write_k_point(iun, obj)
    IF(obj%weight_ispresent) THEN
       CALL iotk_write_attr(attr, 'weight', obj%weight)
    END IF
+   IF(obj%label_ispresent) THEN
+      CALL iotk_write_attr(attr, 'label', TRIM(obj%label))
+   END IF
 
    CALL iotk_write_begin(iun, TRIM(obj%tagname), attr=TRIM(attr))
       !
@@ -224,7 +227,8 @@ SUBROUTINE qes_write_k_point(iun, obj)
    !
 END SUBROUTINE qes_write_k_point
 
-SUBROUTINE qes_init_k_point(obj, tagname, weight, weight_ispresent, k_point)
+SUBROUTINE qes_init_k_point(obj, tagname, weight, weight_ispresent, label, label_ispresent, &
+                              k_point)
    IMPLICIT NONE
 
    TYPE(k_point_type) :: obj
@@ -232,6 +236,8 @@ SUBROUTINE qes_init_k_point(obj, tagname, weight, weight_ispresent, k_point)
    INTEGER  :: i
    LOGICAL  :: weight_ispresent
    REAL(DP), OPTIONAL :: weight
+   LOGICAL  :: label_ispresent
+   CHARACTER(len=*), OPTIONAL :: label
    REAL(DP), DIMENSION(3) :: k_point
 
    obj%tagname = TRIM(tagname)
@@ -239,6 +245,12 @@ SUBROUTINE qes_init_k_point(obj, tagname, weight, weight_ispresent, k_point)
    obj%weight_ispresent = weight_ispresent
    IF (obj%weight_ispresent) THEN
       obj%weight = weight
+   ENDIF
+
+
+   obj%label_ispresent = label_ispresent
+   IF (obj%label_ispresent) THEN
+      obj%label = TRIM(label)
    ENDIF
 
    obj%k_point = k_point
@@ -650,55 +662,6 @@ SUBROUTINE qes_reset_electronicPolarization(obj)
 END SUBROUTINE qes_reset_electronicPolarization
 
 
-SUBROUTINE qes_write_vector(iun, obj)
-   IMPLICIT NONE
-
-   INTEGER  :: iun
-   TYPE(vector_type) :: obj
-   !
-   INTEGER  :: i
-
-   IF (.NOT. obj%lwrite) RETURN
-   attr = " "
-
-   CALL iotk_write_begin(iun, TRIM(obj%tagname), attr=TRIM(attr))
-      !
-      CALL iotk_write_begin(iun,'vec')
-         WRITE(fmtstr,'(a)') '(5E20.7)'
-         WRITE(iun, fmtstr) obj%vec
-      CALL iotk_write_end(iun,'vec')
-      !
-   CALL iotk_write_end(iun, TRIM(obj%tagname))
-   !
-END SUBROUTINE qes_write_vector
-
-SUBROUTINE qes_init_vector(obj, tagname, ndim_vec, vec)
-   IMPLICIT NONE
-
-   TYPE(vector_type) :: obj
-   CHARACTER(len=*) :: tagname
-   INTEGER  :: i
-   INTEGER  :: ndim_vec
-   REAL(DP), DIMENSION(:) :: vec
-
-   obj%tagname = TRIM(tagname)
-   ALLOCATE(obj%vec(ndim_vec))
-   obj%vec(:) = vec(:)
-
-END SUBROUTINE qes_init_vector
-
-SUBROUTINE qes_reset_vector(obj)
-   IMPLICIT NONE
-   TYPE(vector_type) :: obj
-   INTEGER  :: i
-
-   obj%tagname = ""
-
-   IF (ALLOCATED(obj%vec))  DEALLOCATE(obj%vec)
-
-END SUBROUTINE qes_reset_vector
-
-
 SUBROUTINE qes_write_BerryPhaseOutput(iun, obj)
    IMPLICIT NONE
 
@@ -778,6 +741,55 @@ SUBROUTINE qes_reset_BerryPhaseOutput(obj)
    IF (ALLOCATED(obj%electronicPolarization)) DEALLOCATE(obj%electronicPolarization)
 
 END SUBROUTINE qes_reset_BerryPhaseOutput
+
+
+SUBROUTINE qes_write_vector(iun, obj)
+   IMPLICIT NONE
+
+   INTEGER  :: iun
+   TYPE(vector_type) :: obj
+   !
+   INTEGER  :: i
+
+   IF (.NOT. obj%lwrite) RETURN
+   attr = " "
+
+   CALL iotk_write_begin(iun, TRIM(obj%tagname), attr=TRIM(attr))
+      !
+      CALL iotk_write_begin(iun,'vec')
+         WRITE(fmtstr,'(a)') '(5E20.7)'
+         WRITE(iun, fmtstr) obj%vec
+      CALL iotk_write_end(iun,'vec')
+      !
+   CALL iotk_write_end(iun, TRIM(obj%tagname))
+   !
+END SUBROUTINE qes_write_vector
+
+SUBROUTINE qes_init_vector(obj, tagname, ndim_vec, vec)
+   IMPLICIT NONE
+
+   TYPE(vector_type) :: obj
+   CHARACTER(len=*) :: tagname
+   INTEGER  :: i
+   INTEGER  :: ndim_vec
+   REAL(DP), DIMENSION(:) :: vec
+
+   obj%tagname = TRIM(tagname)
+   ALLOCATE(obj%vec(ndim_vec))
+   obj%vec(:) = vec(:)
+
+END SUBROUTINE qes_init_vector
+
+SUBROUTINE qes_reset_vector(obj)
+   IMPLICIT NONE
+   TYPE(vector_type) :: obj
+   INTEGER  :: i
+
+   obj%tagname = ""
+
+   IF (ALLOCATED(obj%vec))  DEALLOCATE(obj%vec)
+
+END SUBROUTINE qes_reset_vector
 
 
 SUBROUTINE qes_write_ks_energies(iun, obj)
@@ -1209,7 +1221,7 @@ SUBROUTINE qes_init_matrix(obj, tagname, ndim1_mat, ndim2_mat, mat)
    INTEGER  :: i
    INTEGER  :: ndim1_mat
    INTEGER  :: ndim2_mat
-   REAL(DP), DIMENSION(:,:) :: mat
+   REAL(DP), DIMENSION(ndim1_mat,ndim2_mat) :: mat
 
    obj%tagname = TRIM(tagname)
    ALLOCATE(obj%mat(ndim1_mat,ndim2_mat))
@@ -2559,24 +2571,31 @@ SUBROUTINE qes_write_boundary_conditions(iun, obj)
       CALL iotk_write_begin(iun, 'assume_isolated',new_line=.FALSE.)
          WRITE(iun, '(A)',advance='no')  TRIM(obj%assume_isolated)
       CALL iotk_write_end(iun, 'assume_isolated',indentation=.FALSE.)
-      CALL qes_write_esm(iun, obj%esm)
+      IF(obj%esm_ispresent) THEN
+         CALL qes_write_esm(iun, obj%esm)
+         !
+      ENDIF
       !
    CALL iotk_write_end(iun, TRIM(obj%tagname))
    !
 END SUBROUTINE qes_write_boundary_conditions
 
-SUBROUTINE qes_init_boundary_conditions(obj, tagname, assume_isolated, esm)
+SUBROUTINE qes_init_boundary_conditions(obj, tagname, assume_isolated, esm_ispresent, esm)
    IMPLICIT NONE
 
    TYPE(boundary_conditions_type) :: obj
    CHARACTER(len=*) :: tagname
    INTEGER  :: i
    CHARACTER(len=*) :: assume_isolated
+   LOGICAL  :: esm_ispresent
    TYPE(esm_type) :: esm
 
    obj%tagname = TRIM(tagname)
    obj%assume_isolated = assume_isolated
-   obj%esm = esm
+   obj%esm_ispresent = esm_ispresent
+   IF(obj%esm_ispresent) THEN
+      obj%esm = esm
+   ENDIF
 
 END SUBROUTINE qes_init_boundary_conditions
 
@@ -2587,7 +2606,10 @@ SUBROUTINE qes_reset_boundary_conditions(obj)
 
    obj%tagname = ""
 
-   CALL qes_reset_esm(obj%esm)
+   IF(obj%esm_ispresent) THEN
+      CALL qes_reset_esm(obj%esm)
+      obj%esm_ispresent = .FALSE.
+   ENDIF
 
 END SUBROUTINE qes_reset_boundary_conditions
 
@@ -3224,6 +3246,20 @@ SUBROUTINE qes_write_band_structure(iun, obj)
          CALL iotk_write_end(iun, 'fermi_energy')
       ENDIF
       !
+      IF(obj%highestOccupiedLevel_ispresent) THEN
+         CALL iotk_write_begin(iun, 'highestOccupiedLevel')
+            WRITE(iun, '(E20.7)') obj%highestOccupiedLevel
+         CALL iotk_write_end(iun, 'highestOccupiedLevel')
+      ENDIF
+      !
+      IF(obj%two_fermi_energies_ispresent) THEN
+         CALL iotk_write_begin(iun,'two_fermi_energies')
+            WRITE(fmtstr,'(a)') '(5E20.7)'
+            WRITE(iun, fmtstr) obj%two_fermi_energies
+         CALL iotk_write_end(iun,'two_fermi_energies')
+         !
+      ENDIF
+      !
       CALL iotk_write_begin(iun, 'nks')
          WRITE(iun, '(I12)') obj%nks
       CALL iotk_write_end(iun, 'nks')
@@ -3237,7 +3273,10 @@ END SUBROUTINE qes_write_band_structure
 
 SUBROUTINE qes_init_band_structure(obj, tagname, lsda, noncolin, spinorbit, nbnd, &
                               nbnd_up_ispresent, nbnd_up, nbnd_dw_ispresent, nbnd_dw, &
-                              nelec, fermi_energy_ispresent, fermi_energy, nks, &
+                              nelec, fermi_energy_ispresent, fermi_energy, &
+                              highestOccupiedLevel_ispresent, highestOccupiedLevel, &
+                              two_fermi_energies_ispresent, &
+                              ndim_two_fermi_energies, two_fermi_energies, nks, &
                               ndim_ks_energies, ks_energies)
    IMPLICIT NONE
 
@@ -3255,6 +3294,11 @@ SUBROUTINE qes_init_band_structure(obj, tagname, lsda, noncolin, spinorbit, nbnd
    REAL(DP) :: nelec
    LOGICAL  :: fermi_energy_ispresent
    REAL(DP) :: fermi_energy
+   LOGICAL  :: highestOccupiedLevel_ispresent
+   REAL(DP) :: highestOccupiedLevel
+   LOGICAL  :: two_fermi_energies_ispresent
+   INTEGER  :: ndim_two_fermi_energies
+   REAL(DP), DIMENSION(:) :: two_fermi_energies
    INTEGER  :: nks
    INTEGER  :: ndim_ks_energies
    TYPE(ks_energies_type), DIMENSION(:) :: ks_energies
@@ -3276,6 +3320,15 @@ SUBROUTINE qes_init_band_structure(obj, tagname, lsda, noncolin, spinorbit, nbnd
    obj%fermi_energy_ispresent = fermi_energy_ispresent
    IF(obj%fermi_energy_ispresent) THEN
       obj%fermi_energy = fermi_energy
+   ENDIF
+   obj%highestOccupiedLevel_ispresent = highestOccupiedLevel_ispresent
+   IF(obj%highestOccupiedLevel_ispresent) THEN
+      obj%highestOccupiedLevel = highestOccupiedLevel
+   ENDIF
+   obj%two_fermi_energies_ispresent = two_fermi_energies_ispresent
+   IF(obj%two_fermi_energies_ispresent) THEN
+   ALLOCATE(obj%two_fermi_energies(ndim_two_fermi_energies))
+   obj%two_fermi_energies(:) = two_fermi_energies(:)
    ENDIF
    obj%nks = nks
    ALLOCATE(obj%ks_energies(SIZE(ks_energies)))
@@ -3301,6 +3354,13 @@ SUBROUTINE qes_reset_band_structure(obj)
    ENDIF
    IF(obj%fermi_energy_ispresent) THEN
       obj%fermi_energy_ispresent = .FALSE.
+   ENDIF
+   IF(obj%highestOccupiedLevel_ispresent) THEN
+      obj%highestOccupiedLevel_ispresent = .FALSE.
+   ENDIF
+   IF(obj%two_fermi_energies_ispresent) THEN
+   IF (ALLOCATED(obj%two_fermi_energies))  DEALLOCATE(obj%two_fermi_energies)
+      obj%two_fermi_energies_ispresent = .FALSE.
    ENDIF
    DO i = 1, SIZE(obj%ks_energies)
       CALL qes_reset_ks_energies(obj%ks_energies(i))
@@ -4111,6 +4171,12 @@ SUBROUTINE qes_write_bands(iun, obj)
          CALL iotk_write_end(iun, 'tot_charge')
       ENDIF
       !
+      IF(obj%tot_magnetization_ispresent) THEN
+         CALL iotk_write_begin(iun, 'tot_magnetization')
+            WRITE(iun, '(E20.7)') obj%tot_magnetization
+         CALL iotk_write_end(iun, 'tot_magnetization')
+      ENDIF
+      !
       CALL qes_write_occupations(iun, obj%occupations)
       !
       IF(obj%inputOccupations_ispresent) THEN
@@ -4125,7 +4191,8 @@ SUBROUTINE qes_write_bands(iun, obj)
 END SUBROUTINE qes_write_bands
 
 SUBROUTINE qes_init_bands(obj, tagname, nbnd_ispresent, nbnd, smearing_ispresent, smearing, &
-                              tot_charge_ispresent, tot_charge, occupations, &
+                              tot_charge_ispresent, tot_charge, &
+                              tot_magnetization_ispresent, tot_magnetization, occupations, &
                               inputOccupations_ispresent, ndim_inputOccupations, &
                               inputOccupations)
    IMPLICIT NONE
@@ -4139,6 +4206,8 @@ SUBROUTINE qes_init_bands(obj, tagname, nbnd_ispresent, nbnd, smearing_ispresent
    TYPE(smearing_type) :: smearing
    LOGICAL  :: tot_charge_ispresent
    REAL(DP) :: tot_charge
+   LOGICAL  :: tot_magnetization_ispresent
+   REAL(DP) :: tot_magnetization
    TYPE(occupations_type) :: occupations
    LOGICAL  :: inputOccupations_ispresent
    INTEGER  :: ndim_inputOccupations
@@ -4156,6 +4225,10 @@ SUBROUTINE qes_init_bands(obj, tagname, nbnd_ispresent, nbnd, smearing_ispresent
    obj%tot_charge_ispresent = tot_charge_ispresent
    IF(obj%tot_charge_ispresent) THEN
       obj%tot_charge = tot_charge
+   ENDIF
+   obj%tot_magnetization_ispresent = tot_magnetization_ispresent
+   IF(obj%tot_magnetization_ispresent) THEN
+      obj%tot_magnetization = tot_magnetization
    ENDIF
    obj%occupations = occupations
    obj%inputOccupations_ispresent = inputOccupations_ispresent
@@ -4185,6 +4258,9 @@ SUBROUTINE qes_reset_bands(obj)
    ENDIF
    IF(obj%tot_charge_ispresent) THEN
       obj%tot_charge_ispresent = .FALSE.
+   ENDIF
+   IF(obj%tot_magnetization_ispresent) THEN
+      obj%tot_magnetization_ispresent = .FALSE.
    ENDIF
    CALL qes_reset_occupations(obj%occupations)
    IF(obj%inputOccupations_ispresent) THEN
@@ -4264,68 +4340,56 @@ SUBROUTINE qes_reset_spin(obj)
 END SUBROUTINE qes_reset_spin
 
 
-SUBROUTINE qes_write_vdW(iun, obj)
+SUBROUTINE qes_write_HubbardCommon(iun, obj)
    IMPLICIT NONE
 
    INTEGER  :: iun
-   TYPE(vdW_type) :: obj
+   TYPE(HubbardCommon_type) :: obj
    !
    INTEGER  :: i
 
    IF (.NOT. obj%lwrite) RETURN
    attr = " "
+   CALL iotk_write_attr(attr, 'specie', TRIM(obj%specie))
+   CALL iotk_write_attr(attr, 'label', TRIM(obj%label))
 
    CALL iotk_write_begin(iun, TRIM(obj%tagname), attr=TRIM(attr))
       !
-      CALL iotk_write_begin(iun, 'vdw_corr',new_line=.FALSE.)
-         WRITE(iun, '(A)',advance='no')  TRIM(obj%vdw_corr)
-      CALL iotk_write_end(iun, 'vdw_corr',indentation=.FALSE.)
-      CALL iotk_write_begin(iun, 'london_s6')
-         WRITE(iun, '(E20.7)') obj%london_s6
-      CALL iotk_write_end(iun, 'london_s6')
-      CALL iotk_write_begin(iun, 'london_rcut')
-         WRITE(iun, '(E20.7)') obj%london_rcut
-      CALL iotk_write_end(iun, 'london_rcut')
-      CALL iotk_write_begin(iun, 'xdm_a1')
-         WRITE(iun, '(E20.7)') obj%xdm_a1
-      CALL iotk_write_end(iun, 'xdm_a1')
-      CALL iotk_write_begin(iun, 'xdm_a2')
-         WRITE(iun, '(E20.7)') obj%xdm_a2
-      CALL iotk_write_end(iun, 'xdm_a2')
+      WRITE(iun, '(E20.7)') obj%HubbardCommon
    CALL iotk_write_end(iun, TRIM(obj%tagname))
    !
-END SUBROUTINE qes_write_vdW
+END SUBROUTINE qes_write_HubbardCommon
 
-SUBROUTINE qes_init_vdW(obj, tagname, vdw_corr, london_s6, london_rcut, xdm_a1, xdm_a2)
+SUBROUTINE qes_init_HubbardCommon(obj, tagname, specie, label, HubbardCommon)
    IMPLICIT NONE
 
-   TYPE(vdW_type) :: obj
+   TYPE(HubbardCommon_type) :: obj
    CHARACTER(len=*) :: tagname
    INTEGER  :: i
-   CHARACTER(len=*) :: vdw_corr
-   REAL(DP) :: london_s6
-   REAL(DP) :: london_rcut
-   REAL(DP) :: xdm_a1
-   REAL(DP) :: xdm_a2
+   CHARACTER(len=*) :: specie
+   CHARACTER(len=*) :: label
+   REAL(DP) :: HubbardCommon
 
    obj%tagname = TRIM(tagname)
-   obj%vdw_corr = vdw_corr
-   obj%london_s6 = london_s6
-   obj%london_rcut = london_rcut
-   obj%xdm_a1 = xdm_a1
-   obj%xdm_a2 = xdm_a2
 
-END SUBROUTINE qes_init_vdW
+   obj%specie = TRIM(specie)
 
-SUBROUTINE qes_reset_vdW(obj)
+
+   obj%label = TRIM(label)
+
+   obj%HubbardCommon = HubbardCommon
+
+END SUBROUTINE qes_init_HubbardCommon
+
+SUBROUTINE qes_reset_HubbardCommon(obj)
    IMPLICIT NONE
-   TYPE(vdW_type) :: obj
+   TYPE(HubbardCommon_type) :: obj
    INTEGER  :: i
 
    obj%tagname = ""
 
 
-END SUBROUTINE qes_reset_vdW
+END SUBROUTINE qes_reset_HubbardCommon
 
 
 SUBROUTINE qes_write_HubbardProj(iun, obj)
@@ -4551,56 +4615,187 @@ SUBROUTINE qes_reset_HubbardJ(obj)
 END SUBROUTINE qes_reset_HubbardJ
 
 
-SUBROUTINE qes_write_HubbardCommon(iun, obj)
+SUBROUTINE qes_write_vdW(iun, obj)
    IMPLICIT NONE
 
    INTEGER  :: iun
-   TYPE(HubbardCommon_type) :: obj
+   TYPE(vdW_type) :: obj
    !
    INTEGER  :: i
 
    IF (.NOT. obj%lwrite) RETURN
    attr = " "
-   CALL iotk_write_attr(attr, 'specie', TRIM(obj%specie))
-   CALL iotk_write_attr(attr, 'label', TRIM(obj%label))
 
    CALL iotk_write_begin(iun, TRIM(obj%tagname), attr=TRIM(attr))
       !
-      WRITE(iun, '(E20.7)') obj%HubbardCommon
+      CALL iotk_write_begin(iun, 'vdw_corr',new_line=.FALSE.)
+         WRITE(iun, '(A)',advance='no')  TRIM(obj%vdw_corr)
+      CALL iotk_write_end(iun, 'vdw_corr',indentation=.FALSE.)
+      IF(obj%non_local_term_ispresent) THEN
+         CALL iotk_write_begin(iun, 'non_local_term',new_line=.FALSE.)
+            WRITE(iun, '(A)',advance='no')  TRIM(obj%non_local_term)
+         CALL iotk_write_end(iun, 'non_local_term',indentation=.FALSE.)
+      ENDIF
+      !
+      IF(obj%london_s6_ispresent) THEN
+         CALL iotk_write_begin(iun, 'london_s6')
+            WRITE(iun, '(E20.7)') obj%london_s6
+         CALL iotk_write_end(iun, 'london_s6')
+      ENDIF
+      !
+      IF(obj%ts_vdw_econv_thr_ispresent) THEN
+         CALL iotk_write_begin(iun, 'ts_vdw_econv_thr')
+            WRITE(iun, '(E20.7)') obj%ts_vdw_econv_thr
+         CALL iotk_write_end(iun, 'ts_vdw_econv_thr')
+      ENDIF
+      !
+      IF(obj%ts_vdw_isolated_ispresent) THEN
+         CALL iotk_write_begin(iun, 'ts_vdw_isolated',new_line=.FALSE.)
+            IF (obj%ts_vdw_isolated) THEN
+               WRITE(iun, '(A)',advance='no')  'true'
+            ELSE
+               WRITE(iun, '(A)',advance='no')  'false'
+            ENDIF
+         CALL iotk_write_end(iun, 'ts_vdw_isolated',indentation=.FALSE.)
+      ENDIF
+      !
+      IF(obj%london_rcut_ispresent) THEN
+         CALL iotk_write_begin(iun, 'london_rcut')
+            WRITE(iun, '(E20.7)') obj%london_rcut
+         CALL iotk_write_end(iun, 'london_rcut')
+      ENDIF
+      !
+      IF(obj%xdm_a1_ispresent) THEN
+         CALL iotk_write_begin(iun, 'xdm_a1')
+            WRITE(iun, '(E20.7)') obj%xdm_a1
+         CALL iotk_write_end(iun, 'xdm_a1')
+      ENDIF
+      !
+      IF(obj%xdm_a2_ispresent) THEN
+         CALL iotk_write_begin(iun, 'xdm_a2')
+            WRITE(iun, '(E20.7)') obj%xdm_a2
+         CALL iotk_write_end(iun, 'xdm_a2')
+      ENDIF
+      !
+      IF(obj%london_c6_ispresent) THEN
+         DO i = 1, obj%ndim_london_c6
+            CALL qes_write_HubbardCommon(iun, obj%london_c6(i))
+            !
+         END DO
+      ENDIF
+      !
    CALL iotk_write_end(iun, TRIM(obj%tagname))
    !
-END SUBROUTINE qes_write_HubbardCommon
+END SUBROUTINE qes_write_vdW
 
-SUBROUTINE qes_init_HubbardCommon(obj, tagname, specie, label, HubbardCommon)
+SUBROUTINE qes_init_vdW(obj, tagname, vdw_corr, non_local_term_ispresent, non_local_term, &
+                              london_s6_ispresent, london_s6, ts_vdw_econv_thr_ispresent, &
+                              ts_vdw_econv_thr, ts_vdw_isolated_ispresent, ts_vdw_isolated, &
+                              london_rcut_ispresent, london_rcut, xdm_a1_ispresent, xdm_a1, &
+                              xdm_a2_ispresent, xdm_a2, london_c6_ispresent, &
+                              ndim_london_c6, london_c6)
    IMPLICIT NONE
 
-   TYPE(HubbardCommon_type) :: obj
+   TYPE(vdW_type) :: obj
    CHARACTER(len=*) :: tagname
    INTEGER  :: i
-   CHARACTER(len=*) :: specie
-   CHARACTER(len=*) :: label
-   REAL(DP) :: HubbardCommon
+   CHARACTER(len=*) :: vdw_corr
+   LOGICAL  :: non_local_term_ispresent
+   CHARACTER(len=*) :: non_local_term
+   LOGICAL  :: london_s6_ispresent
+   REAL(DP) :: london_s6
+   LOGICAL  :: ts_vdw_econv_thr_ispresent
+   REAL(DP) :: ts_vdw_econv_thr
+   LOGICAL  :: ts_vdw_isolated_ispresent
+   LOGICAL  :: ts_vdw_isolated
+   LOGICAL  :: london_rcut_ispresent
+   REAL(DP) :: london_rcut
+   LOGICAL  :: xdm_a1_ispresent
+   REAL(DP) :: xdm_a1
+   LOGICAL  :: xdm_a2_ispresent
+   REAL(DP) :: xdm_a2
+   LOGICAL  :: london_c6_ispresent
+   INTEGER  :: ndim_london_c6
+   TYPE(HubbardCommon_type), DIMENSION(:) :: london_c6
 
    obj%tagname = TRIM(tagname)
+   obj%vdw_corr = vdw_corr
+   obj%non_local_term_ispresent = non_local_term_ispresent
+   IF(obj%non_local_term_ispresent) THEN
+      obj%non_local_term = non_local_term
+   ENDIF
+   obj%london_s6_ispresent = london_s6_ispresent
+   IF(obj%london_s6_ispresent) THEN
+      obj%london_s6 = london_s6
+   ENDIF
+   obj%ts_vdw_econv_thr_ispresent = ts_vdw_econv_thr_ispresent
+   IF(obj%ts_vdw_econv_thr_ispresent) THEN
+      obj%ts_vdw_econv_thr = ts_vdw_econv_thr
+   ENDIF
+   obj%ts_vdw_isolated_ispresent = ts_vdw_isolated_ispresent
+   IF(obj%ts_vdw_isolated_ispresent) THEN
+      obj%ts_vdw_isolated = ts_vdw_isolated
+   ENDIF
+   obj%london_rcut_ispresent = london_rcut_ispresent
+   IF(obj%london_rcut_ispresent) THEN
+      obj%london_rcut = london_rcut
+   ENDIF
+   obj%xdm_a1_ispresent = xdm_a1_ispresent
+   IF(obj%xdm_a1_ispresent) THEN
+      obj%xdm_a1 = xdm_a1
+   ENDIF
+   obj%xdm_a2_ispresent = xdm_a2_ispresent
+   IF(obj%xdm_a2_ispresent) THEN
+      obj%xdm_a2 = xdm_a2
+   ENDIF
+   obj%london_c6_ispresent = london_c6_ispresent
+   IF(obj%london_c6_ispresent) THEN
+      ALLOCATE(obj%london_c6(SIZE(london_c6)))
+      DO i = 1, SIZE(london_c6)
+         obj%london_c6(i) = london_c6(i)
+      ENDDO
+   obj%ndim_london_c6 = ndim_london_c6
+   ENDIF
 
-   obj%specie = TRIM(specie)
+END SUBROUTINE qes_init_vdW
 
-
-   obj%label = TRIM(label)
-
-   obj%HubbardCommon = HubbardCommon
-
-END SUBROUTINE qes_init_HubbardCommon
-
-SUBROUTINE qes_reset_HubbardCommon(obj)
+SUBROUTINE qes_reset_vdW(obj)
    IMPLICIT NONE
-   TYPE(HubbardCommon_type) :: obj
+   TYPE(vdW_type) :: obj
    INTEGER  :: i
 
    obj%tagname = ""
 
+   IF(obj%non_local_term_ispresent) THEN
+      obj%non_local_term_ispresent = .FALSE.
+   ENDIF
+   IF(obj%london_s6_ispresent) THEN
+      obj%london_s6_ispresent = .FALSE.
+   ENDIF
+   IF(obj%ts_vdw_econv_thr_ispresent) THEN
+      obj%ts_vdw_econv_thr_ispresent = .FALSE.
+   ENDIF
+   IF(obj%ts_vdw_isolated_ispresent) THEN
+      obj%ts_vdw_isolated_ispresent = .FALSE.
+   ENDIF
+   IF(obj%london_rcut_ispresent) THEN
+      obj%london_rcut_ispresent = .FALSE.
+   ENDIF
+   IF(obj%xdm_a1_ispresent) THEN
+      obj%xdm_a1_ispresent = .FALSE.
+   ENDIF
+   IF(obj%xdm_a2_ispresent) THEN
+      obj%xdm_a2_ispresent = .FALSE.
+   ENDIF
+   IF(obj%london_c6_ispresent) THEN
+      DO i = 1, SIZE(obj%london_c6)
+         CALL qes_reset_HubbardCommon(obj%london_c6(i))
+      ENDDO
+      IF (ALLOCATED(obj%london_c6)) DEALLOCATE(obj%london_c6)
+      obj%london_c6_ispresent = .FALSE.
+   ENDIF
 
-END SUBROUTINE qes_reset_HubbardCommon
+END SUBROUTINE qes_reset_vdW
 
 
 SUBROUTINE qes_write_dftU(iun, obj)
@@ -5895,6 +6090,12 @@ SUBROUTINE qes_write_control_variables(iun, obj)
       CALL iotk_write_begin(iun, 'max_seconds')
          WRITE(iun, '(I12)') obj%max_seconds
       CALL iotk_write_end(iun, 'max_seconds')
+      IF(obj%nstep_ispresent) THEN
+         CALL iotk_write_begin(iun, 'nstep')
+            WRITE(iun, '(I12)') obj%nstep
+         CALL iotk_write_end(iun, 'nstep')
+      ENDIF
+      !
       CALL iotk_write_begin(iun, 'etot_conv_thr')
          WRITE(iun, '(E20.7)') obj%etot_conv_thr
       CALL iotk_write_end(iun, 'etot_conv_thr')
@@ -5916,8 +6117,8 @@ END SUBROUTINE qes_write_control_variables
 
 SUBROUTINE qes_init_control_variables(obj, tagname, title, calculation, restart_mode, &
                               prefix, pseudo_dir, outdir, stress, forces, wf_collect, &
-                              disk_io, max_seconds, etot_conv_thr, forc_conv_thr, &
-                              press_conv_thr, verbosity, print_every)
+                              disk_io, max_seconds, nstep_ispresent, nstep, etot_conv_thr, &
+                              forc_conv_thr, press_conv_thr, verbosity, print_every)
    IMPLICIT NONE
 
    TYPE(control_variables_type) :: obj
@@ -5934,6 +6135,8 @@ SUBROUTINE qes_init_control_variables(obj, tagname, title, calculation, restart_
    LOGICAL  :: wf_collect
    CHARACTER(len=*) :: disk_io
    INTEGER  :: max_seconds
+   LOGICAL  :: nstep_ispresent
+   INTEGER  :: nstep
    REAL(DP) :: etot_conv_thr
    REAL(DP) :: forc_conv_thr
    REAL(DP) :: press_conv_thr
@@ -5952,6 +6155,10 @@ SUBROUTINE qes_init_control_variables(obj, tagname, title, calculation, restart_
    obj%wf_collect = wf_collect
    obj%disk_io = disk_io
    obj%max_seconds = max_seconds
+   obj%nstep_ispresent = nstep_ispresent
+   IF(obj%nstep_ispresent) THEN
+      obj%nstep = nstep
+   ENDIF
    obj%etot_conv_thr = etot_conv_thr
    obj%forc_conv_thr = forc_conv_thr
    obj%press_conv_thr = press_conv_thr
@@ -5967,6 +6174,9 @@ SUBROUTINE qes_reset_control_variables(obj)
 
    obj%tagname = ""
 
+   IF(obj%nstep_ispresent) THEN
+      obj%nstep_ispresent = .FALSE.
+   ENDIF
 
 END SUBROUTINE qes_reset_control_variables
 

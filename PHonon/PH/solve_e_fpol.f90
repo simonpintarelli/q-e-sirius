@@ -48,7 +48,7 @@ subroutine solve_e_fpol ( iw )
   USE mp_bands,              ONLY : intra_bgrp_comm
   USE mp,                    ONLY : mp_sum
 
-  USE eqv,                   ONLY : dpsi, dvpsi, eprec
+  USE eqv,                   ONLY : dpsi, dvpsi
   USE control_lr,            ONLY : nbnd_occ, lgamma
   USE dv_of_drho_lr
 
@@ -83,10 +83,10 @@ subroutine solve_e_fpol ( iw )
   ! counters
   integer :: ltaver, lintercall
 
-  real(DP) :: tcpu, get_clock
-  ! timing variables
-
-  real(DP) :: iw  !frequency
+  real(DP) :: tcpu
+  real(DP) :: eprec1 ! 1.35<ek>, for preconditioning
+  real(DP) :: iw     !frequency
+  real(dp), external :: ddot, get_clock
 
   external cch_psi_all, ccg_psi
 
@@ -161,18 +161,15 @@ subroutine solve_e_fpol ( iw )
         npw = ngk(ik)
         npwq = npw    ! q=0 in ths routine
         !
-        ! reads unperturbed wavefuctions psi_k in G_space, for all bands
+        ! read unperturbed wavefunctions psi_k in G_space, for all bands
         !
         if (nksq.gt.1) call get_buffer(evc, lrwfc, iuwfc, ik)
-        call init_us_2 (npw, igk_k(1,ik), xk (1, ik), vkb)
         !
-        ! compute the kinetic energy (needed by ch_psi_all)
+        ! compute beta functions and kinetic energy for k-point ik
+        ! needed by h_psi, called by cch_psi_all, called by gmressolve_all
         !
-        do ig = 1, npwq
-           g2kin (ig) = ( (xk (1,ik ) + g (1,igk_k (ig,ik)) ) **2 + &
-                          (xk (2,ik ) + g (2,igk_k (ig,ik)) ) **2 + &
-                          (xk (3,ik ) + g (3,igk_k (ig,ik)) ) **2 ) * tpiba2
-        enddo
+        CALL init_us_2 (npw, igk_k(1,ik), xk (1, ik), vkb)
+        CALL g2_kin(ik)
         !
         do ipol = 1, 3
            !
@@ -252,10 +249,14 @@ subroutine solve_e_fpol ( iw )
               !
               if ( (abs(iw).lt.0.05) .or. (abs(iw).gt.1.d0) ) then
                  !
+                 DO ig = 1, npwq
+                    auxg (ig) = g2kin (ig) * evc (ig, ibnd)
+                 END DO
+                 eprec1 = 1.35_dp*ddot(2*npwq,evc(1,ibnd),1,auxg,1)
+                 !
                  do ig = 1, npw
-!                   h_diag(ig,ibnd)=1.d0/max(1.0d0,g2kin(ig)/eprec(ibnd,ik))
                     h_diag(ig,ibnd)=CMPLX(1.d0, 0.d0,kind=DP) / &
-                    CMPLX( max(1.0d0,g2kin(ig)/eprec(ibnd,ik))-et(ibnd,ik),-iw ,kind=DP)
+                    CMPLX( max(1.0d0,g2kin(ig)/eprec1)-et(ibnd,ik),-iw ,kind=DP)
                  end do
               else
                  do ig = 1, npw
