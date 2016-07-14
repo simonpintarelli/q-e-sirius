@@ -212,7 +212,7 @@ subroutine electrons_sirius()
             do mb = nb, upf(iat)%nbeta
               ijv = mb*(mb-1)/2 + nb
               do ir = 1, upf(iat)%kkbeta
-                qij(ir, ijv, l) =  upf(iat)%qfuncl(ir, ijv, l)
+                qij(ir, ijv, l) = upf(iat)%qfuncl(ir, ijv, l)
               enddo
             enddo
           enddo
@@ -240,8 +240,8 @@ subroutine electrons_sirius()
           enddo ! nb
         enddo
       endif
-
       call sirius_set_atom_type_q_rf(c_str(atm(iat)), qij(1, 1, 0), upf(iat)%lmax)
+      !call sirius_set_atom_type_q_rf(c_str(atm(iat)), qij(1, 1, 0), (upf(iat)%nqlc-1) / 2)
       deallocate(qij)
     endif
 
@@ -294,7 +294,8 @@ subroutine electrons_sirius()
     write(*,*)"sirius: ", dims
     stop 111
   endif
-
+  
+  use_sirius_mixer = 0
   !CALL sirius_use_internal_mixer(use_sirius_mixer)
   !write(*,*)"use_sirius_mixer=",use_sirius_mixer
 
@@ -339,7 +340,9 @@ subroutine electrons_sirius()
   CALL sirius_ground_state_initialize(kset_id)
 
   ! initialize internal library mixer
-  CALL sirius_density_mixer_initialize()
+  if (use_sirius_mixer.eq.1) then
+    CALL sirius_density_mixer_initialize()
+  endif
 
   WRITE( stdout, 9002 )
   !CALL flush_unit( stdout )
