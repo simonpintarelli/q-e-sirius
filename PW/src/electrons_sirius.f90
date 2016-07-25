@@ -34,6 +34,7 @@ subroutine electrons_sirius()
   use uspp,             only : okvan
   use fft_base,         only : dfftp
   use atom,             only : rgrid
+  USE paw_variables,    only : okpaw, total_core_energy
   !
   implicit none
   integer iat, ia, i, j, kset_id, num_gvec, num_fft_grid_points, ik, iter, ig, li, lj, ijv, ilast, ir, l, mb, nb
@@ -48,6 +49,13 @@ subroutine electrons_sirius()
   integer kmesh(3), kshift(3), printout
   integer, external :: find_current_k
   real(8), allocatable :: qij(:,:,:)
+  !---------------
+  ! paw one elec
+  !---------------
+  real(8) :: paw_one_elec_energy
+
+  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
   !
   if ( dft_is_hybrid() ) then
      printout = 0  ! do not print etot and energy components at each scf step
@@ -120,11 +128,24 @@ subroutine electrons_sirius()
     end select
   endif
   
-  if (okvan) then
+  !---- set up a type of calculation -----
+  if (  okvan .and. .not. okpaw ) then
     call sirius_set_esm_type(c_str("ultrasoft_pseudopotential"))
-  else
+  endif
+
+  if (  okvan .and. okpaw ) then
+    call sirius_set_esm_type(c_str("paw_pseudopotential"))
+  endif
+
+  if ( .not.  okvan .and. .not. okpaw ) then
     call sirius_set_esm_type(c_str("norm_conserving_pseudopotential"))
   endif
+
+  !if ( okvan .and.  okpaw ) then
+  !  write(*,*) "ERROR: PAW and Vanderbilt poetntials in one calculation are not implemented ! ABORT!"
+  !  STOP
+  !endif
+  !-----------------------------------------
 
   call sirius_set_gamma_point(gamma_only)
     
@@ -189,6 +210,16 @@ subroutine electrons_sirius()
     ! set beta-projectors
     call sirius_set_atom_type_beta_rf(c_str(atm(iat)), upf(iat)%nbeta, upf(iat)%lll(1),&
                                      &upf(iat)%kbeta(1), upf(iat)%beta(1, 1), upf(iat)%mesh)
+
+
+
+    if( okpaw ) then
+    write(*,*) "coco"
+        call sirius_set_atom_type_paw_data(c_str(atm(iat)), upf(iat)%aewfc(1,1), upf(iat)%pswfc(1,1),&
+                                          &upf(iat)%nbeta, upf(iat)%mesh, upf(iat)%paw%iraug,&
+                                          &upf(iat)%paw%core_energy, upf(iat)%paw%ae_rho_atc(1),&
+                                          &upf(iat)%mesh, upf(iat)%paw%oc(1), upf(iat)%nbeta )
+    endif
 
     allocate(dion(upf(iat)%nbeta, upf(iat)%nbeta))
     ! convert to hartree
@@ -479,6 +510,12 @@ subroutine electrons_sirius()
     ! total energy
     etot = eband + ( etxc - etxcc ) + ewld + ehart + deband + demet !+ descf
 
+    if ( okpaw ) then
+        call sirius_get_paw_total_energy(epaw)
+        call sirius_get_paw_one_elec_energy( paw_one_elec_energy )
+        etot = etot - 2.0 * paw_one_elec_energy + 2.0 * epaw
+    endif
+
     ! TODO: this has to be called correcly - there are too many dependencies
     CALL print_energies(printout)
 
@@ -628,7 +665,7 @@ subroutine electrons_sirius()
        !!   IF ( tefield )            WRITE( stdout, 9061 ) etotefield
        !!   IF ( lda_plus_u )         WRITE( stdout, 9065 ) eth
        !!   IF ( ABS (descf) > eps8 ) WRITE( stdout, 9069 ) descf
-       !!   IF ( okpaw )              WRITE( stdout, 9067 ) epaw
+          IF ( okpaw )              WRITE( stdout, 9067 ) epaw
        !!   !
        !!   ! ... With Fermi-Dirac population factor, etot is the electronic
        !!   ! ... free energy F = E - TS , demet is the -TS contribution
