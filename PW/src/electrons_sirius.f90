@@ -214,7 +214,6 @@ subroutine electrons_sirius()
 
 
     if( okpaw ) then
-    write(*,*) "coco"
         call sirius_set_atom_type_paw_data(c_str(atm(iat)), upf(iat)%aewfc(1,1), upf(iat)%pswfc(1,1),&
                                           &upf(iat)%nbeta, upf(iat)%mesh, upf(iat)%paw%iraug,&
                                           &upf(iat)%paw%core_energy, upf(iat)%paw%ae_rho_atc(1),&
