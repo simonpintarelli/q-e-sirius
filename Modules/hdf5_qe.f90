@@ -8,7 +8,7 @@
 module hdf5_qe
   !
   USE HDF5
-  !USE, intrinsic :: ISO_C_binding
+  USE, intrinsic :: ISO_C_binding
   USE Kinds, ONLY : DP
   !
   implicit none
