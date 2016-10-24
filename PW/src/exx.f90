@@ -16,7 +16,7 @@ MODULE exx
   USE io_global,            ONLY : ionode
   USE fft_custom,           ONLY : fft_cus
   !
-  USE control_flags, ONLY : tqr
+  USE control_flags,        ONLY : gamma_only, tqr
 
   IMPLICIT NONE
   SAVE
@@ -72,7 +72,7 @@ MODULE exx
   REAL(DP)         :: eps_qdiv = 1.d-8 ! |q| > eps_qdiv
   REAL(DP), PARAMETER :: eps_occ  = 1.d-8 ! skip band with occupation < eps_occ
   REAL(DP)         :: exxdiv = 0._dp
-  CHARACTER(32)    :: exxdiv_treatment  = ''
+  CHARACTER(32)    :: exxdiv_treatment  = ' '
   !
   ! x_gamma_extrapolation
   LOGICAL           :: x_gamma_extrapolation =.true.
@@ -120,7 +120,6 @@ MODULE exx
   SUBROUTINE exx_fft_create ()
     USE gvecw,        ONLY : ecutwfc
     USE gvect,        ONLY : ecutrho, ig_l2g
-    USE control_flags,ONLY : gamma_only
     USE klist,        ONLY : qnorm
     USE cell_base,    ONLY : at, bg, tpiba2
     USE fft_custom,   ONLY : set_custom_grid, ggent
@@ -206,6 +205,7 @@ MODULE exx
     USE io_global,  ONLY : stdout
     USE start_k,    ONLY : nk1,nk2,nk3
     USE mp_pools,   ONLY : npool
+    USE control_flags, ONLY : iverbosity
     !
     IMPLICIT NONE
     !
@@ -375,11 +375,15 @@ MODULE exx
     IF( nkqs > 1) THEN
       WRITE(stdout, '(5x,3a)') "EXX: setup a grid of "//trim(int_to_char(nkqs))&
                            //" q-points centered on each k-point"
-      WRITE( stdout, '(5x,a)' ) '(k+q)-points:'
-      DO ik = 1, nkqs
-          WRITE( stdout, '(3f12.7,5x,2i5)') (xkq_collect (ikq, ik) , ikq = 1, 3) , &
+      IF ( nkqs < 100 .OR. iverbosity > 0 ) THEN
+          WRITE( stdout, '(5x,a)' ) '(k+q)-points:'
+          DO ik = 1, nkqs
+            WRITE( stdout, '(3f12.7,5x,2i5)') (xkq_collect(ikq,ik), ikq=1,3), &
                  index_xk(ik), index_sym(ik)
-      ENDDO
+          ENDDO
+      ELSE
+          WRITE( stdout, '(5x,a)' ) "(set verbosity='high' to see the list)"
+      END IF
     ELSE
       WRITE(stdout, '("EXX: grid of k+q points same as grid of k-points")')
     ENDIF
@@ -586,7 +590,6 @@ MODULE exx
     USE io_files,             ONLY : nwordwfc, iunwfc
     USE buffers,              ONLY : get_buffer
     USE wvfct,                ONLY : nbnd, npwx, wg, current_k
-    USE control_flags,        ONLY : gamma_only
     USE klist,                ONLY : ngk, nks, nkstot, xk, wk, igk_k
     USE symm_base,            ONLY : nsym, s, sr, ftau
     USE mp_pools,             ONLY : npool, nproc_pool, me_pool, inter_pool_comm
@@ -945,7 +948,6 @@ MODULE exx
     USE becmod,               ONLY : calbec
     USE fft_base,             ONLY : dffts
     USE fft_interfaces,       ONLY : fwfft
-    USE control_flags,        ONLY : gamma_only
     USE us_exx,               ONLY : becxx
 
     IMPLICIT NONE
@@ -1066,7 +1068,6 @@ MODULE exx
     ! ...    hpsi  V_x*psi
     !
     USE becmod,         ONLY : bec_type
-    USE control_flags,  ONLY : gamma_only
     USE uspp,           ONLY : okvan
     USE paw_variables,  ONLY : okpaw
     !
@@ -1790,7 +1791,6 @@ MODULE exx
     USE io_files,               ONLY : iunwfc, nwordwfc
     USE buffers,                ONLY : get_buffer
     USE wvfct,                  ONLY : nbnd, npwx, wg, current_k
-    USE control_flags,          ONLY : gamma_only
     USE gvect,                  ONLY : gstart
     USE wavefunctions_module,   ONLY : evc
     USE lsda_mod,               ONLY : lsda, current_spin, isk
@@ -1870,7 +1870,6 @@ MODULE exx
   FUNCTION exxenergy2()
     !-----------------------------------------------------------------------
     !
-    USE control_flags,           ONLY : gamma_only
     !
     IMPLICIT NONE
     !
@@ -1901,7 +1900,6 @@ MODULE exx
     USE symm_base,               ONLY : nsym, s
     USE gvect,                   ONLY : ngm, gstart, g, nl
     USE wvfct,                   ONLY : nbnd, npwx, wg
-    USE control_flags,           ONLY : gamma_only
     USE wavefunctions_module,    ONLY : evc
     USE klist,                   ONLY : xk, ngk, nks, nkstot, igk_k
     USE lsda_mod,                ONLY : lsda, current_spin, isk
@@ -2350,8 +2348,6 @@ MODULE exx
      USE cell_base,      ONLY : bg, at, alat, omega
      USE gvect,          ONLY : ngm, g
      USE gvecw,          ONLY : gcutw
-     USE io_global,      ONLY : stdout
-     USE control_flags,  ONLY : gamma_only
      USE mp_bands,       ONLY : intra_bgrp_comm
      USE mp,             ONLY : mp_sum
 
@@ -2477,7 +2473,6 @@ MODULE exx
     USE cell_base,            ONLY : alat, omega, bg, at, tpiba
     USE symm_base,            ONLY : nsym, s
     USE wvfct,                ONLY : nbnd, npwx, wg, current_k
-    USE control_flags,        ONLY : gamma_only
     USE wavefunctions_module, ONLY : evc
     USE klist,                ONLY : xk, ngk, nks, igk_k
     USE lsda_mod,             ONLY : lsda, current_spin, isk
@@ -2789,11 +2784,11 @@ SUBROUTINE aceinit( )
                          bec_type, calbec
   USE lsda_mod,   ONLY : current_spin, lsda, isk
   USE io_files,   ONLY : nwordwfc, iunwfc
+  USE io_global,  ONLY : stdout
   USE buffers,    ONLY : get_buffer
   USE mp_pools,   ONLY : inter_pool_comm
   USE mp_bands,   ONLY : intra_bgrp_comm
   USE mp,         ONLY : mp_sum
-  USE control_flags,        ONLY : gamma_only
   USE wavefunctions_module, ONLY : evc
   !
   IMPLICIT NONE
@@ -2814,7 +2809,7 @@ SUBROUTINE aceinit( )
      IF ( nks > 1 ) CALL get_buffer(evc, nwordwfc, iunwfc, ik)
      IF ( okvan ) THEN
         CALL init_us_2(npw, igk_k(1,ik), xk(:,ik), vkb)
-        CALL calbec ( nkb, vkb, evc, becpsi, nbnd )
+        CALL calbec ( npw, vkb, evc, becpsi, nbnd )
      ENDIF
      IF (gamma_only) THEN
         CALL aceinit_gamma(npw,nbnd,evc,xi(1,1,ik),becpsi,ee)
@@ -2824,7 +2819,7 @@ SUBROUTINE aceinit( )
      eexx = eexx + ee
   ENDDO
   CALL mp_sum( eexx, inter_pool_comm)
-  WRITE(*,*) 'EXACT--Energy', eexx
+  WRITE(stdout,'(/,5X,"ACE energy",f15.8)') eexx
   IF ( okvan ) CALL deallocate_bec_type(becpsi)
   domat = .false.
 END SUBROUTINE aceinit
@@ -2859,7 +2854,6 @@ IMPLICIT NONE
   CALL matcalc('exact',.true.,.false.,nnpw,nbndproj,nbndproj,phi,xitmp,mexx,exxe)
 ! |xi> = -One * Vx[phi]|phi> * rmexx^T
   CALL aceupdate(nbndproj,nnpw,xitmp,mexx)
-  WRITE(*,'(A)') 'xi overwritten by aceupdate.'
   DEALLOCATE( mexx )
 
   CALL stop_clock( 'aceinit' )
@@ -3066,9 +3060,9 @@ IMPLICIT NONE
     string = 'E-'
     ee = Zero
     DO i = 1,n
-      ee = ee + wg(i,ik)*x_occupation(i,ik)*dreal(mat(i,i))
+      ee = ee + wg(i,ik)*DBLE(mat(i,i))
     ENDDO
-!   write(*,'(A,f16.8,A)') string//label, ee, ' Ry'
+    !write(*,'(A,f16.8,A)') string//label, ee, ' Ry'
   ENDIF
 
   CALL stop_clock('matcalc')
