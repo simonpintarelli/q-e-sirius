@@ -10,35 +10,29 @@
   !-----------------------------------------------------------------------
   subroutine openfilepw
   !-----------------------------------------------------------------------
-  !
-  !     This subroutine opens all the files necessary for the EPW
-  !     calculation.
-  !
-  ! RM - Nov/Dec 2014
-  ! Imported the noncolinear case implemented by xlzhang
-  !
+  !!
+  !!     This subroutine opens all the files necessary for the EPW
+  !!     calculation.
+  !!
+  !! RM - Nov/Dec 2014
+  !! Imported the noncolinear case implemented by xlzhang
+  !!
   !-----------------------------------------------------------------------
   use mp_global,        ONLY : me_pool
-  use io_files,         ONLY : prefix, tmp_dir, &
-                               diropn, seqopn
+  use io_files,         ONLY : prefix, diropn, seqopn
   use units_ph,         ONLY : iudrhous, lrdrhous, iudvkb3, iuwfc
   USE uspp,             ONLY : nkb, okvan
   ! nwordwfc is the record length for the direct-access file containing
   ! wavefunctions
   USE wvfct,            ONLY : nbnd, npwx
   USE noncollin_module, ONLY : npol,nspin_mag
-  use phcom,            ONLY : lrwfc, fildvscf, iudvscf, lrdvkb3, lrdrho
-  use epwcom,           ONLY : elinterp, nbndsub
+  use phcom,            ONLY : lrwfc, lrdvkb3, lrdrho
   USE fft_base,         ONLY : dfftp
   !
   implicit none
   INTEGER, EXTERNAL :: find_free_unit
-  integer :: spot
   ! integer variable for I/O control
   ! used for extracting the fildvscf0 directory
-  character (len=256) :: filint,tmp_dir_save
-  ! the name of the file
-  ! safe place for the tmp_dir variable  
   logical :: exst
   ! logical variable to check file existe
   ! logical variable to check file exists in memory
@@ -51,14 +45,6 @@
   lrwfc = 2 * nbnd * npwx * npol 
   CALL diropn(iuwfc,'wfc',lrwfc,exst) 
   IF (.not. exst) CALL errore ('openfilepw','file '//TRIM( prefix )//'.wfc'//' not found',1)
-  !
-  !
-#ifdef __PARA
-      IF (me_pool /= 0) goto 300 
-#endif
-#ifdef __PARA
-300  continue
-#endif
   !
   !   file for setting unitary gauges of eigenstates
   !

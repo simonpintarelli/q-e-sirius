@@ -12,13 +12,13 @@
   !----------------------------------------------------------------------- 
   subroutine allocate_epwq
   !-----------------------------------------------------------------------
-  !
-  ! dynamical allocation of arrays: quantities needed for the linear
-  ! response problem
-  !
-  ! RM - Nov/Dec 2014 
-  ! Imported the noncolinear case implemented by xlzhang
-  !
+  !!
+  !! Dynamical allocation of arrays: quantities needed for the linear
+  !! response problem
+  !!
+  !! RM - Nov/Dec 2014 
+  !! Imported the noncolinear case implemented by xlzhang
+  !!
   USE ions_base,    ONLY : nat, ntyp => nsp
   USE pwcom,        ONLY : npwx, nbnd, ngm, nspin, nks
   USE noncollin_module, ONLY : noncolin, npol
@@ -26,14 +26,13 @@
   USE spin_orb,     ONLY : lspinorb
   USE control_lr,   ONLY : lgamma, nbnd_occ
   USE phcom,        ONLY : evq, dvpsi, dpsi, vlocq,&
-                           dmuxc, w2, dyn00, t, tmq,&
-                           npertx 
+                           dmuxc, npertx 
   USE phus,         ONLY : int1, int1_nc, int2, int2_so, &
                            int4, int4_nc, int5, int5_so, becsum_nc, &
                            alphasum, alphasum_nc, alphap
   USE lr_symm_base, ONLY : rtau               
   USE qpoint,       ONLY : eigqts
-  USE lrus,         ONLY : becp1, int3, int3_nc, dpqq, dpqq_so
+  USE lrus,         ONLY : becp1, int3, int3_nc
   USE elph2,        ONLY : elph, el_ph_mat
   USE becmod,       ONLY : becp, allocate_bec_type
   USE uspp_param,   ONLY : nhm
@@ -41,7 +40,7 @@
 ! SP creation of ffts
   USE units_ph,     ONLY : this_dvkb3_is_on_file, this_pcxpsi_is_on_file
   USE modes,        ONLY : u, npert, name_rap_mode, num_rap_mode
-  USE fft_base,     ONLY : dffts
+  USE fft_base,     ONLY : dtgs
   USE klist,        ONLY : nks
 
   implicit none
@@ -72,16 +71,15 @@
   ALLOCATE (vlocq ( ngm, ntyp))    
 ! SP: nrxx is not used in QE 5 ==> tg_nnr is the maximum among nnr
 !     This SHOULD have the same dim as nrxx had.
-!  ALLOCATE (dmuxc ( nrxx, nspin, nspin))    
-  ALLOCATE (dmuxc ( dffts%tg_nnr, nspin, nspin))    
+!  ALLOCATE (dmuxc ( nrxx, nspin, nspin))  
+! SP: Again a new change in QE (03/08/2016)  
+!  ALLOCATE (dmuxc ( dffts%tg_nnr, nspin, nspin))    
+  ALLOCATE (dmuxc ( dtgs%tg_nnr, nspin, nspin))    
   !
   ALLOCATE (eigqts ( nat))    
   ALLOCATE (rtau ( 3, 48, nat))    
   ALLOCATE (u ( 3 * nat, 3 * nat))    
-  ALLOCATE (w2 ( 3 * nat))    
-  ALLOCATE (dyn00 ( 3 * nat, 3 * nat))
-  ALLOCATE (t (npertx, npertx, 48,3 * nat))    
-  ALLOCATE (tmq (npertx, npertx, 3 * nat))    
+!  ALLOCATE (t (npertx, npertx, 48,3 * nat))    
   allocate (name_rap_mode( 3 * nat))
   allocate (num_rap_mode( 3 * nat ))
   ALLOCATE (npert ( 3 * nat))    
@@ -91,7 +89,6 @@
      ALLOCATE (int3 ( nhm, nhm, npertx, nat, nspin))    
      ALLOCATE (int4 ( nhm * (nhm + 1)/2, 3, 3, nat, nspin))    
      ALLOCATE (int5 ( nhm * (nhm + 1)/2, 3, 3, nat , nat))    
-     ALLOCATE (dpqq( nhm, nhm, 3, ntyp))    
      IF (noncolin) THEN
         ALLOCATE(int1_nc( nhm, nhm, 3, nat, nspin))
         ALLOCATE(int3_nc( nhm, nhm, npertx, nat, nspin))
@@ -101,7 +98,6 @@
         IF (lspinorb) THEN
            ALLOCATE(int2_so( nhm, nhm, 3, nat, nat, nspin))
            ALLOCATE(int5_so( nhm, nhm, 3, 3, nat, nat, nspin))
-           ALLOCATE(dpqq_so( nhm, nhm, nspin, 3, ntyp))
         END IF
      END IF
      ALLOCATE (alphasum ( nhm * (nhm + 1)/2, 3, nat , nspin))    

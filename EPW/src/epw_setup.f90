@@ -10,13 +10,11 @@
   !-----------------------------------------------------------------------
   SUBROUTINE epw_setup
   !-----------------------------------------------------------------------
-  !
-  ! 10/2009 looks clearly like phq_setup.  a lot of the 'fat'
-  !         could be trimmed
-  !
-  ! RM - Nov 2014 
-  ! Noncolinear case implemented
-  !
+  !!
+  !! EPW setup.  
+  !!
+  !! @Note: RM - Nov 2014: Noncolinear case implemented
+  !!
   USE kinds,         ONLY : DP
   USE ions_base,     ONLY : tau, nat, ntyp => nsp, ityp
   USE cell_base,     ONLY : at, bg  
@@ -54,53 +52,84 @@
   USE funct,         ONLY : dmxc, dmxc_spin, dmxc_nc, dft_is_gradient
   USE mp_global,     ONLY : world_comm
   USE mp,            ONLY : mp_bcast
-#ifdef __PARA
   USE mp,            ONLY : mp_max, mp_min
   USE mp_pools,      ONLY : inter_pool_comm
-#endif
   USE epwcom,        ONLY : xk_cryst
   USE fft_base,      ONLY : dfftp
   USE gvecs,         ONLY : doublegrid
   USE start_k,       ONLY : nk1, nk2, nk3
-  USE elph2,         ONLY : elph, done_elph
+  !
   implicit none
-
-  real(DP) :: rhotot, rhoup, rhodw, target, small, fac, xmax, emin, emax
-  ! total charge
-  ! total up charge
-  ! total down charge
-  ! auxiliary variables used
-  ! to set nbnd_occ in the metallic case
-  ! minimum band energy
-  ! maximum band energy
-
-  real(DP) :: xx_c, yy_c, zz_c, eps
-
-  integer :: ir, table (48, 48), isym, jsym, ik, jk, ibnd, ipol, &
-       mu, imode0, irr, ipert, na, it, is, js, last_irr_eff 
-  ! counter on mesh points
-  ! the multiplication table of the point g
-  ! counter on symmetries
-  ! counter on symmetries
-  ! counter on rotations
-  ! counter on k points
-  ! counter on k points
-  ! counter on bands
-  ! counter on polarizations
-  ! counter on modes
-  ! the starting mode
-  ! counter on representation and perturbat
-  ! counter on atoms
-  ! counter on iterations
-  ! counter on atomic type
-
-  integer, allocatable :: ifat(:)
-  real(DP) :: auxdmuxc(4,4)
-
-  logical :: magnetic_sym
-  ! the symmetry operations
+  ! 
+  INTEGER :: ir
+  !! counter on mesh points
+  INTEGER :: table (48, 48)
+  !! the multiplication table of the point g
+  INTEGER :: isym
+  !! counter on symmetries
+  INTEGER :: jsym
+  !! counter on symmetries
+  INTEGER :: ik
+  !! counter on rotations
+  INTEGER :: jk
+  !! counter on k points
+  INTEGER :: ibnd
+  !! counter on k points
+  INTEGER :: ipol
+  !! counter on bands
+  INTEGER :: mu
+  !! counter on polarizations
+  INTEGER :: imode0
+  !! counter on modes
+  INTEGER :: irr
+  !! the starting mode
+  INTEGER :: ipert
+  !! counter on representation and perturbat
+  INTEGER :: na
+  !! counter on atoms
+  INTEGER :: it
+  !! counter on iterations
+  INTEGER :: is
+  !! counter on atomic type
+  INTEGER :: js
+  !! counter on atomic type
+  INTEGER :: last_irr_eff
+  !! Last effective irr
+  INTEGER, ALLOCATABLE :: ifat(:)
+  !!  
+  REAL(kind=DP) :: rhotot
+  !! total charge
+  REAL(kind=DP) :: rhoup
+  !! total up charge
+  REAL(kind=DP) :: rhodw
+  !! total down charge
+  REAL(kind=DP) :: target
+  !! 
+  REAL(kind=DP) :: small
+  !! 
+  REAL(kind=DP) :: fac
+  !! 
+  REAL(kind=DP) :: xmax
+  !! to set nbnd_occ in the metallic case
+  REAL(kind=DP) :: emin
+  !! minimum band energy
+  REAL(kind=DP) ::emax
+  !! maximum band energy
+  REAL(kind=DP) :: xx_c
+  !! 
+  REAL(kind=DP) :: yy_c
+  !! 
+  REAL(kind=DP) :: zz_c
+  !! 
+  REAL(kind=DP) :: eps
+  !! 
+  REAL(kind=DP) :: auxdmuxc(4,4)
+  !!
+  LOGICAL :: magnetic_sym
+  !! the symmetry operations
   LOGICAL :: symmorphic_or_nzb
-
+  !!
+  !
   CALL start_clock ('epw_setup')
   !
   ! 0) Set up list of kpoints in crystal coordinates
@@ -235,7 +264,7 @@
         nbnd_occ = nint (nelec) 
      ELSE
         DO ik = 1, nks
-           nbnd_occ (ik) = nint (nelec) / degspin
+           nbnd_occ (ik) = nint (nelec) / nint(degspin)
         ENDDO
      ENDIF
   ENDIF
@@ -248,10 +277,8 @@
         emin = min (emin, et (ibnd, ik) )
      ENDDO
   ENDDO
-#ifdef __PARA
   ! find the minimum across pools
   CALL mp_min( emin, inter_pool_comm )
-#endif
   IF (lgauss) THEN
      emax = target
      alpha_pv = emax - emin
@@ -262,10 +289,8 @@
            emax = max (emax, et (ibnd, ik) )
         ENDDO
      ENDDO
-#ifdef __PARA
      ! find the maximum across pools
      CALL mp_max( emax, inter_pool_comm )
-#endif
      alpha_pv = 2.d0 * (emax - emin)
   ENDIF
   ! avoid zero value for alpha_pv
@@ -451,3 +476,57 @@
   RETURN
   !
   END SUBROUTINE epw_setup
+  !
+  !-----------------------------------------------------------------------
+  SUBROUTINE epw_setup_restart
+  !-----------------------------------------------------------------------
+  !!
+  !! Setup in the case of a restart
+  !! 
+  ! ----------------------------------------------------------------------
+  USE kinds,         ONLY : DP
+  USE constants_epw, ONLY : zero
+  USE io_global,     ONLY : ionode_id
+  USE mp_global,     ONLY : world_comm
+  USE mp,            ONLY : mp_bcast
+  USE epwcom,        ONLY : scattering, nstemp, tempsmin, tempsmax, &
+                            temps
+  USE transportcom,  ONLY : transp_temp
+  !
+  implicit none
+  !
+  INTEGER :: itemp
+  !! Counter on temperature
+  ! 
+  CALL start_clock ('epw_setup')
+  !
+  IF (.NOT. ALLOCATED(transp_temp)) ALLOCATE( transp_temp(nstemp) )
+  !
+  transp_temp(:) = zero
+  ! In case of scattering calculation
+  IF ( scattering ) THEN
+    ! 
+    IF ( maxval(temps(:)) > zero ) THEN
+      transp_temp(:) = temps(:)
+    ELSE
+      IF ( nstemp .eq. 1 ) THEN
+        transp_temp(1) = tempsmin
+      ELSE
+        DO itemp = 1, nstemp
+          transp_temp(itemp) = tempsmin + dble(itemp-1) * &
+                              ( tempsmax - tempsmin ) / dble(nstemp-1)
+        ENDDO
+      ENDIF
+    ENDIF
+  ENDIF
+  ! We have to bcast here because before it has not been allocated
+  CALL mp_bcast (transp_temp, ionode_id, world_comm)    !  
+  ! 
+  CALL stop_clock ('epw_setup')
+  RETURN
+  !-----------------------------------------------------------------------
+  END SUBROUTINE epw_setup_restart
+  !-----------------------------------------------------------------------
+
+
+

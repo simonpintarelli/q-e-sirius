@@ -9,22 +9,18 @@
   !--------------------------------------------------------------
   subroutine readgmap ( nkstot, ngxx, ng0vec, g0vec_all_r, lower_bnd) 
   !--------------------------------------------------------------
-  !
-  !  read map of G vectors G -> G-G_0 for a given q point
-  !  (this is used for the folding of k+q into the first BZ) 
-  !    
-  !
+  !!
+  !!  read map of G vectors G -> G-G_0 for a given q point
+  !!  (this is used for the folding of k+q into the first BZ) 
+  !!    
+  !!
   !--------------------------------------------------------------
-
-#ifdef __PARA
-  USE mp_global,ONLY : my_pool_id, inter_pool_comm
+  USE mp_global,ONLY : inter_pool_comm
   USE mp,       ONLY : mp_bcast,mp_max,mp_min
   USE mp_world, ONLY : mpime
   use io_global,ONLY : ionode_id
-#endif
   USE kinds,    ONLY : DP
-  use io_epw,   ONLY : iukgmap
-  use wvfct,    ONLY : npwx
+  use io_epw,   ONLY : iukgmap, iukmap
   use pwcom,    ONLY : nks
   use elph2,    ONLY : shift, gmap, igk_k_all, ngk_all
   USE io_files, ONLY : prefix
@@ -32,21 +28,23 @@
   !
   ! variables for folding of k+q grid
   !
-  INTEGER ::  ng0vec, ngxx, iukmap, nkstot, lower_bnd
-  !   kpoint blocks (k points of all pools)
-  !   number of inequivalent such translations
-  !   bound for the allocation of the array gmap
-  !   unit with map k --> k+q+G
-  REAL(kind=DP) :: g0vec_all_r(3,125)
-  !   G-vectors needed to fold the k+q grid into the k grid, cartesian coord.
+  INTEGER, INTENT (in) :: nkstot
+  !! Total number of k and q points
+  INTEGER, INTENT (inout) :: ngxx
+  !! kpoint blocks (k points of all pools)
+  INTEGER, INTENT (out) :: ng0vec
+  !! 
+  INTEGER, INTENT (in) :: lower_bnd
+  !! Lower bound for the k-parallellization
+  ! 
+  REAL(kind=DP), INTENT (out) :: g0vec_all_r(3,125)
+  !! G-vectors needed to fold the k+q grid into the k grid, cartesian coord.
   !
   !  work variables
   !
   integer :: ik, ik1, ishift, ig0, ig, itmp
   integer :: ios
-#ifdef __PARA
   real(kind=DP) :: tmp
-#endif
   !
   allocate ( shift(nkstot) )
   !
@@ -69,20 +67,18 @@
   ngxx = 0
   DO ik = 1, nks
     !
-    IF (maxval(igk_k_all(1:ngk_all(ik+lower_bnd-1),ik+lower_bnd-1)).gt.ngxx)&
+    IF (maxval(igk_k_all(1:ngk_all(ik+lower_bnd-1),ik+lower_bnd-1)) > ngxx)&
            & ngxx = maxval(igk_k_all(1:ngk_all(ik+lower_bnd-1),ik+lower_bnd-1))
     !
   ENDDO
   !
-#ifdef __PARA
+#if defined(__MPI)
   tmp = dble (ngxx)
   CALL mp_max(tmp,inter_pool_comm)  
   ngxx = nint (tmp)
 #endif
   !
-#ifdef __PARA
   IF (mpime.eq.ionode_id) then
-#endif
     !
     open ( unit = iukgmap, file = trim(prefix)//'.kgmap', form = 'formatted',status='old',iostat=ios)
     IF (ios /=0) call errore ('readgmap', 'error opening kgmap file',iukgmap)
@@ -104,7 +100,6 @@
     !  'fake' readin is because the gmap appears *after* the
     !  wrong kmap.
     !
-    iukmap = 97
     open ( unit = iukmap, file = trim(prefix)//'.kmap', form = 'formatted',status='old',iostat=ios)
     IF (ios /= 0) call errore ('readgmap', 'error opening kmap file', iukmap)
     DO ik = 1, nkstot
@@ -112,19 +107,15 @@
     ENDDO
     close (iukmap) 
     !
-#ifdef __PARA
   ENDIF
   !
   ! first node broadcasts ng0vec to all nodes for allocation of gmap
   !
   CALL mp_bcast( ng0vec, ionode_id, inter_pool_comm )
-#endif
   !
   allocate ( gmap (ngxx * ng0vec) )
   !
-#ifdef __PARA
   IF (mpime.eq.ionode_id) then
-#endif
      !
     DO ig0 = 1, ng0vec
       read (iukgmap,*) g0vec_all_r (:,ig0)
@@ -138,7 +129,6 @@
     !
     close (iukgmap)
     !
-#ifdef __PARA
   ENDIF
   !
   ! first node broadcasts everything to all nodes
@@ -146,8 +136,6 @@
   CALL mp_bcast( g0vec_all_r, ionode_id, inter_pool_comm )
   CALL mp_bcast( shift, ionode_id, inter_pool_comm )
   CALL mp_bcast( gmap, ionode_id, inter_pool_comm )
-  !
-#endif
   !
   end subroutine readgmap
 

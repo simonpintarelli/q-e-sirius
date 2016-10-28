@@ -5,6 +5,10 @@
 ! in the root directory of the present distribution,
 ! or http://www.gnu.org/copyleft/gpl.txt .
 !
+!----------------------------------------------------------------------------
+! TB
+! included monopole related energy
+!----------------------------------------------------------------------------
 !
 !----------------------------------------------------------------------------
 SUBROUTINE electrons()
@@ -36,7 +40,7 @@ SUBROUTINE electrons()
   USE noncollin_module,     ONLY : noncolin, magtot_nc, i_cons,  bfield, &
                                    lambda, report
   USE uspp,                 ONLY : okvan
-  USE exx,                  ONLY : exxinit, exxenergy2, exxbuff, &
+  USE exx,                  ONLY : exxinit, exxenergy2, exxenergy, exxbuff, &
                                    fock0, fock1, fock2, dexx
   USE funct,                ONLY : dft_is_hybrid, exx_is_active
   USE control_flags,        ONLY : adapt_thr, tr2_init, tr2_multi, gamma_only
@@ -44,6 +48,7 @@ SUBROUTINE electrons()
   USE paw_variables,        ONLY : okpaw, ddd_paw, total_core_energy, only_paw
   USE paw_onecenter,        ONLY : PAW_potential
   USE paw_symmetry,         ONLY : PAW_symmetrize_ddd
+  USE ions_base,            ONLY : nat
   !
   !
   IMPLICIT NONE
@@ -64,6 +69,7 @@ SUBROUTINE electrons()
       tr2_final     ! final threshold for exx minimization 
                     ! when using adaptive thresholds.
   LOGICAL :: first, exst
+  REAL(DP) :: etot_cmp_paw(nat,2,2)
   !
   !
   exxen = 0.0d0
@@ -71,8 +77,8 @@ SUBROUTINE electrons()
   first = .true.
   tr2_final = tr2
   IF ( dft_is_hybrid() ) THEN
-     ! printout = 0  : do not print etot and energy components at each scf step
-     printout = 1  ! print etot, not energy components at each scf step
+     printout = 0  ! do not print etot and energy components at each scf step
+     ! printout = 1  ! print etot, not energy components at each scf step
   ELSE IF ( lmd ) THEN
      printout = 1  ! print etot, not energy components at each scf step
   ELSE
@@ -113,7 +119,7 @@ SUBROUTINE electrons()
            !
            CALL v_of_rho( rho, rho_core, rhog_core, &
                ehart, etxc, vtxc, eth, etotefield, charge, v)
-           IF (okpaw) CALL PAW_potential(rho%bec, ddd_PAW, epaw)
+           IF (okpaw) CALL PAW_potential(rho%bec, ddd_PAW, epaw,etot_cmp_paw)
            CALL set_vrs( vrs, vltot, v%of_r, kedtau, v%kin_r, dfftp%nnr, &
                          nspin, doublegrid )
            !
@@ -167,7 +173,7 @@ SUBROUTINE electrons()
         ! then calculate exchange energy (will be useful at next step)
         !
         CALL exxinit()
-#ifdef __EXX_ACE 
+#if defined(__EXX_ACE) 
         fock2 = exxenergyace()
 #else  
         fock2 = exxenergy2()
@@ -182,7 +188,7 @@ SUBROUTINE electrons()
              ehart, etxc, vtxc, eth, etotefield, charge, v)
         etot = etot + etxc + exxen
         !
-        IF (okpaw) CALL PAW_potential(rho%bec, ddd_PAW, epaw)
+        IF (okpaw) CALL PAW_potential(rho%bec, ddd_PAW, epaw,etot_cmp_paw)
         CALL set_vrs( vrs, vltot, v%of_r, kedtau, v%kin_r, dfftp%nnr, &
              nspin, doublegrid )
         !
@@ -191,7 +197,7 @@ SUBROUTINE electrons()
         ! fock1 is the exchange energy calculated for orbitals at step n,
         !       using orbitals at step n-1 in the expression of exchange
         !
-#ifdef __EXX_ACE
+#if defined(__EXX_ACE)
         fock1 = exxenergyace()
 #else  
         fock1 = exxenergy2()
@@ -206,7 +212,7 @@ SUBROUTINE electrons()
         ! fock0 is fock2 at previous step
         !
         fock0 = fock2
-#ifdef __EXX_ACE 
+#if defined(__EXX_ACE) 
         fock2 = exxenergyace()
 #else  
         fock2 = exxenergy2()
@@ -217,8 +223,11 @@ SUBROUTINE electrons()
         ! the treatment of the divergence in exact exchange has failed. 
         !
         dexx = fock1 - 0.5D0*(fock0+fock2)
-        IF ( dexx < 0d0 ) CALL errore( 'electrons', 'dexx is negative! &
-           &  Check that exxdiv_treatment is appropriate for the system', 1 )
+        IF ( dexx < 0d0 ) THEN
+           CALL errore( 'electrons', 'dexx is negative! &
+            & Check that exxdiv_treatment is appropriate for the system,&
+            & or ecutfock may be too low', 1 )
+        ENDIF
         !
         !   remove the estimate exchange energy exxen used in the inner SCF
         !
@@ -275,7 +284,7 @@ SUBROUTINE electrons()
 9064 FORMAT( '     + Fock energy             =',0PF17.8,' Ry' )
 9066 FORMAT(/,A1,'    total energy              =',0PF17.8,' Ry' &
             /'     Harris-Foulkes estimate   =',0PF17.8,' Ry' &
-            /'     est. exchange err (dexx)  =',0PF17.8,' Ry' )
+            /'     est. exchange err (dexx)  =',1PE17.1,' Ry' )
 9101 FORMAT(/'     EXX self-consistency reached' )
 9120 FORMAT(/'     EXX convergence NOT achieved after ',i3,' iterations: stopping' )
 9121 FORMAT(/'     scf convergence threshold =',1PE17.1,' Ry' )
@@ -323,11 +332,13 @@ SUBROUTINE electrons_scf ( printout, exxen )
                                    restart, io_level, do_makov_payne,  &
                                    gamma_only, iverbosity, textfor,     &
                                    llondon, scf_must_converge, lxdm, ts_vdw
+  USE control_flags,        ONLY : n_scf_steps, scf_error
+
   USE io_files,             ONLY : iunmix, output_drho, &
                                    iunres, iunefield, seqopn
   USE ldaU,                 ONLY : eth, Hubbard_U, Hubbard_lmax, &
                                    niter_with_fixed_ns, lda_plus_u
-  USE extfield,             ONLY : tefield, etotefield
+  USE extfield,             ONLY : tefield, etotefield, monopole, etotmonofield !TB
   USE noncollin_module,     ONLY : noncolin, magtot_nc, i_cons,  bfield, &
                                    lambda, report
   USE spin_orb,             ONLY : domag
@@ -385,6 +396,7 @@ SUBROUTINE electrons_scf ( printout, exxen )
   ! ... external functions
   !
   REAL(DP), EXTERNAL :: ewald, get_clock
+  REAL(DP) :: etot_cmp_paw(nat,2,2)
   !
   iter = 0
   dr2  = 0.0_dp
@@ -601,7 +613,7 @@ SUBROUTINE electrons_scf ( printout, exxen )
            CALL v_of_rho( rhoin, rho_core, rhog_core, &
                           ehart, etxc, vtxc, eth, etotefield, charge, v)
            IF (okpaw) THEN
-              CALL PAW_potential(rhoin%bec, ddd_paw, epaw)
+              CALL PAW_potential(rhoin%bec, ddd_paw, epaw,etot_cmp_paw)
               CALL PAW_symmetrize_ddd(ddd_paw)
            ENDIF
            !
@@ -630,7 +642,7 @@ SUBROUTINE electrons_scf ( printout, exxen )
            vnew%of_r(:,:) = v%of_r(:,:) - vnew%of_r(:,:)
            !
            IF (okpaw) THEN
-              CALL PAW_potential(rho%bec, ddd_paw, epaw)
+              CALL PAW_potential(rho%bec, ddd_paw, epaw,etot_cmp_paw)
               CALL PAW_symmetrize_ddd(ddd_paw)
            ENDIF
            !
@@ -678,6 +690,13 @@ SUBROUTINE electrons_scf ( printout, exxen )
      WRITE( stdout, 9000 ) get_clock( 'PWSCF' )
      !
      IF ( conv_elec ) WRITE( stdout, 9101 )
+!  these values are assigned to global variables  because these information are needed for XML  printout 
+!  P.D. 
+     IF ( conv_elec ) THEN 
+           scf_error = dr2
+           n_scf_steps = iter
+     END IF  
+
      !
      IF ( conv_elec .OR. MOD( iter, iprint ) == 0 ) THEN
         !
@@ -737,6 +756,11 @@ SUBROUTINE electrons_scf ( printout, exxen )
      IF ( tefield ) THEN
         etot = etot + etotefield
         hwf_energy = hwf_energy + etotefield
+     END IF
+     ! TB monopole energy
+     IF ( monopole) THEN
+        etot = etot + etotmonofield
+        hwf_energy = hwf_energy + etotmonofield
      END IF
      !
      IF ( lfcpopt .or. lfcpdyn ) THEN
@@ -1064,6 +1088,7 @@ SUBROUTINE electrons_scf ( printout, exxen )
        USE constants, ONLY : eps8
        INTEGER, INTENT (IN) :: printout
        !
+   
        IF ( printout == 0 ) RETURN
        IF ( ( conv_elec .OR. MOD(iter,iprint) == 0 ) .AND. printout > 1 ) THEN
           !
@@ -1082,9 +1107,21 @@ SUBROUTINE electrons_scf ( printout, exxen )
           IF ( ts_vdw )  WRITE ( stdout , 9076 ) 2.0d0*EtsvdW
           IF ( textfor)  WRITE ( stdout , 9077 ) eext
           IF ( tefield )            WRITE( stdout, 9061 ) etotefield
+          IF ( monopole )           WRITE( stdout, 9062 ) etotmonofield ! TB
           IF ( lda_plus_u )         WRITE( stdout, 9065 ) eth
           IF ( ABS (descf) > eps8 ) WRITE( stdout, 9069 ) descf
-          IF ( okpaw )              WRITE( stdout, 9067 ) epaw
+          IF ( okpaw ) THEN
+            WRITE( stdout, 9067 ) epaw
+            ! Detailed printout of PAW energy components, if verbosity is high
+            IF(iverbosity>0)THEN
+            WRITE( stdout, 9068) SUM(etot_cmp_paw(:,1,1)), &
+                                 SUM(etot_cmp_paw(:,1,2)), &
+                                 SUM(etot_cmp_paw(:,2,1)), &
+                                 SUM(etot_cmp_paw(:,2,2)), &
+            SUM(etot_cmp_paw(:,1,1))+SUM(etot_cmp_paw(:,1,2))+ehart, &
+            SUM(etot_cmp_paw(:,2,1))+SUM(etot_cmp_paw(:,2,2))+etxc-etxcc
+            ENDIF
+          ENDIF
           !
           ! ... With Fermi-Dirac population factor, etot is the electronic
           ! ... free energy F = E - TS , demet is the -TS contribution
@@ -1140,8 +1177,15 @@ SUBROUTINE electrons_scf ( printout, exxen )
             /'     xc contribution           =',F17.8,' Ry' &
             /'     ewald contribution        =',F17.8,' Ry' )
 9061 FORMAT( '     electric field correction =',F17.8,' Ry' )
+9062 FORMAT( '     monopole field correction =',F17.8,' Ry' ) ! TB
 9065 FORMAT( '     Hubbard energy            =',F17.8,' Ry' )
 9067 FORMAT( '     one-center paw contrib.   =',F17.8,' Ry' )
+9068 FORMAT( '      -> PAW hartree energy AE =',F17.8,' Ry' &
+            /'      -> PAW hartree energy PS =',F17.8,' Ry' &
+            /'      -> PAW xc energy AE      =',F17.8,' Ry' &
+            /'      -> PAW xc energy PS      =',F17.8,' Ry' &
+            /'      -> total E_H with PAW    =',F17.8,' Ry'& 
+            /'      -> total E_XC with PAW   =',F17.8,' Ry' )
 9069 FORMAT( '     scf correction            =',F17.8,' Ry' )
 9070 FORMAT( '     smearing contrib. (-TS)   =',F17.8,' Ry' )
 9071 FORMAT( '     Magnetic field            =',3F12.7,' Ry' )
@@ -1209,7 +1253,6 @@ FUNCTION exxenergyace ( )
      END IF
      exxenergyace = exxenergyace + ex
   END DO
-  CALL mp_sum( exxenergyace, intra_bgrp_comm)
   CALL mp_sum( exxenergyace, inter_pool_comm )
   domat = .false.
   !

@@ -9,49 +9,47 @@
   !--------------------------------------------------------
   subroutine ktokpmq ( xk, xq, sign, ipool, nkq, nkq_abs)
   !--------------------------------------------------------
-  !
-  !   For a given k point in cart coord, find the index 
-  !   of the corresponding (k + sign*q) point
-  !
-  !   In the parallel case, determine also the pool number
-  !   nkq is the in-pool index, nkq_abs is the absolute
-  !   index
-  !
+  !!
+  !!   For a given k point in cart coord, find the index 
+  !!   of the corresponding (k + sign*q) point
+  !!
+  !!   In the parallel case, determine also the pool number
+  !!   nkq is the in-pool index, nkq_abs is the absolute
+  !!   index
+  !!
   !--------------------------------------------------------
   !
   USE kinds,          only : DP
   use pwcom,          only : nkstot, at
   USE start_k,        ONLY : nk1, nk2, nk3
   use epwcom,         only : xk_cryst
-#ifdef __PARA
-  USE mp_global,      only : my_pool_id, nproc_pool,  &
-                             inter_pool_comm, me_pool,       &
-                             root_pool, npool
+  USE mp_global,      only : nproc_pool, npool
   USE mp_images,      ONLY : nproc_image
   USE mp,             only : mp_barrier, mp_bcast
-  USE mp_world,       ONLY : mpime
-#endif
   implicit none
   !
-  real(kind=DP) :: xk(3), xq(3)
-  ! input: coordinates of k points and q points
-  ! output: coordinates of k+q point
-  integer :: sign, nkq, nkq_abs, kunit
-  ! input: +1 for searching k+q, -1 for k-q
-  ! output: in the parallel case, the pool hosting the k+-q point    
-  ! output: the index of k+sign*q
-  ! output: the absolute index of k+sign*q (in the full k grid)
+  INTEGER, INTENT (in) :: sign
+  !! +1 for searching k+q, -1 for k-q
+  INTEGER, INTENT (out) :: nkq
+  !! in the parallel case, the pool hosting the k+-q point    
+  INTEGER, INTENT (out) :: nkq_abs
+  !! the index of k+sign*q
+  REAL(kind=DP), INTENT (in) :: xk(3)
+  !! coordinates of k points and q points
+  REAL(kind=DP), INTENT (in) :: xq(3)
+  !! Coordinates of k+q point
+
   !
   ! work variables
   !
+  INTEGER :: kunit
+  !! the absolute index of k+sign*q (in the full k grid)
   real(kind=DP) :: xxk (3), xxq (3)
   integer ::  n,  ik, ipool
   real(kind=DP) :: xx, yy, zz, xx_c, yy_c, zz_c, eps
   logical :: in_the_list, found
   !
-#ifdef __PARA
   integer :: iks, nkl, nkr, jpool
-#endif
   !
   kunit =1 
   ! loosy tolerance, no problem since we use integer comparisons
@@ -129,7 +127,7 @@
   !  In the parallel case we have to find the corresponding pool 
   !  and index in the pool
   !
-#ifdef __PARA
+#if defined(__MPI)
   !
   npool = nproc_image/nproc_pool
   !
@@ -167,22 +165,19 @@
 !---------------------------------
 subroutine ckbounds(lower, upper)
 !---------------------------------
-!
-!   Subroutine finds the lower and upper
-!   bounds of the coarse k-grid in parallel
-!
+!!
+!!   Subroutine finds the lower and upper
+!!   bounds of the coarse k-grid in parallel
+!!
 !---------------------------------
   !
-  use pwcom,         only : nkstot
-#ifdef __PARA
-  use mp_global
-  use mp
-#endif
+  use pwcom,         ONLY : nkstot
+  use mp_global,     ONLY : my_pool_id, npool
   !
   implicit none
   integer, intent(out):: lower, upper
   !
-#ifdef __PARA
+#if defined(__MPI)
   !
   integer :: nkst, nkstott, rest
   !
@@ -202,27 +197,25 @@ subroutine ckbounds(lower, upper)
   lower = 1
   upper = nkstot
 #endif
+
 end subroutine
 
 !---------------------------------
 subroutine para_bounds(lower, upper, total)
 !---------------------------------
-!
-!   Subroutine finds the lower and upper
-!   bounds if we split some quantity over pools
-!
+!!
+!!   Subroutine finds the lower and upper
+!!   bounds if we split some quantity over pools
+!!
 !---------------------------------
   !
-#ifdef __PARA
-  use mp_global
-  use mp
-#endif
+  use mp_global,   ONLY : my_pool_id, npool 
   !
   implicit none
   integer, intent(out):: lower, upper
   integer, intent(in):: total
   !
-#ifdef __PARA
+#if defined(__MPI)
   !  
   integer :: rest, nrst
   !
@@ -255,12 +248,12 @@ end subroutine
 !---------------------------------
 subroutine backtoBZ ( xx, yy, zz, n1, n2, n3 )
 !---------------------------------
-!
-!   RM : brings xx, yy, and zz  into first BZ 
-!
-!---------------------------------
+  !!
+  !!  Brings xx, yy, and zz  into first BZ 
+  !!
+  !---------------------------------
   !
-  USE kinds,  only : DP
+  USE kinds,  ONLY : DP
   !
   implicit none
   integer, intent(in) :: n1, n2, n3

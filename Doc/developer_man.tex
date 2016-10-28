@@ -781,7 +781,7 @@ The following capabilities of the C preprocessor are used:
 \item expand macros (command \texttt{\#define})
 \item execute conditional expressions such as
 \begin{verbatim}
-  #ifdef __expression
+  #if defined (__expression)
     ...code A...
   #else
     ...code B...
@@ -797,7 +797,8 @@ In order to make  preprocessing options
 easy to see, preprocessing variables should start with
 two underscores, as \texttt{\_\_expression} in the above
 example. Traditionally ''preprocessed'' variables are also written in
-uppercase.
+uppercase. Please use \verb|#if defined (XXX)|, not
+\verb|#if defined XXX| or \verb|#ifdef XXX|.
 
 \subsubsection{How to edit the \configure\ script}
 
@@ -908,9 +909,8 @@ them in "try\_mpif90".
 be always fine, unless some special flag is required (e.g., -X64
 With sp4).
 
-- you should define "try\_dflags" if there is
-any
-"\#ifdef" specific to your machine: for instance, on IBM machines,
+- you should define "try\_dflags" if there is any preprocessing
+option specific to your machine: for instance, on IBM machines,
 "try\_dflags=-D\_\_AIX" . A list of such flags can be found in file
 \texttt{include/defs.h.README}.
 
@@ -1001,8 +1001,7 @@ others.  In that case, define them as "\$(FFLAGS) -something\_else".
 
 - "try\_fflags\_noopt": flags for Fortran 77 with all optimizations
 turned off: this is usually "-O0".
-These flags must be used for compiling flib/dlamch.f (part of our
-version of Lapack): it won't work properly with optimization.
+These flags used to be needed to compile flib/dlamch.f; likely obsolete
 
 - "try\_ldflags": flags for the linking phase (not including the list
 of libraries: this is decided later).
@@ -1010,8 +1009,8 @@ of libraries: this is decided later).
 - "try\_ldflags\_static": additional flags to select static compilation
 (i.e., don't use shared libraries).
 
-- "try\_dflags": must be defined if there is in the code any \#ifdef
-specific to your compiler (for instance, -D\_\_INTEL for Intel
+- "try\_dflags": must be defined if there is in the code any preprocessing
+option specific to your compiler (for instance, -D\_\_INTEL for Intel
 compilers).  Define it as "\$try\_dflags -D..." so that pre-existing
 flags, if any, are preserved.
 
@@ -1363,7 +1362,7 @@ MUCH better code, both for serial and parallel speed:
    CALL mp_sum(ps,intra_bgrp_group)
 \end{verbatim}
 
-\subsubsection{Usage of \#ifdef \_\_MPI}
+\subsubsection{Preprocessing for parallel usage}
 
 Calls to MPI libraries require variables contained into a
 \texttt{mpif.h} file that is usually absent on serial machines.
@@ -1372,15 +1371,15 @@ the following rules {\em must} be followed:
 \begin{itemize}
 \item Direct calls to MPI library routines must be replaced by
 calls to wrapper routines like those in module \texttt{mp.f90}.
-If this is not possible or not convenient, use \#ifdef \_\_MPI
+If this is not possible or not convenient, use \verb|\#if defined (__MPI)}|
 to prevent compilation and usage in the serial case. Note that
 some compilers do not like empty files or modules containing nothing!
 \item Wrapper routines do not need to be conditionally called:
-there are \#ifdef's inside them. Keep the difference between serial
-and parallel code to a minimum: more \#ifdef \_\_MPI may be needed
+preprocessing is done inside them. Keep the difference between serial
+and parallel code to a minimum: \verb|\#if defined (__MPI)}| are needed
 only when the flux of parallel and serial execution differ.
-\item Unneeded \#ifdef \_\_MPI may be removed if already present;
-\#ifdef \_\_PARA is obsolete and must not be used in new developments.
+\item Unneeded preprocessing may be removed if already present;
+preprocessing option \verb|__PARA| is obsolete and must not be used.
 \end{itemize}
 
 \subsection{Parallelization levels and communicators}
@@ -1990,7 +1989,9 @@ There are currently no strict guidelines for developers. You
 should however follow at least the following loose ones:
 \begin{itemize}
 \item Preprocessing options should be capitalized and start with
-two underscores. Examples: \_\_AIX, \_\_LINUX, ...
+two underscores. Examples: \_\_MPI, \_\_LINUX, ... Use 
+preprocessing syntax \verb|#if defined (XXX)|, not \verb|#if defined XXX|
+or \verb|#ifdef XXX|
 \item Fortran commands should be capitalized:
 CALL something( )
 \item Variable names should be lowercase: \texttt{foo = bar/2}
@@ -2006,7 +2007,8 @@ Standard f90
 requires that a \& is needed both at end of line AND at the beginning of
 continuation line if there is a character variable (inside ' ' or " ")
 spanning two lines. Some compilers do not complain if the latter \& is
-missing, others do.
+missing, others do. Another example: empty strings are nonstandard, use
+\texttt{empty='~'}, not \texttt{empty=''}.
 \item use "dp" (defined in module ''kinds'') to define the type of real and complex variables
 \item all constants should be defined to be of kind "dp".  Preferred syntax: 0.0\_dp.
 \item use "generic" intrinsic functions: SIN, COS, etc.
@@ -2287,35 +2289,49 @@ following links contain an introduction to \texttt{git}:
 https://git-scm.com/book/en/v2/Getting-Started-Git-Basics
 https://git-scm.com/course/svn.html
 \end{verbatim}
-Very quick guide for the impatient:
+Very quick guide to \texttt{git} commands for the impatient:
 \begin{itemize}
-\item Initial download, equivalent to \texttt{svn co}:\\
-  \texttt{git clone ssh://username@qeforge.qe-forge.org/gitroot/q-e-private}
-\item In order to align the local repository to the svn mirror
-  (equivalent to \texttt{svn update}):\\
-  If no changes are present in the local repository, use
-  \begin{quote}
-  \texttt{git pull}
-  \end{quote}
-  If the local repository was modified, use the following sequence:
-  \begin{quote}
-  \texttt{git add}     (add to the list of modified files)\\
-  \texttt{git commit}  (save locally modified files)\\
-  \texttt{git merge}   (merge local changes with repository changes)
-  \end{quote}
-  Alternatively, use the stash to make merge by hand:
-  \begin{quote}
+\item
+  \texttt{clone}: Initial download, makes a local copy of a (typically
+  remote repository)
+\item  \texttt{fetch}:
+  looks at the remote repository, signals if new files or conflicts are present
+  in case the local copy is updated
+\item  \texttt{pull}:
+  downloads updates from the remote repository, applies them to the local one.
+  If there are conflicts that cannot be easily solved, conflicts are flagged
+  and one has to proceed with a manual merge
+\item \texttt{add}: adds files or directories to the "stage area", a pool
+  of files to be commited
+\item \texttt{commit} commits files in the "stage area". Unlike
+  \texttt{svn commit}, files are committed only in the local repository
+\item \texttt{push} publishes the new commits of the local repository
+  to one or more remote repositories
+\item \texttt{merge} merges two branches (typically the local one and
+  the remote one). A merge may be easy or complex, depending upon the type of
+  conflicts. See:
+  \texttt{https://help.github.com/articles/resolving-a-merge-conflict-from-the-command-line/}
+\end{itemize}
+In order to align the local repository to the svn mirror (equivalent to
+\texttt{svn update}), it is a good idea to use \texttt{fetch} before
+\texttt{pull}. Then:
+\begin{quote}
+  \texttt{git add}
+  \texttt{git commit}
+  \texttt{git merge}
+\end{quote}
+In order to save incomplete work and avoid local conflicts, one can use
+\texttt{stash}:
+\begin{quote}
   \texttt{git stash save}     (save and remove modified files)\\
   \texttt{git pull}           (update files)\\
   \texttt{git stash apply}    (overwrite with locally modified files)
-  \end{quote}
-  In order to clear the stash:   \texttt{git clear}
-\item A few useful commands:
-  \begin{quote}
+\end{quote}
+The stash can be cleared using \texttt{git clear}. A few useful commands:
+\begin{quote}
   \texttt{git status}\\
   \texttt{git diff}
-  \end{quote}
-\end{itemize}
+\end{quote}
 
 \section{Bibliography}
 

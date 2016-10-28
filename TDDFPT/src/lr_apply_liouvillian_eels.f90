@@ -17,7 +17,7 @@ SUBROUTINE lr_apply_liouvillian_eels ( evc1, evc1_new, interaction )
   ! Written by Iurii Timrov (2013)
   !
   USE kinds,                ONLY : DP
-  USE fft_base,             ONLY : dfftp, dffts
+  USE fft_base,             ONLY : dfftp, dffts, dtgs
   USE fft_parallel,         ONLY : tg_cgather
   USE klist,                ONLY : xk, igk_k, ngk
   USE lr_variables,         ONLY : no_hxc
@@ -59,8 +59,6 @@ SUBROUTINE lr_apply_liouvillian_eels ( evc1, evc1_new, interaction )
   !
   CALL start_clock('lr_apply')
   !
-  IF ( ntask_groups > 1 ) dffts%have_task_groups = .TRUE.
-  !
   ALLOCATE (hpsi(npwx*npol,nbnd))
   ALLOCATE (spsi(npwx*npol,nbnd))
   ALLOCATE (sevc1_new(npwx*npol,nbnd,nksq))
@@ -77,14 +75,14 @@ SUBROUTINE lr_apply_liouvillian_eels ( evc1, evc1_new, interaction )
   !
   incr = 1
   !
-  IF ( dffts%have_task_groups ) THEN
+  IF ( dtgs%have_task_groups ) THEN
      !
-     v_siz =  dffts%tg_nnr * dffts%nogrp
+     v_siz =  dtgs%tg_nnr * dtgs%nogrp
      !
      ALLOCATE( tg_dvrssc(v_siz,nspin_mag) )
      ALLOCATE( tg_psic(v_siz,npol) )
      !
-     incr = dffts%nogrp
+     incr = dtgs%nogrp
      !
   ENDIF
   !
@@ -167,27 +165,25 @@ SUBROUTINE lr_apply_liouvillian_eels ( evc1, evc1_new, interaction )
      !
      IF (interaction1) THEN
         !
-        IF ( ntask_groups > 1 ) dffts%have_task_groups = .TRUE.
-        !
         ! The potential in dvrssc is distributed across all processors.
         ! We need to redistribute it so that it is completely contained in the
         ! processors of an orbital TASK-GROUP.
         !
-        IF ( dffts%have_task_groups ) THEN
+        IF ( dtgs%have_task_groups ) THEN
            !
            IF (noncolin) THEN
               !
-              CALL tg_cgather( dffts, dvrssc(:,1), tg_dvrssc(:,1))
+              CALL tg_cgather( dffts, dtgs, dvrssc(:,1), tg_dvrssc(:,1))
               !
               IF (domag) THEN
                  DO ipol = 2, 4
-                    CALL tg_cgather( dffts, dvrssc(:,ipol), tg_dvrssc(:,ipol))
+                    CALL tg_cgather( dffts, dtgs, dvrssc(:,ipol), tg_dvrssc(:,ipol))
                  ENDDO
               ENDIF
               !
            ELSE
               !
-              CALL tg_cgather( dffts, dvrssc(:,current_spin), tg_dvrssc(:,1))
+              CALL tg_cgather( dffts, dtgs, dvrssc(:,current_spin), tg_dvrssc(:,1))
               !
            ENDIF
            !
@@ -195,7 +191,7 @@ SUBROUTINE lr_apply_liouvillian_eels ( evc1, evc1_new, interaction )
         !
         DO ibnd = 1, nbnd_occ(ikk), incr
            !
-           IF ( dffts%have_task_groups ) THEN
+           IF ( dtgs%have_task_groups ) THEN
               !
               ! FFT to R-space
               !
@@ -226,8 +222,6 @@ SUBROUTINE lr_apply_liouvillian_eels ( evc1, evc1_new, interaction )
            ENDIF
            !
         ENDDO
-        !
-        dffts%have_task_groups = .FALSE.
         !
         ! In the case of US pseudopotentials there is an additional term.
         ! See second term in Eq.(11) in J. Chem. Phys. 127, 164106 (2007)
@@ -314,14 +308,10 @@ SUBROUTINE lr_apply_liouvillian_eels ( evc1, evc1_new, interaction )
   DEALLOCATE (sevc1_new)
   IF (ALLOCATED(psic)) DEALLOCATE(psic)
   !
-  IF ( ntask_groups > 1) dffts%have_task_groups = .TRUE.
-  !
-  IF ( dffts%have_task_groups ) THEN
+  IF ( dtgs%have_task_groups ) THEN
      DEALLOCATE( tg_dvrssc )
      DEALLOCATE( tg_psic )
   ENDIF
-  !
-  dffts%have_task_groups = .FALSE.
   !
   IF (interaction1)      CALL stop_clock('lr_apply_int')
   IF (.NOT.interaction1) CALL stop_clock('lr_apply_no')

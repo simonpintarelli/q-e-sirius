@@ -10,7 +10,7 @@
   !-----------------------------------------------------------------------
   PROGRAM epw
   !! author: Samuel Ponce', Roxana Margine, Carla Verdi, Feliciano Giustino
-  !! version: v4.0
+  !! version: v4.1
   !! license: GNU
   !! summary: EPW main driver 
   !!  
@@ -21,15 +21,13 @@
   !! 8/14/08 lnscf is unnecessary, as is nqs,iq_start
   !!
   USE io_global,       ONLY : stdout
-#ifdef __PARA
   USE mp,              ONLY : mp_bcast, mp_barrier
   USE mp_world,        ONLY : mpime  
-  USE mp_global,       ONLY : my_pool_id, mp_startup, ionode_id, mp_global_end
-#endif
+  USE mp_global,       ONLY : mp_startup, ionode_id, mp_global_end
   USE control_flags,   ONLY : gamma_only
   USE control_epw,     ONLY : wannierize
   USE global_version,  ONLY : version_number
-  USE epwcom,          ONLY : filukk, eliashberg, ep_coupling
+  USE epwcom,          ONLY : filukk, eliashberg, ep_coupling, epwread, epbread
   USE environment,     ONLY : environment_start
   USE elph2,           ONLY : elph 
   ! Flag to perform an electron-phonon calculation. If .true. 
@@ -41,24 +39,18 @@
   CHARACTER (LEN=12)   :: code = 'EPW'
   !! Name of the program
   !
-  version_number = '4.0.0'
-  !
+  version_number = '4.1.0'
   !
   CALL init_clocks( .TRUE. )
   !
   CALL start_clock( 'EPW' )
-  ! 
   !
   gamma_only = .FALSE.
   !
-#ifdef __PARA
   CALL mp_startup()
-#endif
   !
   ! Display the logo
-#ifdef __PARA
   IF (mpime.eq.ionode_id) then
-#endif
 write(stdout,'(a)') "                                                                                      "
 write(stdout,'(a)') "                                       ``:oss/                                        "
 write(stdout,'(a)') "                           `.+s+.     .+ys--yh+     `./ss+.                           "
@@ -84,11 +76,10 @@ write(stdout,'(a)') "   -yh-        ````````````````    `````````              `
 write(stdout,'(a)') "   -+h/------------------------::::::::://////++++++++++++++++++++++///////::::/yd:   "
 write(stdout,'(a)') "   shdddddddddddddddddddddddddddddhhhhhhhhyyyyyssssssssssssssssyyyyyyyhhhhhhhddddh`   "
 write(stdout,'(a)') "                                                                                      "
-write(stdout,'(a)') "  S. Ponce, E. R. Margine, C. Verdi, and F. Giustino, http://arxiv.org/abs/1604.03525 "
+write(stdout,'(a)') "  S. Ponce, E. R. Margine, C. Verdi, and F. Giustino,                                 "
+write(stdout,'(a)') "                                                Comput. Phys. Commun. 209, 116 (2016) "
 write(stdout,'(a)') "                                                                                      "
-#ifdef __PARA
   ENDIF
-#endif  
   !
   CALL environment_start ( code )
   !
@@ -100,7 +91,19 @@ write(stdout,'(a)') "                                                           
   CALL epw_readin
   !
   CALL allocate_epwq
-  CALL epw_setup
+
+  IF ( epwread .AND. .NOT. epbread ) THEN
+      write(stdout,'(a)') "                      "
+      write(stdout,'(a)') "     ------------------------------------------------------------------------ "
+      write(stdout,'(a)') "                   RESTART - RESTART - RESTART - RESTART                         "
+      write(stdout,'(a)') "     Restart is done without reading PWSCF save file.                  "
+      write(stdout,'(a)') "     Be aware that some consistency checks are therefore not done.                  "
+      write(stdout,'(a)') "     ------------------------------------------------------------------------ "
+      write(stdout,'(a)') "                      "
+      CALL epw_setup_restart
+  ELSE
+    CALL epw_setup
+  ENDIF
   !
   !  Print run info to stdout
   !
@@ -108,11 +111,20 @@ write(stdout,'(a)') "                                                           
   !
   IF ( ep_coupling ) THEN 
      !
-     CALL openfilepw
+     ! In case of restart with arbitrary number of cores.
+     IF ( epwread .and. .not. epbread ) THEN
+       continue
+     ELSE 
+       CALL openfilepw
+     ENDIF
      !
      CALL print_clock( 'EPW' )
      !
-     CALL epw_init(.true.)
+     IF ( epwread .and. .not. epbread ) THEN
+       continue      
+     ELSE
+       CALL epw_init(.true.)
+     ENDIF
      !
      CALL print_clock( 'EPW' )
      !
@@ -159,7 +171,7 @@ write(stdout,'(a)') "                                                           
   !
   ! ... Print statistics and exit gracefully    
   !
-  CALL stop_epw( .TRUE. )
+  CALL stop_epw
   !
   STOP
   !

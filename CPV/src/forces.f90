@@ -32,7 +32,7 @@
       USE cell_base,              ONLY: tpiba2
       USE ensemble_dft,           ONLY: tens
       USE funct,                  ONLY: dft_is_meta, dft_is_hybrid, exx_is_active
-      USE fft_base,               ONLY: dffts
+      USE fft_base,               ONLY: dffts, dtgs
       USE fft_interfaces,         ONLY: fwfft, invfft
       USE fft_parallel,           ONLY: pack_group_sticks, unpack_group_sticks
       USE fft_parallel,           ONLY: fw_tg_cft3_z, bw_tg_cft3_z, fw_tg_cft3_xy, bw_tg_cft3_xy
@@ -82,13 +82,13 @@
       END IF
 !=======================================================================
 
-      nogrp_ = dffts%nogrp
-      ALLOCATE( psi( dffts%tg_nnr * dffts%nogrp ) )
-      ALLOCATE( aux( dffts%tg_nnr * dffts%nogrp ) )
+      nogrp_ = dtgs%nogrp
+      ALLOCATE( psi( dtgs%tg_nnr * dtgs%nogrp ) )
+      ALLOCATE( aux( dtgs%tg_nnr * dtgs%nogrp ) )
       !
       ci = ( 0.0d0, 1.0d0 )
       !
-#ifdef __MPI
+#if defined(__MPI)
 
 
 !$omp  parallel
@@ -97,9 +97,9 @@
       DO idx = 1, 2*nogrp_ , 2
 
 !$omp task default(none) &
-!$omp          firstprivate( idx ) &
+!$omp          firstprivate( idx, i, n, ngw, ci, nogrp_ ) &
 !$omp          private( igoff, ig ) &
-!$omp          shared( i, n, c, dffts, aux, ngw, ci, nogrp_, nlsm, nls )
+!$omp          shared( c, dffts, dtgs, aux, nlsm, nls )
          !
          !  This loop is executed only ONCE when NOGRP=1.
          !  Equivalent to the case with no task-groups
@@ -113,9 +113,9 @@
          ! 
          IF ( ( idx + i - 1 ) == n ) c( : , idx + i ) = 0.0d0
 
-         igoff = ( idx - 1 )/2 * dffts%tg_nnr
+         igoff = ( idx - 1 )/2 * dtgs%tg_nnr
 
-         aux( igoff + 1 : igoff + dffts%tg_nnr ) = (0.d0, 0.d0)
+         aux( igoff + 1 : igoff + dtgs%tg_nnr ) = (0.d0, 0.d0)
 
          IF( idx + i - 1 <= n ) THEN
             DO ig=1,ngw
@@ -132,11 +132,11 @@
 !$omp  end single
 !$omp  end parallel
 
-      CALL pack_group_sticks( aux, psi, dffts )
+      CALL pack_group_sticks( aux, psi, dtgs )
 
-      CALL fw_tg_cft3_z( psi, dffts, aux )
-      CALL fw_tg_cft3_scatter( psi, dffts, aux )
-      CALL fw_tg_cft3_xy( psi, dffts )
+      CALL fw_tg_cft3_z( psi, dffts, aux, dtgs )
+      CALL fw_tg_cft3_scatter( psi, dffts, aux, dtgs )
+      CALL fw_tg_cft3_xy( psi, dffts, dtgs )
 
 #else
 
@@ -159,13 +159,13 @@
          iss2 = iss1
       END IF
       !
-      IF( dffts%have_task_groups ) THEN
+      IF( dtgs%have_task_groups ) THEN
          !
 !===============================================================================
 !exx_wf related
          IF(dft_is_hybrid().AND.exx_is_active()) THEN
             !$omp parallel do private(tmp1,tmp2) 
-            DO ir = 1, dffts%nr1x*dffts%nr2x*dffts%tg_npp( me_bgrp + 1 )
+            DO ir = 1, dffts%nr1x*dffts%nr2x*dtgs%tg_npp( me_bgrp + 1 )
                tmp1 = v(ir,iss1) * DBLE( psi(ir) )+exx_potential(ir,i/nogrp_+1)
                tmp2 = v(ir,iss2) * AIMAG(psi(ir) )+exx_potential(ir,i/nogrp_+2)
                psi(ir) = CMPLX( tmp1, tmp2, kind=DP)
@@ -173,7 +173,7 @@
             !$omp end parallel do 
          ELSE
             !$omp parallel do 
-            DO ir = 1, dffts%nr1x*dffts%nr2x*dffts%tg_npp( me_bgrp + 1 )
+            DO ir = 1, dffts%nr1x*dffts%nr2x*dtgs%tg_npp( me_bgrp + 1 )
                psi(ir) = CMPLX ( v(ir,iss1) * DBLE( psi(ir) ), &
                                  v(ir,iss2) *AIMAG( psi(ir) ) ,kind=DP)
             END DO
@@ -264,12 +264,12 @@
          !
       END IF
       !
-#ifdef __MPI
-      CALL bw_tg_cft3_xy( psi, dffts )
-      CALL bw_tg_cft3_scatter( psi, dffts, aux )
-      CALL bw_tg_cft3_z( psi, dffts, aux )
+#if defined(__MPI)
+      CALL bw_tg_cft3_xy( psi, dffts, dtgs )
+      CALL bw_tg_cft3_scatter( psi, dffts, aux, dtgs )
+      CALL bw_tg_cft3_z( psi, dffts, aux, dtgs )
 
-      CALL unpack_group_sticks( psi, aux, dffts )
+      CALL unpack_group_sticks( psi, aux, dtgs )
 #else
       CALL fwfft( 'Wave', psi, dffts )
       aux = psi
@@ -292,8 +292,8 @@
 
 !$omp task default(none)  &
 !$omp          private( fi, fip, fp, fm, ig ) &
-!$omp          firstprivate( eig_offset, igno, idx ) &
-!$omp          shared( nogrp_ , f, ngw, aux, df, da, c, tpiba2, tens, dffts, me_bgrp, i, n, g2kin, nls, nlsm )
+!$omp          firstprivate( eig_offset, igno, idx, nogrp_, ngw, tpiba2, me_bgrp, i, n, tens ) &
+!$omp          shared( f, aux, df, da, c, dffts, dtgs, g2kin, nls, nlsm )
 
          IF( idx + i - 1 <= n ) THEN
             if (tens) then
@@ -303,7 +303,7 @@
                fi = -0.5d0*f(i+idx-1)
                fip = -0.5d0*f(i+idx)
             endif
-            IF( dffts%have_task_groups ) THEN
+            IF( dtgs%have_task_groups ) THEN
                DO ig=1,ngw
                   fp= aux(nls(ig)+eig_offset) +  aux(nlsm(ig)+eig_offset)
                   fm= aux(nls(ig)+eig_offset) -  aux(nlsm(ig)+eig_offset)
@@ -355,9 +355,9 @@
          DO idx = 1, 2*nogrp_ , 2
 
 !$omp task default(none) &
-!$omp          firstprivate(igrp,idx) &
+!$omp          firstprivate(igrp,idx, nogrp_, ngw, i, n, nsp, na, nh, ish, iss1, iss2, tens ) &
 !$omp          private(iv,jv,ivoff,jvoff,dd,dv,inl,jnl,is,isa,ism,fi,fip) &
-!$omp          shared( nogrp_ , f, ngw, deeq, bec, af, aa, i, n, nsp, na, nh, dvan, tens, ish, iss1, iss2 )
+!$omp          shared( f, deeq, bec, af, aa, dvan )
 
             IF( idx + i - 1 <= n ) THEN
 

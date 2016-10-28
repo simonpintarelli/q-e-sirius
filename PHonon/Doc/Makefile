@@ -1,4 +1,5 @@
-HELPDOC=../../dev-tools/helpdoc
+VERSION = svn
+HELPDOC = ../../dev-tools/helpdoc -version $(VERSION)
 
 LATEX   = pdflatex
 LATEX2HTML = latex2html
@@ -24,7 +25,7 @@ clean:
 	- rm -rf user_guide/ developer_man/
 	- rm -f INPUT_*.html INPUT_*.txt INPUT_*.xml
 	- rm -rf input_xx.xsl
-	- rm -rf ../../Doc/INPUT_PH.* ../../Doc/INPUT_D3.*
+	- rm -rf ../../Doc/INPUT_PH.*
 
 user_guide: user_guide.pdf
 	rm -rf user_guide/
@@ -68,30 +69,29 @@ developer_man: developer_man.pdf
 	@echo ""
 
 
-defs: link_input_xx INPUT_PH.txt INPUT_D3.txt INPUT_PH.html INPUT_D3.html link_on_main_doc
-INPUT_PH.txt: %.txt: %.def
-	$(HELPDOC) $<
-INPUT_D3.txt: %.txt: %.def
-	$(HELPDOC) $<
-link_input_xx:
+defs: input_xx.xsl INPUT_PH.txt INPUT_PH.html INPUT_DYNMAT.txt INPUT_DYNMAT.html link_on_main_doc
+
+input_xx.xsl:
 	@(if test ! -f input_xx.xsl; then \
 	(if test -f ../../dev-tools/input_xx.xsl; then \
 	(ln -sf ../../dev-tools/input_xx.xsl input_xx.xsl) ; \
 	else \
 	echo ; \
 	echo "  Sorry, can not find input_xx.xsl html style file !!!" ; \
-	echo ; \
+	echo ; exit 1 ; \
 	fi) ; fi)
 
 INPUT_PH.html: %.html: %.def input_xx.xsl
 	$(HELPDOC) $<
-INPUT_D3.html: %.html: %.def input_xx.xsl
+INPUT_PH.txt: %.txt: %.def input_xx.xsl
+	$(HELPDOC) $<
+
+INPUT_DYNMAT.html: %.html: %.def input_xx.xsl
+	$(HELPDOC) $<
+INPUT_DYNMAT.txt: %.txt: %.def input_xx.xsl
 	$(HELPDOC) $<
 
 link_on_main_doc:
 	-( cd ../../Doc ; ln -fs ../PHonon/Doc/INPUT_PH.html . ; \
 	ln -fs ../PHonon/Doc/INPUT_PH.xml . ; \
-	ln -fs ../PHonon/Doc/INPUT_PH.txt . ; \
-	ln -fs ../PHonon/Doc/INPUT_D3.html . ; \
-	ln -fs ../PHonon/Doc/INPUT_D3.xml . ; \
-	ln -fs ../PHonon/Doc/INPUT_D3.txt)
+	ln -fs ../PHonon/Doc/INPUT_PH.txt . )

@@ -668,10 +668,6 @@ SUBROUTINE phq_readin()
      CALL errore('phq_readin',&
      'pw.x run with a different number of pools. Use wf_collect=.true.',1)
   !
-  !   Task groups not used in phonon. Activated only in some places
-  !
-  IF (ntask_groups > 1) dffts%have_task_groups=.FALSE.
-
   IF (nproc_bgrp_file /= nproc_bgrp .AND. .NOT. twfcollect) &
      CALL errore('phq_readin','pw.x run with different band parallelization',1)
   
@@ -684,6 +680,9 @@ SUBROUTINE phq_readin()
   IF(elph.and.nimage>1) call errore('phq_readin',&
        'el-ph with images not implemented',1)
   
+  IF( fildvscf /= ' ' .and. nimage > 1 ) call errore('phq_readin',&
+       'saving dvscf to file images not implemented',1)
+
   IF (elph.OR.fildvscf /= ' ') lqdir=.TRUE.
 
   IF(dvscf_star%open.and.nimage>1) CALL errore('phq_readin',&

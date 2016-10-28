@@ -32,20 +32,24 @@ xlf_flags=0
 
 echo using F90... $f90
 
-case "$arch:$f90_version" in
+case "$arch:$f90_flavor" in
 ia32:ifort* | ia64:ifort* | x86_64:ifort* | mac686:ifort* | crayxt*:ifort* )
         try_fflags="-O2 -assume byterecl -g -traceback"
         if test "$use_debug" -eq 1; then
             try_fflags="$try_fflags -fpe0 -CB"
         fi
   	    try_fflags_nomain="-nofor_main"
-        try_fflags_openmp="-openmp"
         try_f90flags="\$(FFLAGS) -nomodule"
         try_fflags_noopt="-O0 -assume byterecl -g -traceback"
         try_ldflags=""
         try_ldflags_static="-static"
-        try_ldflags_openmp="-openmp"
-        try_dflags="$try_dflags -D__INTEL"
+        if test "$f90_major_version" -ge "15"; then
+            try_fflags_openmp="-qopenmp"
+            try_ldflags_openmp="-qopenmp"
+        else
+            try_fflags_openmp="-openmp"
+            try_ldflags_openmp="-openmp"
+        fi
         pre_fdflags="-fpp "
         ;;
 x86_64:nagfor* )
@@ -60,8 +64,7 @@ x86_64:nagfor* )
         try_ldflags=""
         try_ldflags_static="-unsharedrts"
         try_ldflags_openmp="-openmp"
-        # -D__GFORTRAN needed
-        try_dflags="$try_dflags -D__NAG -D__GFORTRAN"
+        try_dflags="$try_dflags -D__NAG"
         have_cpp=0
         ;;
 ia32:pgf* | ia64:pgf* | x86_64:pgf* )
@@ -106,7 +109,6 @@ ia32:path* | ia64:path* | x86_64:path* )
         try_fflags_noopt="-O0 -g"
         try_ldflags="-g -pthread"
         try_ldflags_openmp="-fopenmp"
-        try_dflags="$try_dflags -D__GFORTRAN -D__STD_F95"
         try_ldflags_static="-static"
         ;;
 *:sunf95 )
@@ -275,6 +277,7 @@ esac
 if test "$use_shared" -eq 0 ; then
   try_ldflags="$try_ldflags $try_ldflags_static" ; fi
 
+# Flags are repeated, need better way to handle this ...
 if test "$use_openmp" -eq 1 ; then
   try_f90flags="$try_f90flags $try_fflags_openmp"
   try_fflags="$try_fflags $try_fflags_openmp"
@@ -302,18 +305,6 @@ then
 else
         test_fflags="`echo $f90flags | sed 's/\$([[^)]]*)//g'`"
 fi
-
-AC_MSG_CHECKING([whether the Fortran compiler can perform preprocessing])
-acx_save_FCFLAGS="$FCFLAGS"
-FCFLAGS="$F90FLAGS"
-AC_LANG_PUSH(Fortran)
-AC_COMPILE_IFELSE( AC_LANG_PROGRAM( [], [
-#define SUBSTME integer
-SUBSTME :: ii
- ]),
- [have_cpp=1; AC_MSG_RESULT([yes])],[have_cpp=0; AC_MSG_RESULT([no])])
-AC_LANG_POP(Fortran)
-FCFLAGS="$acx_save_FCFLAGS"
 
 AC_SUBST(pre_fdflags)
 AC_SUBST(f90flags)

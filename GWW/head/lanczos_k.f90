@@ -19,16 +19,15 @@ subroutine lanczos_state_k(ik,nstates, nsteps,in_states,d,f,omat,dpsi_ipol, t_ou
   USE gvect
   USE constants, ONLY : e2, pi, tpi, fpi
   USE cell_base, ONLY: at, alat, tpiba, omega, tpiba2
-  USE wvfct,    ONLY : g2kin, npwx, npw, nbnd
+  USE wvfct,    ONLY : g2kin, npwx, nbnd
   USE wavefunctions_module, ONLY : evc, psic
   USE mp, ONLY : mp_sum, mp_barrier, mp_bcast
   USE mp_world, ONLY : mpime, world_comm
   USE gvecs,                ONLY : nls, nlsm, doublegrid
   USE g_psi_mod,            ONLY : h_diag, s_diag
   USE uspp,                 ONLY : vkb, nkb, okvan
-  USE klist,                ONLY : xk,igk_k
+  USE klist,                ONLY : xk,igk_k, ngk
   USE noncollin_module,     ONLY : noncolin, npol
-  USE qpoint,       ONLY : igkq
 
   implicit none
 
@@ -51,7 +50,7 @@ subroutine lanczos_state_k(ik,nstates, nsteps,in_states,d,f,omat,dpsi_ipol, t_ou
   REAL(kind=DP), ALLOCATABLE :: c(:)
   
 
-  INTEGER :: is,ig,ii,jj,it,ipol
+  INTEGER :: npw, is,ig,ii,jj,it,ipol
   INTEGER :: iunlan
   COMPLEX(kind=DP) :: csca
 
@@ -61,8 +60,7 @@ subroutine lanczos_state_k(ik,nstates, nsteps,in_states,d,f,omat,dpsi_ipol, t_ou
   allocate(c(nstates))
   allocate(spsi(npwx,nstates))
  
-  igkq(1:npw) = igk_k(1:npw,ik)
-
+  npw = ngk(ik)
   t_out(:,:,:)=(0.d0,0.d0)
 
   !first step
@@ -98,8 +96,8 @@ subroutine lanczos_state_k(ik,nstates, nsteps,in_states,d,f,omat,dpsi_ipol, t_ou
 
 
 !calculate H|\phi_i>
-  !call h_psi( npw, npw, nstates,psi_1(:,:), u_0 )
-   call h_psiq (npwx, npw, nstates, psi_1, u_0, spsi)
+   call h_psi( npwx, npw, nstates, psi_1, u_0 )
+   call s_psi( npwx, npw, nstates, psi_1, spsi ) ! is this needed?
    if(l_scissor) then
        call h_psi_scissor( ik,npwx, npw, nstates, psi_1, u_0 )
    endif
@@ -194,8 +192,8 @@ subroutine lanczos_state_k(ik,nstates, nsteps,in_states,d,f,omat,dpsi_ipol, t_ou
      FLUSH(stdout)
 
 !calculate H|\phi_i+1>
-     !call h_psi( npw, npw, nstates,psi_2(:,:), u_1 )
-     call h_psiq (npwx, npw, nstates, psi_2, u_1, spsi)
+     call h_psi( npwx, npw, nstates, psi_2, u_1 )
+     call s_psi (npwx, npw, nstates, psi_2, spsi) ! is this needed?
      if(l_scissor) then
         call h_psi_scissor( ik,npwx, npw, nstates, psi_2, u_1 )
      endif

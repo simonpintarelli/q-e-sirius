@@ -44,7 +44,6 @@ sym_band.o \
 work_function.o \
 write_p_avg.o \
 write_proj.o \
-xk_et_collect.o \
 write_io_header.o \
 write_hamiltonians.o 
 
@@ -54,8 +53,6 @@ QEOBJS = ../../Modules/libqemod.a ../../FFTXlib/libqefft.a ../../LAXlib/libqela.
 MODULES = $(PWOBJS) $(QEOBJS)
 
 TLDEPS= bindir mods libs pw
-
-LIBOBJS = ../../clib/clib.a ../../iotk/src/libiotk.a
 
 all : tldeps average.x bands.x dos.x epsilon.x initial_state.x fs.x \
       plan_avg.x plotband.x plotproj.x plotrho.x pmw.x pp.x projwfc.x \

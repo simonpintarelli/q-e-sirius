@@ -29,7 +29,7 @@ SUBROUTINE lr_read_wf()
   USE wvfct,                ONLY : nbnd, npwx
   USE control_flags,        ONLY : gamma_only,io_level
   USE gvecs,                ONLY : nls, nlsm
-  USE fft_base,             ONLY : dffts
+  USE fft_base,             ONLY : dffts, dtgs
   USE fft_interfaces,       ONLY : invfft
   USE uspp,                 ONLY : vkb, nkb, okvan
   USE becmod,               ONLY : bec_type, becp, calbec
@@ -65,8 +65,6 @@ SUBROUTINE lr_read_wf()
   ELSE
      CALL normal_read()
   ENDIF
-  !
-  !WRITE(stdout,'(5x,"Finished reading wfc.")')
   !
   IF (.NOT.eels) evc(:,:) = evc0(:,:,1)
   !
@@ -110,14 +108,14 @@ SUBROUTINE normal_read()
   !
   IMPLICIT NONE
   !
-  LOGICAL :: use_tg
   INTEGER :: v_siz, incr, ioff, j
   !
   WRITE( stdout, '(/5x,"Normal read")' )
   !
-  use_tg = dffts%have_task_groups
-  size_evc = nksq * nbnd * npwx * npol
   incr = 2
+  !
+  size_evc = nbnd * npwx * npol * nksq
+  nwordwfc = nbnd * npwx * npol
   !
   ! Read in the ground state wavefunctions.
   ! This is a parallel read, done in wfc_dir.
@@ -217,10 +215,10 @@ SUBROUTINE normal_read()
   ! Calculation of the unperturbed wavefunctions in R-space revc0.
   ! Inverse Fourier transform of evc0.
   !
-  IF ( dffts%have_task_groups ) THEN
+  IF ( dtgs%have_task_groups ) THEN
        !
-       v_siz =  dffts%tg_nnr * dffts%nogrp
-       incr = 2 * dffts%nogrp
+       v_siz =  dtgs%tg_nnr * dtgs%nogrp
+       incr = 2 * dtgs%nogrp
        tg_revc0 = (0.0d0,0.0d0)
        !
   ELSE
@@ -235,9 +233,9 @@ SUBROUTINE normal_read()
         !
         CALL invfft_orbital_gamma ( evc0(:,:,1), ibnd, nbnd)
         !
-        IF (dffts%have_task_groups) THEN               
+        IF (dtgs%have_task_groups) THEN               
            !
-           DO j = 1, dffts%nr1x*dffts%nr2x*dffts%tg_npp( me_bgrp + 1 )
+           DO j = 1, dffts%nr1x*dffts%nr2x*dtgs%tg_npp( me_bgrp + 1 )
                !
                tg_revc0(j,ibnd,1) = tg_psic(j)
                !  
@@ -264,9 +262,7 @@ SUBROUTINE normal_read()
                !
            ENDDO
            !
-           dffts%have_task_groups = .false.
            CALL invfft ('Wave', revc0(:,ibnd,ik), dffts)
-           dffts%have_task_groups=use_tg
            !
         ENDDO
      ENDDO
@@ -301,7 +297,7 @@ SUBROUTINE virt_read()
   !
   WRITE( stdout, '(/5x,"Virt read")' )
   !  
-  IF (dffts%have_task_groups) CALL errore ( 'virt_read', 'Task &
+  IF (dtgs%have_task_groups) CALL errore ( 'virt_read', 'Task &
      & groups not supported when there are virtual states in the &
      & input.', 1 )
   !
@@ -334,7 +330,8 @@ SUBROUTINE virt_read()
      !
   ENDIF
   !
-  size_evc = nksq * nbnd_occ(1) * npwx * npol
+  size_evc = nbnd_occ(1) * npwx * npol * nksq
+  nwordwfc = nbnd * npwx * npol                 ! nbnd > nbnd_occ(1)
   !
   ! Read in the ground state wavefunctions
   ! This is a parallel read, done in wfc_dir
@@ -434,6 +431,8 @@ SUBROUTINE virt_read()
   ! X. Ge: Very important, otherwise there will be bugs.
   !
   nbnd = nbnd_occ(1)
+  !
+  nwordwfc = nbnd * npwx * npol ! needed for EXX
   !
   CALL deallocate_bec_type(becp)
   CALL allocate_bec_type ( nkb, nbnd, becp )

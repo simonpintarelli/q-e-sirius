@@ -12,25 +12,17 @@
   !----------------------------------------------------------------------
   SUBROUTINE dvanqq2
   !----------------------------------------------------------------------
-  !
-  ! New
-  ! This routine calculates two integrals of the Q functions and
-  ! its derivatives with c V_loc and V_eff which are used
-  ! to compute term dV_bare/dtau * psi  in addusdvqpsi.
-  ! The result is stored in int1,int2. The routine is called
-  ! for each q in nqc. 
-  ! 
-  !
-  ! OLD
-  ! This routine calculates four integrals of the Q functions and
-  ! its derivatives with c V_loc and V_eff which are used
-  ! to compute term dV_bare/dtau * psi  in addusdvqpsi and in addusdynmat.
-  ! The result is stored in int1,int2,int4,int5. The routine is called
-  ! ONLY once. int4 and int5 are deallocated after USE in
-  ! addusdynmat, and int1 and int2 saved on disk by that routine.
-  !
-  ! RM - Nov/Dec 2014 
-  ! Imported the noncolinear case implemented by xlzhang
+  !!
+  !! New
+  !! This routine calculates two integrals of the Q functions and
+  !! its derivatives with c V_loc and V_eff which are used
+  !! to compute term dV_bare/dtau * psi  in addusdvqpsi.
+  !! The result is stored in int1,int2. The routine is called
+  !! for each q in nqc. 
+  !! 
+  !! RM - Nov/Dec 2014 
+  !! Imported the noncolinear case implemented by xlzhang
+  !!
   !
   USE ions_base,        ONLY : nat, ityp, ntyp => nsp
   USE io_files,         ONLY : prefix, tmp_dir
@@ -46,10 +38,8 @@
                                int5_so, vlocq, int4_nc
   USE qpoint,           ONLY : xq, eigqts
   USE uspp_param,       ONLY : upf, lmaxq, nh
-#ifdef __PARA
   USE mp_global,        ONLY : my_pool_id, npool, intra_pool_comm
   USE mp,               ONLY : mp_sum
-#endif
   USE uspp,             ONLY : okvan
   USE fft_base,         ONLY : dfftp
   USE fft_interfaces,   ONLY : fwfft
@@ -58,27 +48,25 @@
   !
   !   And the local variables
   !
-  integer :: nt, na, nb, ig, nta, ntb, ir, ih, jh, ijh, ipol, jpol, is, nspin0
+  INTEGER :: nt, na, nb, ig, nta, ntb, ir, ih, jh, ijh, ipol, jpol, is, nspin0
   !
-  real(DP), ALLOCATABLE :: qmod (:), qmodg (:), qpg (:,:), &
+  real(kind=DP), ALLOCATABLE :: qmod (:), qmodg (:), qpg (:,:), &
        ylmkq (:,:), ylmk0 (:,:)
   ! the modulus of q+G
   ! the modulus of G
   ! the  q+G vectors
   ! the spherical harmonics
 
-  complex(DP) :: fact, fact1, ZDOTC
-  complex(DP), ALLOCATABLE :: aux1 (:), aux2 (:),&
+  COMPLEX(kind=DP) :: fact, fact1, ZDOTC
+  COMPLEX(kind=DP), ALLOCATABLE :: aux1 (:), aux2 (:),&
        aux3 (:), aux5 (:), veff (:,:), sk(:)
   ! work space
-  complex(DP), ALLOCATABLE, TARGET :: qgm(:)
+  complex(kind=DP), ALLOCATABLE, TARGET :: qgm(:)
   ! the augmentation function at G
-  complex(DP), POINTER :: qgmq (:)
+  complex(kind=DP), POINTER :: qgmq (:)
   ! the augmentation function at q+G
   character (len=256) :: tempfile
-#ifdef __PARA
   character (len=3) :: filelab
-#endif
   logical :: exst
 
   IF (.not.okvan) RETURN
@@ -124,11 +112,11 @@
   DO is = 1, nspin
      IF (nspin.ne.4.or.is==1) THEN
         DO ir = 1, dfftp%nnr
-           veff (ir, is) = CMPLX (vltot (ir) + v%of_r (ir, is), 0.d0)
+           veff (ir, is) = CMPLX (vltot (ir) + v%of_r (ir, is), 0.d0, kind=DP)
         ENDDO
      ELSE
         DO ir = 1, dfftp%nnr
-           veff (ir, is) = CMPLX (v%of_r (ir, is), 0.d0)
+           veff (ir, is) = CMPLX (v%of_r (ir, is), 0.d0, kind=DP)
         ENDDO
      ENDIF
      CALL fwfft ('Dense', veff(:,is), dfftp)
@@ -136,11 +124,11 @@
   !
   !     We compute here two of the three integrals needed in the phonon
   !
-  fact1 = CMPLX (0.d0, - tpiba * omega)
+  fact1 = CMPLX (0.d0, - tpiba * omega, kind=DP)
   !
   tempfile = trim(tmp_dir) // trim(prefix) // '.recover' 
-#ifdef __PARA
-     CALL set_ndnmbr (0,my_pool_id+1,1,npool,filelab)
+#if defined(__MPI)
+  CALL set_ndnmbr (0,my_pool_id+1,1,npool,filelab)
   tempfile = trim(tmp_dir) // trim(prefix) // '.recover' // filelab
 #endif
   !
@@ -262,19 +250,17 @@
         ENDDO
      ENDIF
   ENDDO
-#ifdef __PARA
   CALL mp_sum(  int1, intra_pool_comm )
   CALL mp_sum(  int2, intra_pool_comm )
   call mp_sum(  int4, intra_pool_comm )
   call mp_sum(  int5, intra_pool_comm )
-#endif
-     OPEN (iurecover, file = tempfile, form = 'unformatted')
-     IF (noncolin) THEN 
-        WRITE (iurecover) int1, int2, int4, int5
-     ELSE
-        WRITE (iurecover) int1, int2
-     ENDIF
-     CLOSE(iurecover)
+  OPEN (iurecover, file = tempfile, form = 'unformatted')
+  IF (noncolin) THEN 
+     WRITE (iurecover) int1, int2, int4, int5
+  ELSE
+     WRITE (iurecover) int1, int2
+  ENDIF
+  CLOSE(iurecover)
   ENDIF
   IF (noncolin) THEN
      CALL set_int12_nc(0)

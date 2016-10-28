@@ -23,11 +23,12 @@
   !
   PUBLIC :: lambda_phself, linewidth_phself, linewidth_elself, iospectral, &
             iua2ffil, iudosfil, iufillambda, iuqdos, iufe, iufilker, &
-            iufilgap, iospectral_sup, iua2ftrfil, iufilgapFS, iufillambdaFS
+            iufilgap, iospectral_sup, iua2ftrfil, iufilgapFS, iufillambdaFS, &
+            iuwanep, iuwane, iunukk, iudvscf
   PUBLIC :: epwdata, iundmedata, iunvmedata, iunksdata, iudyn, iukgmap, iuepb,&
-            iunepmatf, iurecover, iufilfreq, iufilegnv, iufileph, iufilkqmap, &
+            iurecover, iufilfreq, iufilegnv, iufileph, iufilkqmap, &
             iufilikmap, iueig, iunepmatwp, iunepmatwe, iunkf, iunqf, &
-            iufileig
+            iufileig, iukmap, crystal
   PUBLIC :: iuwinfil, iun_plot, iuukk, iuprojfil !, iummn
   !
   ! Output of physically relevant quantities (60-100)
@@ -54,9 +55,15 @@
   INTEGER :: iufilgapFS      = 73  ! Eliashberg superconducting gap on FS with k-points  
   INTEGER :: iufillambdaFS   = 74  ! Electron-phonon coupling strength on FS with k-points
 !DBSP : iukgmap was 96. Should be the same as set_kplusq.f90. 
-  INTEGER :: iudyn           = 81  ! Dvscf_q files
+  INTEGER :: iunukk          = 77  ! Unit with rotation matrix U(k) from wannier code
+  INTEGER :: iudvscf         = 80  ! Unit for the dvscf_q file
+  INTEGER :: iudyn           = 81  ! Unit for the dynamical matrix file
   INTEGER :: iufilkqmap      = 82  ! Map of k+q
   INTEGER :: iukgmap         = 96  ! Map of folding G-vector indexes [.kgmap]
+  INTEGER :: iuwanep         = 97  ! Spatial decay of e-p matrix elements in wannier basis 
+                                   ! Electrons + phonons [epmat_wanep]
+  INTEGER :: iuwane          = 98  ! Spatial decay of matrix elements in Wannier basis    
+                                   ! [.epwane]  
 
   !
   ! Output of quantity for restarting purposes (101-200)
@@ -67,7 +74,6 @@
   INTEGER :: iunksdata       = 104  ! Hamiltonian in wannier basis
   INTEGER :: iuepb           = 105  ! Electron-phonon matrix in Bloch 
                                     ! representation [.epb]
-  INTEGER :: iunepmatf       = 106  ! Rotation matrix on fine mesh
   INTEGER :: iurecover       = 107  ! Dvanqq2 recovery file
   INTEGER :: iufilfreq       = 108  ! Phonon frequency from a previous epw run
                                     ! [.freq]
@@ -85,6 +91,8 @@
   INTEGER :: iunkf           = 117  ! The unit with the fine k-point mesh in crystal coord.
   INTEGER :: iunqf           = 118  ! The unit with the fine q-point mesh in crystal coord. 
   INTEGER :: iufileig        = 119  ! The unit with eigenenergies [band.eig]
+  INTEGER :: iukmap          = 120  ! Unit for the k-point map generation
+  INTEGER :: crystal         = 121  ! Unit for crystal data
 
   !
   ! Output quantites related to Wannier (201-250)

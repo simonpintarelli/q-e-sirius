@@ -28,7 +28,7 @@ SUBROUTINE allocate_nlpot
   USE ldaU,             ONLY : Hubbard_lmax
   USE scf,              ONLY : rho
   USE noncollin_module, ONLY : noncolin
-  USE wvfct,            ONLY : npwx, npw, igk, g2kin
+  USE wvfct,            ONLY : npwx, npw, g2kin
   USE gvecw,            ONLY : gcutw, ecutwfc
   USE us,               ONLY : qrad, tab, tab_d2y, tab_at, dq, nqx, &
                                nqxq, spline_ps
@@ -37,8 +37,6 @@ SUBROUTINE allocate_nlpot
                                becsum, qq_so,dvan_so, deeq_nc
   USE uspp_param,       ONLY : upf, lmaxq, lmaxkb, nh, nhm, nbetam
   USE spin_orb,         ONLY : lspinorb, fcoef
-  USE control_flags,    ONLY : program_name
-  USE io_global,        ONLY : stdout
   !
   IMPLICIT NONE
   !
@@ -49,9 +47,9 @@ SUBROUTINE allocate_nlpot
   !
   npwx = n_plane_waves (gcutw, nks, xk, g, ngm)
   !
-  !   igk relates the index of PW k+G to index in the list of G vector
+  !   g2kin contains the kinetic energy \hbar^2(k+G)^2/2m
   !
-  ALLOCATE (igk( npwx ), g2kin ( npwx ) )
+  ALLOCATE (g2kin ( npwx ) )
   !
   ! Note: computation of the number of beta functions for
   ! each atomic type and the maximum number of beta functions
@@ -77,11 +75,8 @@ SUBROUTINE allocate_nlpot
     ALLOCATE (dvan( nhm, nhm, nsp))
   ENDIF
   ! GIPAW needs a slighly larger q-space interpolation for quantities calculated
-  ! at k+q_gipaw
-  IF (trim(program_name) == 'GIPAW') THEN
-    IF (cell_factor == 1.d0) cell_factor = 1.1d0
-    WRITE(stdout,"(5X,'q-space interpolation up to ',F8.2,' Rydberg')") ecutwfc*cell_factor
-  ENDIF
+  ! at k+q_gipaw, and I'm using the spline_ps=.true. flag to signal that
+  IF (spline_ps .and. cell_factor <= 1.1d0) cell_factor = 1.1d0
   !
   ! This routine is called also by the phonon code, in which case it should
   ! allocate an array that includes q+G vectors up to |q+G|_max <= |Gmax|+|q|

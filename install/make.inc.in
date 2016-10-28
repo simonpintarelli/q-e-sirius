@@ -25,11 +25,12 @@
 
 @SET_MAKE@
 
-# Top QE directory, not used in QE but useful for linking QE libs with plugins
+# Top QE directory, useful for locating libraries,  linking QE with plugins
 # The following syntax should always point to TOPDIR:
-#   $(dir $(abspath $(filter %make.inc,$(MAKEFILE_LIST))))
+TOPDIR = $(dir $(abspath $(filter %make.inc,$(MAKEFILE_LIST))))
+# if it doesn't work, uncomment the following line (edit if needed):
 
-TOPDIR = @topdir@
+# TOPDIR = @topdir@
 
 # DFLAGS  = precompilation options (possible arguments to -D and -U)
 #           used by the C compiler and preprocessor
@@ -119,13 +120,15 @@ BLAS_LIBS_SWITCH = @blas_libs_switch@
 LAPACK_LIBS    = @lapack_libs@
 LAPACK_LIBS_SWITCH = @lapack_libs_switch@
 
-ELPA_LIBS_SWITCH = @elpa_libs_switch@
 SCALAPACK_LIBS = @scalapack_libs@
 
 # nothing needed here if the the internal copy of FFTW is compiled
 # (needs -D__FFTW in DFLAGS)
 
 FFT_LIBS       = @fft_libs@
+
+# HDF5 -- experimental
+HDF5_LIB = @hdf5_libs@
 
 # For parallel execution, the correct path to MPI libraries must
 # be specified in MPI_LIBS (except for IBM if you use mpxlf)
@@ -150,8 +153,8 @@ RANLIB         = @ranlib@
 
 FLIB_TARGETS   = all
 
-LIBOBJS        = ../clib/clib.a ../iotk/src/libiotk.a
-LIBS           = $(SCALAPACK_LIBS) $(LAPACK_LIBS) $(FFT_LIBS) $(BLAS_LIBS) $(MPI_LIBS) $(MASS_LIBS) $(LD_LIBS)
+LIBOBJS        = $(TOPDIR)/clib/clib.a $(TOPDIR)/iotk/src/libiotk.a
+LIBS           = $(SCALAPACK_LIBS) $(LAPACK_LIBS) $(FFT_LIBS) $(BLAS_LIBS) $(MPI_LIBS) $(MASS_LIBS) ${HDF5_LIB} $(LD_LIBS)
 
 # wget or curl - useful to download from network
 WGET = @wget@

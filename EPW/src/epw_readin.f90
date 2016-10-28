@@ -10,12 +10,12 @@
   !-----------------------------------------------------------------------
   SUBROUTINE epw_readin
   !-----------------------------------------------------------------------
-  !
-  !    This routine reads the control variables for the program epw.
-  !    from standard input (unit 5).
-  !    A second routine readfile reads the variables saved on a file
-  !    by the self-consistent program.
-  !
+  !!
+  !!    This routine reads the control variables for the program epw.
+  !!    from standard input (unit 5).
+  !!    A second routine readfile reads the variables saved on a file
+  !!    by the self-consistent program.
+  !!
   USE ions_base,     ONLY : nat, ntyp => nsp
   USE io_global,     ONLY : ionode_id
   USE mp,            ONLY : mp_bcast 
@@ -28,16 +28,16 @@
   USE qpoint,        ONLY : xq
   USE disp,          ONLY : nq1, nq2, nq3
   USE output,        ONLY : fildvscf, fildrho
-  USE epwcom,        ONLY : deltaeabs, emaxabs, eminabs, delta_smear, &
+  USE epwcom,        ONLY : delta_smear, &
                             nsmear, dis_win_min, dis_win_max, wannierize, &
                             ngaussw, dvscf_dir, eptemp, wdata, spinors, &
                             num_iter, dis_froz_max, fsthick, dis_froz_min, &
                             vme, degaussw, epexst, eig_read, kmaps, &
                             epwwrite, epbread, phonselfen, elecselfen, &
-                            twophoton, a2f, rand_k, rand_nq, rand_q, &
-                            parallel_q, parallel_k, selfen_type, nkf1, &
-                            nkf2, nkf3, nqf1, nqf2, nqf3, rand_nk, indabs, &
-                            nest_fn, eps_acustic, nw, wmax, wmin, filelph, &
+                            a2f, rand_k, rand_nq, rand_q, &
+                            parallel_q, parallel_k, nkf1, &
+                            nkf2, nkf3, nqf1, nqf2, nqf3, rand_nk, &
+                            nest_fn, eps_acustic, nw, wmax, wmin, &
                             mp_mesh_q, filqf, filkf, delta_qsmear, degaussq, &
                             band_plot, ephwrite, mp_mesh_k, nstemp, broyden_beta, &
                             conv_thr_raxis, tempsmax, tempsmin, temps, broyden_ndim, &
@@ -46,12 +46,16 @@
                             eliashberg, imag_read, kerread, kerwrite, lunif, specfun, &
                             fermi_energy, efermi_read, max_memlt, fila2f, &
                             ep_coupling, nw_specfun, wmax_specfun, &
-                            wmin_specfun, laniso, lpolar, epstrict, elinterp, &
-                            proj, write_wfn, phinterp, iswitch, neptemp, &
-                            ntempxx, liso, lacon, lpade, etf_mem, epbwrite, &
-                            tshuffle2, tshuffle, nsiter, conv_thr_racon, &
+                            wmin_specfun, laniso, lpolar, &
+                            proj, write_wfn, iswitch, ntempxx, &
+                            liso, lacon, lpade, etf_mem, epbwrite, &
+                            nsiter, conv_thr_racon, &
                             pwc, nswc, nswfc, nswi, filukq, filukk, &
-                            nbndsub, nbndskip, system_2d, delta_approx, title
+                            nbndsub, nbndskip, system_2d, delta_approx, &
+                            title, int_mob, scissor, iterative_bte, scattering, &
+                            ncarrier, carrier, scattering_serta, &
+                            scattering_0rta, longrange, shortrange
+
 !  USE epwcom,        ONLY : tphases, fildvscf0                  
   USE elph2,         ONLY : elph
   USE start_k,       ONLY : nk1, nk2, nk3
@@ -63,43 +67,47 @@
   USE partial,       ONLY : atomo, nat_todo
   USE constants,     ONLY : AMU_RY
   USE control_lr,    ONLY : lgamma
-#ifdef __PARA
   USE mp_global,     ONLY : my_pool_id, me_pool
-#endif
-#ifdef __NAG
+#if defined(__NAG)
   USE F90_UNIX_ENV,  ONLY : iargc, getarg
 #endif
-
+  !
   implicit none
-
-#ifndef __NAG
+  !
+#if ! defined(__NAG)
   integer :: iargc
 #endif
-  integer :: ios, na, it
-  ! integer variable for I/O control
-  ! counter on polarizations
-  ! counter on iterations
-  ! counter on atoms
-  ! counter on types
-  integer :: modenum_aux, i 
-  ! auxilary variable for saving the modenum
-  integer :: nk1tmp,nk2tmp,nk3tmp   ! temp vars for saving kgrid info
+  INTEGER :: ios
+  !! integer variable for I/O control
+  INTEGER :: na
+  !! counter on polarizations
+  INTEGER :: it
+  !! counter on iterations
+  INTEGER :: modenum_aux
+  !! auxilary variable for saving the modenum
+  INTEGER :: i
+  !! Counter for loops
+  INTEGER :: nk1tmp
+  !! temp vars for saving kgrid info
+  INTEGER :: nk2tmp
+  !! temp vars for saving kgrid info
+  INTEGER :: nk3tmp  
+  !! temp vars for saving kgrid info
   character(len=256) :: outdir
   namelist / inputepw / &
        amass, outdir, prefix, iverbosity, time_max, fildvscf,                  &
-       tshuffle, tshuffle2, phinterp, elinterp, epstrict,                      &
        elph, nq1, nq2, nq3, nk1, nk2, nk3, nbndskip,  nbndsub,                 &
        filukk, filukq, epbread, epbwrite, epwread, epwwrite, etf_mem, kmaps,   &
        eig_read, wepexst, epexst, vme,                                         &
-       degaussw, fsthick, eptemp,  nsmear, delta_smear, eminabs, emaxabs,      &
-       deltaeabs, dvscf_dir, ngaussw,                                          &
+       degaussw, fsthick, eptemp,  nsmear, delta_smear,                        &
+       dvscf_dir, ngaussw,                                                     &
        wannierize, dis_win_max, dis_win_min, dis_froz_min, dis_froz_max,       &
        num_iter, proj, spinors, wdata, iprint, write_wfn, wmin, wmax, nw,      &
-       eps_acustic, a2f, nest_fn, indabs, twophoton,                           & 
-       selfen_type, elecselfen, phonselfen, parallel_k, parallel_q,            &
+       eps_acustic, a2f, nest_fn,                                              & 
+       elecselfen, phonselfen, parallel_k, parallel_q,                         &
        rand_q, rand_nq, rand_k, rand_nk,                                       &
        nqf1, nqf2, nqf3, nkf1, nkf2, nkf3,                                     &
-       mp_mesh_k, mp_mesh_q, filqf, filkf, filelph, ephwrite,                  & 
+       mp_mesh_k, mp_mesh_q, filqf, filkf, ephwrite,                           & 
        band_plot, degaussq, delta_qsmear, nqsmear, nqstep,                     &
        nswfc, nswc, nswi, pwc, wsfc, wscut,                                    &
        broyden_beta, broyden_ndim, nstemp, tempsmin, tempsmax, temps,          &
@@ -107,7 +115,10 @@
        gap_edge, nsiter, muc, lreal, limag, lpade, lacon, liso, laniso, lpolar,& 
        lunif, kerwrite, kerread, imag_read, eliashberg,                        & 
        ep_coupling, fila2f, max_memlt, efermi_read, fermi_energy,              &
-       specfun, wmin_specfun, wmax_specfun, nw_specfun, system_2d, delta_approx
+       specfun, wmin_specfun, wmax_specfun, nw_specfun, system_2d,             & 
+       delta_approx, scattering, int_mob, scissor, ncarrier, carrier,          &
+       iterative_bte, scattering_serta, scattering_0rta, longrange, shortrange
+
   ! tphases, fildvscf0
   !
   ! amass    : atomic masses
@@ -116,16 +127,11 @@
   ! elph     : if true calculate electron-phonon coefficients
   ! time_max : maximum cputime for this run
   ! prefix   : the prefix of files produced by pwscf
-  ! filelph  : output file for electron-phonon coefficients
   ! fildvscf : output file containing deltavsc
   ! fildrho  : output file containing deltarho
   !
   ! added by @ FG
   !
-  ! tshuffle : elphel2 calculates e-ph matrix elements by using kpoints
-  !            of the 1st BZ only (k+q folded back into k+q+G_0)
-  ! phinterp : if true perform phonon interpolation of e-p matrix
-  ! elinterp : if true perform electron interpolation of e-p matrix
   ! ngaussw  : smearing type for FS average after wann interp
   ! degaussw : corresponding width (units of eV)
   ! filqf    : file with fine q kmesh for interpolation
@@ -140,9 +146,7 @@
   ! nw       : nr. of bins for frequency scan in \delta( e_k - e_k+q - w ) (units of eV)
   ! wmin     : min frequency for frequency scan in \delta( e_k - e_k+q - w ) (units of eV)
   ! wmax     : max    "  "  "                                    (units of eV)                   
-  ! selfen_type : choice of real/imag part of phonon selfenergy calcuation when epstrict = .true.
   ! nbndsub  : number of bands in the optimal subspace (when disentanglement is used)
-  ! tshuffle2: shuffle mode for electrons + load all phonons at once
   ! elecselfen: if .TRUE. calculate imaginary part of electron selfenergy due to e-p interaction
   ! phonselfen: if .TRUE. calculate imaginary part of phonon selfenergy due to e-p interaction
   ! dvscf_dir: the dir containing all the .dvscf and .dyn files
@@ -223,19 +227,38 @@
   ! wmin_specfun : min frequency in electron spectral function due to e-p interaction (units of eV)
   ! wmax_specfun : max frequency in electron spectral function due to e-p interaction (units of eV)
   ! nw_specfun   : nr. of bins for frequency in electron spectral function due to e-p interaction 
+  ! system_2d : if .true. two-dimensional system (vaccum is in z-direction)  
+  ! delta_approx: if .true. the double delta approximation is used to compute the phonon self-energy 
   !
-  ! added by @ CV & SP
+  ! added by CV & SP
   ! lpolar : if .true. enable the correct Wannier interpolation in the case of polar material.  
   ! 
+  ! Added by SP
+  !
+  ! scattering      : if .true. scattering rates are calculated
+  ! scattering_serta: if .true. scattering rates are calculated using self-energy relaxation-time-approx
+  ! scattering_0rta : if .true. scattering rates are calculated using 0th order relaxation-time-approx
+  ! int_mob         : if .true. computes the intrinsic mobilities. This means that the
+  !                   electron and hole carrier density is equal. 
+  ! iterative_bte   : if .true. computes the iterative solution to the BTE. Need a
+  !                   prior run with ERTA. 
+  ! scissor         : Value of the scissor shitf in eV. This only affects the CBM of etf. Do you use in
+  !                   metals obviously.
+  ! carrier         : if .true. computes the doped carrier mobilities. 
+  ! ncarrier        : Set the Fermi level so that the carrier concentration is
+  !            "      ncarrier". If ncarrier > 0, electron doping, hole doping otherwise
+  ! longrange       : if .true. computes the long-range part of the el-ph (can
+  !                   only be used with lpolar = .true. )
+  ! shortrange      : if .true. computes the short-range part of the el-ph (can
+  !                   only be used with lpolar = .true. )
+  !  
   CHARACTER (LEN=80)  :: input_file
   INTEGER             :: nargs, iiarg, ierr
   !
   nk1tmp = 0
   nk2tmp = 0
   nk3tmp = 0
-#ifdef __PARA
   IF (me_pool /=0 .or. my_pool_id /=0) goto 400 
-#endif
   !
   !
   ! ... Input from file ?
@@ -270,8 +293,6 @@
   amass(:)     = 0.d0
   iverbosity   = 0
   elph         = .false.
-  tshuffle     = .false.
-  tshuffle2    = .true.
   elecselfen   = .false.
   phonselfen   = .false.
   specfun      = .false.
@@ -279,15 +300,12 @@
   epbwrite     = .false.
   epwread      = .false.
   epwwrite     = .false.
-  phinterp     = .true.
   wannierize   = .false.
   write_wfn    = .false.
   kmaps        = .false.
   nest_fn      = .false.
   wepexst      = .false.
   epexst       = .false.
-  indabs       = .false.
-  twophoton    = .false.
   eig_read     = .false.
   dis_win_max  = 1d3
   dis_win_min  = -1d3
@@ -303,12 +321,8 @@
   eps_acustic  = 5.d0 ! cm-1
   nw           = 10
   fsthick      = 1.d10 ! eV
-  eptemp(:)    = 0.000d0
-  eptemp(1)    = 300.0d0
+  eptemp       = 300.0d0
   degaussw     = 0.025d0 ! eV
-  epstrict     = .false.
-  selfen_type  = 2
-  elinterp     = .true.
 !  tphases      = .false.
   parallel_k   = .true.
   parallel_q   = .false.
@@ -322,7 +336,6 @@
   prefix       = 'pwscf'
   filqf        = ' '
   filkf        = ' '
-  filelph      = ' '
   fildrho      = ' '
   fildvscf     = ' '
   filukk       = ' '
@@ -354,9 +367,6 @@
               ! anymore. Change the default EPW value to match the previous QE
               ! one. 
   vme = .false.
-  eminabs = 0.d0
-  emaxabs = 3.d0
-  deltaeabs = 0.05d0
   ephwrite = .false.
   band_plot = .false.
   nqsmear = 10
@@ -402,10 +412,20 @@
   wmax_specfun = 0.3d0 ! eV
   nw_specfun = 100
   system_2d = .false.
+  scattering = .false.
+  scattering_serta = .false.
+  scattering_0rta = .false.
+  int_mob = .false.
+  iterative_bte = .false.
+  scissor = 0.d0 ! eV
+  carrier = .false.
+  ncarrier = 0.d0 ! cm^-3
+  longrange = .false.
+  shortrange = .false.  
   !
   !     reading the namelist inputepw
   !
-#ifdef CRAYY
+#if defined(__CRAYY) 
   !   The Cray does not accept "err" and "iostat" together with a namelist
   READ (5, inputepw)
   ios = 0
@@ -465,8 +485,7 @@
        &' nqstep must be at least 2', 1)
   IF ((nbndsub.gt.200)) CALL errore ('epw_readin', & 
        ' too many wannier functions increase size of projx', 1)
-  IF (indabs .and. twophoton)  CALL errore ('epw_readin', 'twophoton and indabs not used together',1 )
-  IF (( phonselfen .or. elecselfen .or. indabs .or. twophoton .or. specfun ) .and. ( mp_mesh_k .or. mp_mesh_q )) & 
+  IF (( phonselfen .or. elecselfen .or. specfun ) .and. ( mp_mesh_k .or. mp_mesh_q )) & 
      CALL errore('epw_readin', 'can only work with full uniform mesh',1)
   IF (ephwrite .and. .not.ep_coupling .and. .not.elph ) CALL errore('epw_readin', &
       &'ephwrite requires ep_coupling=.true., elph=.true.',1)
@@ -476,8 +495,30 @@
      CALL errore('epw_readin', 'ephwrite requires nkf1,nkf2,nkf3 to be multiple of nqf1,nqf2,nqf3',1)
   IF (band_plot .and. filkf .eq. ' ' .and. filqf .eq. ' ') CALL errore('epw_readin', &
       &'plot band structure and phonon dispersion requires k- and q-points read from filkf and filqf files',1)
+  IF (band_plot .and. parallel_q ) CALL errore('epw_readin', &
+      &'band_plot can only be used with parallel_k',1)    
   IF ( filkf .ne. ' ' .and. .not.efermi_read ) CALL errore('epw_readin', &
       &'WARNING: if k-points are along a line, then efermi_read=.true. and fermi_energy must be given in the input file',-1)
+  IF ( scattering .AND. nstemp < 1 ) CALL errore('epw_init', &
+       'wrong number of nstemp',1)
+  IF ( scattering .AND. maxval(temps(:)) > 0.d0 .AND. tempsmin > 0.d0 .AND. tempsmax > 0.d0 ) &
+       CALL errore('epw_init', 'define either (tempsmin and tempsmax) or temps(:)',1)
+  IF ( scattering .AND. tempsmax < tempsmin ) &
+       CALL errore('epw_init', 'tempsmax should be greater than tempsmin',1)
+  IF ( int_mob .AND. efermi_read)  CALL errore('epw_init', &
+       'Fermi level can not be set (efermi_read) when computing intrinsic mobilities',1)
+  IF ( int_mob .AND. (ABS(ncarrier) > 1E+5) )  CALL errore('epw_init', &
+       'You cannot compute intrinsic mobilities and doped mobilities at the same time',1)
+  IF ( carrier .AND. (ABS(ncarrier) < 1E+5) )  CALL errore('epw_init', &
+       'The absolute value of the doping carrier concentration must be larger than 1E5 cm^-3',1)
+  IF ( (iterative_bte .AND. scattering_serta) .OR. (iterative_bte .AND.scattering_0rta)  ) CALL errore('epw_init', &
+       'You should first do a run in the SRTA to get the initial scattering_rate files.',1)
+  IF ( (longrange .OR. shortrange) .AND. (.not. lpolar)) CALL errore('epw_init',&
+       &'Error: longrange or shortrange can only be true if lpolar is true as well.',1)
+  IF ( longrange .AND. shortrange) CALL errore('epw_init',&
+       &'Error: longrange and shortrange cannot be both true.',1)
+  IF ( epwread .AND. .not. kmaps .AND. .not. epbread) CALL errore('epw_init',&
+       &'Error: kmaps has to be true for a restart run. ',1)
   !
   ! thickness and smearing width of the Fermi surface  
   ! from eV to Ryd
@@ -496,14 +537,17 @@
      fermi_energy = fermi_energy / ryd2ev
   ENDIF
   ! eptemp : temperature for the electronic Fermi occupations in the e-p calculation (units of Kelvin)
-  DO i = 1, ntempxx
-     IF (eptemp(i) .gt. 0.d0) THEN
-        neptemp = i
-        ! 1 K in eV = 8.6173423e-5
-        ! from K to Ryd
-        eptemp(i) = eptemp(i) * kelvin2eV / ryd2ev
-     ENDIF
-  ENDDO
+  ! 1 K in eV = 8.6173423e-5
+  ! from K to Ryd
+  ! Out-of bound issue with GCC compiler. Multiple Fermi temp is not used anyway.
+  eptemp = eptemp * kelvin2eV / ryd2ev
+  !DO i = 1, ntempxx
+  !   IF (eptemp(i) .gt. 0.d0) THEN
+  !      ! 1 K in eV = 8.6173423e-5
+  !      ! from K to Ryd
+  !      eptemp(i) = eptemp(i) * kelvin2eV / ryd2ev
+  !   ENDIF
+  !ENDDO
   !
   ! from cm-1 to Ryd
   eps_acustic = eps_acustic / ev2cmm1 / ryd2ev 
@@ -518,17 +562,31 @@
   wmin_specfun = wmin_specfun / ryd2ev
   wmax_specfun = wmax_specfun / ryd2ev
   !
+  ! scissor going from eV to Ryd
+  scissor = scissor / ryd2ev
+  ! 
+  IF ( scattering ) THEN
+    DO i = 1, ntempxx
+      IF (temps(i) .gt. 0.d0) THEN
+        nstemp = i
+      ENDIF
+    ENDDO
+    !
+    ! go from K to Ry
+    temps(:) = temps(:) * kelvin2eV / ryd2ev
+    tempsmin = tempsmin * kelvin2eV / ryd2ev
+    tempsmax = tempsmax * kelvin2eV / ryd2ev
+    !
+  ENDIF
+  ! 
   xq(:) = 0.d0
   !
-300 CALL errore ('epw_readin', 'reading xq', abs (ios) )
   lgamma = .false.
   tmp_dir = trim(outdir)
   dvscf_dir = trim(dvscf_dir)//'/'
   !
-#ifdef __PARA
 400 continue
   CALL bcast_ph_input
-#endif
   xqq(:) = xq(:) 
   !
   !   Here we finished the reading of the input file.
@@ -537,12 +595,16 @@
   modenum_aux = modenum
   !
   ! SP: This initialized nspin and nspin_mag
-  CALL read_file
+  IF ( epwread .and. .not. epbread ) then
+    continue
+  ELSE
+    CALL read_file
+  ENDIF
   !
   ! nbnd comes out of readfile
   IF (nbndsub.eq.0) nbndsub = nbnd
   !
-#ifdef __PARA
+#if defined(__MPI)
   IF (.not.(me_pool /=0 .or. my_pool_id /=0)) THEN
      nk1 = nk1tmp
      nk2 = nk2tmp
@@ -553,7 +615,6 @@
      nk2 = nk2tmp
      nk3 = nk3tmp
 #endif
-
   !
   IF (gamma_only) CALL errore('epw_readin',&
      'cannot start from pw.x data file using Gamma-point tricks',1)
@@ -573,16 +634,13 @@
   IF (tfixed_occ) &
      CALL errore('epw_readin','phonon with arbitrary occupations not tested',1)
   !
-  IF (elph.and.lsda) CALL errore ('epw_readin', 'El-ph and spin not &
-       &implemented', 1)
+  IF (elph.and.lsda) CALL errore ('epw_readin', 'El-ph and spin not implemented', 1)
   !
   !   There might be other variables in the input file which describe
   !   partial computation of the dynamical matrix. Read them here
   !
   CALL allocate_part ( nat )
-#ifdef __PARA
-   IF (me_pool /= 0 .or. my_pool_id /=0) goto 800 
-#endif
+  IF (me_pool /= 0 .or. my_pool_id /=0) goto 800 
   IF (nat_todo < 0 .OR. nat_todo > nat) CALL errore ('epw_readin', &
        'nat_todo is wrong', 1)
   IF (nat_todo.NE.0) THEN
@@ -590,21 +648,16 @@
 700  CALL errore ('epw_readin', 'reading atomo', abs (ios) )
      CALL mp_bcast(atomo, ionode_id, world_comm )
   ENDIF
-#ifdef __PARA
 800 continue
   CALL bcast_ph_input1
-#endif
-
-
+  !
   DO it = 1, ntyp
      IF (amass (it) <= 0.d0) CALL errore ('epw_readin', 'Wrong masses', it)
   ENDDO
-
+  ! 
 ! No k+q anymore, can we cut?
   IF (mod (nks, 2) .ne.0) CALL errore ('epw_readin', &
       'k-points are odd', 0)
-  !
-#ifdef __PARA
   !
   !  broadcast the values of nq1, nq2, nq3
   !
@@ -614,7 +667,6 @@
   CALL mp_bcast( nk1, ionode_id, world_comm )
   CALL mp_bcast( nk2, ionode_id, world_comm )
   CALL mp_bcast( nk3, ionode_id, world_comm )
-#endif
   !
   amass = AMU_RY * amass
   !

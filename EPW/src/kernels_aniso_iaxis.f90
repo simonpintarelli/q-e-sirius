@@ -10,10 +10,10 @@
   !-----------------------------------------------------------------------
   SUBROUTINE kernel_aniso_iaxis( itemp )
   !-----------------------------------------------------------------------
-  !  
-  ! compute kernels K_{+}(ik,iq,ibnd,jbnd;n,n',T) and K_{-}(ik,iq,ibnd,jbnd;n,n',T)
-  ! and store them in memory
-  !
+  !!  
+  !! Compute kernels K_{+}(ik,iq,ibnd,jbnd;n,n',T) and K_{-}(ik,iq,ibnd,jbnd;n,n',T)
+  !! and store them in memory
+  !!
   USE kinds,         ONLY : DP
   USE epwcom,        ONLY : fsthick
   USE eliashbergcom, ONLY : nkfs, nbndfs, nsiw, estemp, AKeri, ekfs, ef0, ixkqf, ixqfs, nqfs
@@ -21,7 +21,11 @@
   ! 
   IMPLICIT NONE
   !
-  INTEGER  :: ik, iq, iq0, ibnd, jbnd, iw, itemp, n, lower_bnd, upper_bnd 
+  INTEGER, INTENT (in) :: itemp
+  !! Counter on temperature
+  !
+  ! Local variables
+  INTEGER  :: ik, iq, iq0, ibnd, jbnd, iw, n, lower_bnd, upper_bnd 
   REAL(DP) :: omega, lambda_eph
   !
   CALL fkbounds( nkfs, lower_bnd, upper_bnd )
@@ -59,29 +63,26 @@
   !-----------------------------------------------------------------------
   SUBROUTINE eliashberg_memlt_aniso_iaxis( itemp )
   !-----------------------------------------------------------------------
-  !  
-  ! estimate the memory requirements for anisotropic Eliashberg equations 
-  ! on imaginary axis
-  !
+  !!  
+  !! Estimate the memory requirements for anisotropic Eliashberg equations 
+  !! on imaginary axis
+  !!
   USE kinds,         ONLY : DP
   USE io_global,     ONLY : stdout
   USE epwcom,        ONLY : max_memlt
   USE eliashbergcom, ONLY : nkfs, nbndfs, nsiw, nqfs, limag_fly, memlt_pool
-#ifdef __PARA
-  USE io_global, ONLY : ionode_id
-  USE mp_global, ONLY : inter_pool_comm, my_pool_id, npool
+  USE mp_global, ONLY : inter_pool_comm, my_pool_id
   USE mp,        ONLY : mp_bcast, mp_barrier, mp_sum
-  USE mp_world,  ONLY : mpime
-#endif
   ! 
   IMPLICIT NONE
-#ifndef __PARA
-  INTEGER, PARAMETER :: npool = 1, my_pool_id = 0 ! this is only a quick fix since the subroutine was written
-                                                  ! for parallel execution - FG June 2014
-#endif
   !
   INTEGER  :: itemp, lower_bnd, upper_bnd, imelt
   REAL(DP) :: rmelt
+  !
+  ! This is only a quick fix since the subroutine was written for parallel execution - FG June 2014
+#if ! defined(__MPI)
+  my_pool_id = 0
+#endif  
   !
   limag_fly = .false.
   !
@@ -101,11 +102,9 @@
   memlt_pool(:) = 0.d0
   memlt_pool(my_pool_id+1) = rmelt
   !
-#ifdef __PARA
   ! collect contributions from all pools
   CALL mp_sum( memlt_pool, inter_pool_comm )
   CALL mp_barrier(inter_pool_comm)
-#endif
   !
   IF ( maxval(memlt_pool(:)) .gt. max_memlt ) THEN
      WRITE(stdout,'(/,5x,a,a,f9.4,a)') "Size of required memory per pool :", &
@@ -125,11 +124,9 @@
      memlt_pool(:) = 0.d0
      memlt_pool(my_pool_id+1) = rmelt
      !
-#ifdef __PARA
   ! collect contributions from all pools
   CALL mp_sum( memlt_pool, inter_pool_comm )
   CALL mp_barrier(inter_pool_comm)
-#endif
 
   ENDIF
   !
@@ -232,27 +229,18 @@
   !-----------------------------------------------------------------------
   SUBROUTINE kernel_aniso_iaxis_analytic_cont( itemp )
   !-----------------------------------------------------------------------
-  !  
-  ! computes kernels K_{+}(w,iw_n,T) and K_{-}(w,iw_n,T)
-  ! reference F. Masiglio, M. Schossmann, and J. Carbotte, PRB 37, 4965 (1988)
-  !
+  !!  
+  !! computes kernels K_{+}(w,iw_n,T) and K_{-}(w,iw_n,T)
+  !! reference F. Masiglio, M. Schossmann, and J. Carbotte, PRB 37, 4965 (1988)
+  !!
   USE kinds,         ONLY : DP
   USE elph2,         ONLY : wqf
   USE epwcom,        ONLY : muc, fsthick
   USE eliashbergcom, ONLY : nsw, nsiw, ws, wsi, ADeltai, nkfs, nbndfs, dosef, ixkqf, ixqfs, nqfs, & 
                             w0g, ekfs, ef0, ADsumi, AZsumi
-#ifdef __PARA
-  USE io_global, ONLY : ionode_id
-  USE mp_global, ONLY : inter_pool_comm, my_pool_id, npool
-  USE mp,        ONLY : mp_bcast, mp_barrier, mp_sum
-  USE mp_world,  ONLY : mpime
-#endif
+  USE mp,            ONLY : mp_bcast, mp_barrier, mp_sum
   !      
   IMPLICIT NONE
-#ifndef __PARA
-  INTEGER, PARAMETER :: npool = 1, my_pool_id = 0 ! this is only a quick fix since the subroutine was written
-                                                  ! for parallel execution - FG June 2014
-#endif
   !
   INTEGER :: iw, iwp, itemp, ik, iq, iq0, ibnd, jbnd, lower_bnd, upper_bnd, imelt
   REAL(DP) :: esqrt, kernelp, kernelm, weight
@@ -324,25 +312,25 @@
   !-----------------------------------------------------------------------
   SUBROUTINE lambdai_aniso_ver1( ik, iq, ibnd, jbnd, omega, omegap, lambda_eph )
   !-----------------------------------------------------------------------
-  !
-  ! computes lambda(w-iw_n)   
-  ! reference F. Masiglio, M. Schossmann, and J. Carbotte, PRB 37, 4965 (1988)
-  !
-  ! input
-  !  
-  ! ik - index k-point
-  ! iq - index q-point 
-  ! ibnd - index band ibnd at k-point
-  ! jbnd - index band jbnd at k+q-point
-  ! iw     - index frequency w on the real-axis
-  ! iwp    - index frequency iw_n on the imaginary-axis
-  ! omega  - frequency w at point iw
-  ! omegap - frequency w_n at point iwp
-  !     
-  ! output 
-  !        
-  ! lampda_eph - electron-phonon coupling lambda_ij(k,k+q;w-iw_n)
-  !        
+  !!
+  !! computes lambda(w-iw_n)   
+  !! reference F. Masiglio, M. Schossmann, and J. Carbotte, PRB 37, 4965 (1988)
+  !!
+  !! input
+  !!  
+  !! ik - index k-point
+  !! iq - index q-point 
+  !! ibnd - index band ibnd at k-point
+  !! jbnd - index band jbnd at k+q-point
+  !! iw     - index frequency w on the real-axis
+  !! iwp    - index frequency iw_n on the imaginary-axis
+  !! omega  - frequency w at point iw
+  !! omegap - frequency w_n at point iwp
+  !!     
+  !! output 
+  !!        
+  !! lampda_eph - electron-phonon coupling lambda_ij(k,k+q;w-iw_n)
+  !!        
   USE kinds,         ONLY : DP
   USE phcom,         ONLY : nmodes
   USE elph2,         ONLY : wf
@@ -374,25 +362,25 @@
   !-----------------------------------------------------------------------               
   SUBROUTINE lambdai_aniso_ver2( ik, iq, ibnd, jbnd, omega, omegap, lambda_eph )
   !-----------------------------------------------------------------------
-  !
-  ! computes lambda(w-iw_n)   
-  ! reference F. Masiglio, M. Schossmann, and J. Carbotte, PRB 37, 4965 (1988)
-  !
-  ! input
-  !  
-  ! ik - index k-point
-  ! iq - index q-point 
-  ! ibnd - index band ibnd at k-point
-  ! jbnd - index band jbnd at k+q-point
-  ! iw     - index frequency w on the real-axis
-  ! iwp    - index frequency iw_n on the imaginary-axis
-  ! omega  - frequency w at point iw
-  ! omegap - frequency w_n at point iwp
-  !     
-  ! output 
-  !        
-  ! lampda_eph - electron-phonon coupling lambda_ij(k,k+q;w-iw_n)
-  !        
+  !!
+  !! computes lambda(w-iw_n)   
+  !! reference F. Masiglio, M. Schossmann, and J. Carbotte, PRB 37, 4965 (1988)
+  !!
+  !! input
+  !!  
+  !! ik - index k-point
+  !! iq - index q-point 
+  !! ibnd - index band ibnd at k-point
+  !! jbnd - index band jbnd at k+q-point
+  !! iw     - index frequency w on the real-axis
+  !! iwp    - index frequency iw_n on the imaginary-axis
+  !! omega  - frequency w at point iw
+  !! omegap - frequency w_n at point iwp
+  !!     
+  !! output 
+  !!        
+  !! lampda_eph - electron-phonon coupling lambda_ij(k,k+q;w-iw_n)
+  !!        
   USE kinds,         ONLY : DP
   USE epwcom,        ONLY : nqstep
   USE eliashbergcom, ONLY : a2fij, dwsph, wsph
@@ -418,9 +406,9 @@
   !-----------------------------------------------------------------------
   SUBROUTINE evaluate_a2fij
   !-----------------------------------------------------------------------
-  !
-  ! computes the anisotropic spectral function a2F(k,k',w) 
-  !
+  !!
+  !! computes the anisotropic spectral function a2F(k,k',w) 
+  !!
   USE kinds,         ONLY : DP
   USE phcom,         ONLY : nmodes
   USE elph2,         ONLY : wf
@@ -469,30 +457,27 @@
   !-----------------------------------------------------------------------
   SUBROUTINE eliashberg_memlt_aniso_acon
   !-----------------------------------------------------------------------
-  !  
-  ! estimate the memory requirements for the anisotropic Eliashberg funtion
-  ! used for analytic continuation from imaginary to real axis
-  !
+  !!  
+  !! Estimate the memory requirements for the anisotropic Eliashberg funtion
+  !! used for analytic continuation from imaginary to real axis
+  !!
   !
   USE kinds,         ONLY : DP
   USE io_global,     ONLY : stdout
   USE epwcom,        ONLY : nqstep, max_memlt
   USE eliashbergcom, ONLY : nkfs, nbndfs, nqfs, lacon_fly, memlt_pool
-#ifdef __PARA
-  USE io_global, ONLY : ionode_id
-  USE mp_global, ONLY : inter_pool_comm, my_pool_id, npool
+  USE mp_global, ONLY : inter_pool_comm, my_pool_id
   USE mp,        ONLY : mp_bcast, mp_barrier, mp_sum
-  USE mp_world,  ONLY : mpime
-#endif
   ! 
   IMPLICIT NONE
-#ifndef __PARA
-  INTEGER, PARAMETER :: npool = 1, my_pool_id = 0 ! this is only a quick fix since the subroutine was written
-                                                  ! for parallel execution - FG June 2014
-#endif
   !
   INTEGER  :: lower_bnd, upper_bnd, imelt
   REAL(DP) :: rmelt
+  !
+  ! This is only a quick fix since the subroutine was written for parallel execution - FG June 2014
+#if ! defined(__MPI)
+  my_pool_id = 0
+#endif  
   !
   lacon_fly = .false.
   !
@@ -506,11 +491,9 @@
   memlt_pool(:) = 0.d0
   memlt_pool(my_pool_id+1) = rmelt
   !
-#ifdef __PARA
   ! collect contributions from all pools
   CALL mp_sum( memlt_pool, inter_pool_comm )
   CALL mp_barrier(inter_pool_comm)
-#endif
   !
   IF ( maxval(memlt_pool(:)) .gt. max_memlt ) THEN
      WRITE(stdout,'(/,5x,a,a,f9.4,a)') "Size of required memory per pool :", &

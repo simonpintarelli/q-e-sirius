@@ -10,23 +10,35 @@
 #
 # Maintainers: Filippo Spiga (filippo.spiga@quantum-espresso.org)
 #              Samuel Ponce
+#
+# SP: This can lead to issue if you reach the OS pipe buffer 
+#     You can increase the buffer in /proc/sys/fs/pipe-max-size  
+
   
 fname=$1
+args=$(echo $fname | awk -F= '{print $NF}')
 
+##echo $fname > /home/sponce/program/espresso/test-suite/tmp.txt 
+###    echo $args >> /home/sponce/program/espresso/test-suite/tmp.txt
+
+### if [[ "$args" == "1" ]]
+##  then
 # SCF
 e1=`grep ! $fname | tail -1 | awk '{printf "%12.6f\n", $5}'`
 n1=`grep 'convergence has' $fname | tail -1 | awk '{print $6}'`
 f1=`grep "Total force" $fname | head -1 | awk '{printf "%8.4f\n", $4}'`
 p1=`grep "P= " $fname | tail -1 | awk '{print $6}'`
+### fi
+
 
 # NSCF
-ef1=`grep Fermi $fname | awk '{print $5}'`
+ef1=`grep "the Fermi energy is" $fname | awk '{print $5}'`
 eh1=`grep "highest occupied" $fname | awk '{print $7}'`
 el1=`grep "highest occupied" $fname | awk '{print $8}'`
 tf1=`grep " P = " $fname | head -1 | awk '{printf "%7.5f", $3}'`
 
 # EPW
-q1=`grep "   q(" $fname | awk '{print $6 $7 $8}'`
+q1=`grep "   q(" $fname | awk '{print $6; print $7; print $8}'`
 dos1=`grep "DOS =" $fname | awk '{print $3}'`
 e2=`grep " E(" $fname | awk '{print $4}'`
 rsig=`grep "Re\[Sigma\]=" $fname | awk '{print $7}'` 
@@ -34,6 +46,7 @@ isig=`grep "Im\[Sigma\]=" $fname | awk '{print $10}'`
 z1=`grep " Z=" $fname | awk '{print $13}'`
 lam=`grep "lam= " $fname | awk '{print $15}'`
 lambda=`grep "  lambda(" $fname | awk '{print $4}'`
+lambda_tr=`grep "  lambda_tr(" $fname | awk '{print $4}'`
 gamma=`grep " gamma=" $fname | awk '{print $6}'`
 omega=`grep " omega=" $fname | awk '{print $9}'`
 lam_tot=`grep " lambda :" $fname | awk '{print $3}'`
@@ -49,7 +62,7 @@ bcsgap=`grep "Estimated BCS superconducting gap =" $fname | awk '{print $6}'`
 
 if test "$efm" != ""; then
         echo efm
-        echo $efm
+        for x in $efm; do echo $x; done
 fi
 
 if test "$lam_max" != ""; then
@@ -61,6 +74,7 @@ if test "$lam_kmax" != ""; then
         echo lam_kmax
         echo $lam_kmax
 fi
+
 
 if test "$elph" != ""; then
         echo elph
@@ -84,7 +98,7 @@ fi
 
 if test "$dos1" != ""; then
         echo dos1
-        echo $dos1
+        for x in $dos1; do echo $x; done
 fi
 
 if test "$e2" != ""; then
@@ -117,6 +131,11 @@ if test "$lamda" != ""; then
         for x in $lamda; do echo $x; done
 fi
 
+if test "$lambda_tr" != ""; then
+        echo lambda_tr
+        for x in $lambda_tr; do echo $x; done
+fi
+
 if test "$gamma" != ""; then
         echo gamma
         for x in $gamma; do echo $x; done
@@ -126,6 +145,7 @@ if test "$omega" != ""; then
         echo omega
         for x in $omega; do echo $x; done
 fi
+
 
 if test "$lam_tot" != ""; then
         echo lam_tot
@@ -167,10 +187,9 @@ if test "$p1" != ""; then
 	echo $p1
 fi
 
-
 if test "$ef1" != ""; then
 	echo ef1
-	for x in $ef1; do echo $x; done
+        for x in $ef1; do echo $x; done
 fi
 
 if test "$eh1" != ""; then

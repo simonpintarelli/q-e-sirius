@@ -1,5 +1,16 @@
-
+!
+! Copyright (C) 2003-2016 Quantum ESPRESSO group
+! This file is distributed under the terms of the
+! GNU General Public License. See the file `License'
+! in the root directory of the present distribution,
+! or http://www.gnu.org/copyleft/gpl.txt .
+!
 MODULE qes_libs_module
+! This module contains some basic subroutines initialize data_type used for
+! reading and writing  XML files produced by Quantum ESPRESSO package.
+!
+! Written by Giovanni Borghi, A. Ferretti, ... (2015).
+!
 
    USE qes_types_module
    USE iotk_module
@@ -9,9 +20,9 @@ MODULE qes_libs_module
    CHARACTER(32)           :: fmtstr
    !
    PRIVATE :: attr, fmtstr
-
+!
 CONTAINS
-
+!
 SUBROUTINE qes_write_closed(iun, obj)
    IMPLICIT NONE
 
@@ -702,9 +713,9 @@ SUBROUTINE qes_init_BerryPhaseOutput(obj, tagname, polarization, totalPhase, &
    TYPE(polarization_type) :: polarization
    TYPE(phase_type) :: totalPhase
    INTEGER  :: ndim_ionicPolarization
-   TYPE(ionicPolarization_type), DIMENSION(:) :: ionicPolarization
+   TYPE(ionicPolarization_type ), DIMENSION( ndim_ionicPolarization )  :: ionicPolarization
    INTEGER  :: ndim_electronicPolarization
-   TYPE(electronicPolarization_type), DIMENSION(:) :: electronicPolarization
+   TYPE(electronicPolarization_type ), DIMENSION( ndim_electronicPolarization )  :: electronicPolarization
 
    obj%tagname = TRIM(tagname)
    obj%polarization = polarization
@@ -772,11 +783,12 @@ SUBROUTINE qes_init_vector(obj, tagname, ndim_vec, vec)
    CHARACTER(len=*) :: tagname
    INTEGER  :: i
    INTEGER  :: ndim_vec
-   REAL(DP), DIMENSION(:) :: vec
+   REAL(DP), DIMENSION(ndim_vec) :: vec
 
    obj%tagname = TRIM(tagname)
    ALLOCATE(obj%vec(ndim_vec))
    obj%vec(:) = vec(:)
+   obj%ndim_vec = ndim_vec
 
 END SUBROUTINE qes_init_vector
 
@@ -834,17 +846,19 @@ SUBROUTINE qes_init_ks_energies(obj, tagname, k_point, npw, ndim_eigenvalues, ei
    TYPE(k_point_type) :: k_point
    INTEGER  :: npw
    INTEGER  :: ndim_eigenvalues
-   REAL(DP), DIMENSION(:) :: eigenvalues
+   REAL(DP), DIMENSION(ndim_eigenvalues) :: eigenvalues
    INTEGER  :: ndim_occupations
-   REAL(DP), DIMENSION(:) :: occupations
+   REAL(DP), DIMENSION(ndim_occupations) :: occupations
 
    obj%tagname = TRIM(tagname)
    obj%k_point = k_point
    obj%npw = npw
    ALLOCATE(obj%eigenvalues(ndim_eigenvalues))
    obj%eigenvalues(:) = eigenvalues(:)
+   obj%ndim_eigenvalues = ndim_eigenvalues
    ALLOCATE(obj%occupations(ndim_occupations))
    obj%occupations(:) = occupations(:)
+   obj%ndim_occupations = ndim_occupations
 
 END SUBROUTINE qes_init_ks_energies
 
@@ -1087,7 +1101,7 @@ SUBROUTINE qes_init_equivalent_atoms(obj, tagname, nat, ndim_index_list, index_l
    INTEGER  :: i
    INTEGER  :: nat
    INTEGER  :: ndim_index_list
-   INTEGER, DIMENSION(:) :: index_list
+   INTEGER, DIMENSION(ndim_index_list) :: index_list
 
    obj%tagname = TRIM(tagname)
 
@@ -1095,6 +1109,7 @@ SUBROUTINE qes_init_equivalent_atoms(obj, tagname, nat, ndim_index_list, index_l
 
    ALLOCATE(obj%index_list(ndim_index_list))
    obj%index_list(:) = index_list(:)
+   obj%ndim_index_list = ndim_index_list
 
 END SUBROUTINE qes_init_equivalent_atoms
 
@@ -1226,6 +1241,8 @@ SUBROUTINE qes_init_matrix(obj, tagname, ndim1_mat, ndim2_mat, mat)
    obj%tagname = TRIM(tagname)
    ALLOCATE(obj%mat(ndim1_mat,ndim2_mat))
    obj%mat(:,:) = mat(:,:)
+   obj%ndim1_mat = ndim1_mat
+   obj%ndim2_mat = ndim2_mat
 
 END SUBROUTINE qes_init_matrix
 
@@ -1655,6 +1672,12 @@ SUBROUTINE qes_write_total_energy(iun, obj)
          CALL iotk_write_end(iun, 'efieldcorr')
       ENDIF
       !
+      IF(obj%potentiostat_contr_ispresent) THEN
+         CALL iotk_write_begin(iun, 'potentiostat_contr')
+            WRITE(iun, '(E20.7)') obj%potentiostat_contr
+         CALL iotk_write_end(iun, 'potentiostat_contr')
+      ENDIF
+      !
    CALL iotk_write_end(iun, TRIM(obj%tagname))
    !
 END SUBROUTINE qes_write_total_energy
@@ -1662,7 +1685,8 @@ END SUBROUTINE qes_write_total_energy
 SUBROUTINE qes_init_total_energy(obj, tagname, etot, eband_ispresent, eband, &
                               ehart_ispresent, ehart, vtxc_ispresent, vtxc, etxc_ispresent, &
                               etxc, ewald_ispresent, ewald, demet_ispresent, demet, &
-                              efieldcorr_ispresent, efieldcorr)
+                              efieldcorr_ispresent, efieldcorr, &
+                              potentiostat_contr_ispresent, potentiostat_contr)
    IMPLICIT NONE
 
    TYPE(total_energy_type) :: obj
@@ -1683,6 +1707,8 @@ SUBROUTINE qes_init_total_energy(obj, tagname, etot, eband_ispresent, eband, &
    REAL(DP) :: demet
    LOGICAL  :: efieldcorr_ispresent
    REAL(DP) :: efieldcorr
+   LOGICAL  :: potentiostat_contr_ispresent
+   REAL(DP) :: potentiostat_contr
 
    obj%tagname = TRIM(tagname)
    obj%etot = etot
@@ -1714,6 +1740,10 @@ SUBROUTINE qes_init_total_energy(obj, tagname, etot, eband_ispresent, eband, &
    IF(obj%efieldcorr_ispresent) THEN
       obj%efieldcorr = efieldcorr
    ENDIF
+   obj%potentiostat_contr_ispresent = potentiostat_contr_ispresent
+   IF(obj%potentiostat_contr_ispresent) THEN
+      obj%potentiostat_contr = potentiostat_contr
+   ENDIF
 
 END SUBROUTINE qes_init_total_energy
 
@@ -1744,6 +1774,9 @@ SUBROUTINE qes_reset_total_energy(obj)
    ENDIF
    IF(obj%efieldcorr_ispresent) THEN
       obj%efieldcorr_ispresent = .FALSE.
+   ENDIF
+   IF(obj%potentiostat_contr_ispresent) THEN
+      obj%potentiostat_contr_ispresent = .FALSE.
    ENDIF
 
 END SUBROUTINE qes_reset_total_energy
@@ -2129,7 +2162,7 @@ SUBROUTINE qes_init_atomic_constraints(obj, tagname, num_of_constraints, toleran
    INTEGER  :: num_of_constraints
    REAL(DP) :: tolerance
    INTEGER  :: ndim_atomic_constraint
-   TYPE(atomic_constraint_type), DIMENSION(:) :: atomic_constraint
+   TYPE(atomic_constraint_type ), DIMENSION( ndim_atomic_constraint )  :: atomic_constraint
 
    obj%tagname = TRIM(tagname)
    obj%num_of_constraints = num_of_constraints
@@ -2413,7 +2446,7 @@ SUBROUTINE qes_init_symmetries(obj, tagname, nsym, nrot, space_group, ndim_symme
    INTEGER :: nrot
    INTEGER :: space_group
    INTEGER  :: ndim_symmetry
-   TYPE(symmetry_type), DIMENSION(:) :: symmetry
+   TYPE(symmetry_type ), DIMENSION( ndim_symmetry )  :: symmetry
 
    obj%tagname = TRIM(tagname)
    obj%nsym = nsym
@@ -2576,11 +2609,28 @@ SUBROUTINE qes_write_boundary_conditions(iun, obj)
          !
       ENDIF
       !
+      IF(obj%fcp_opt_ispresent) THEN
+         CALL iotk_write_begin(iun, 'fcp_opt',new_line=.FALSE.)
+            IF (obj%fcp_opt) THEN
+               WRITE(iun, '(A)',advance='no')  'true'
+            ELSE
+               WRITE(iun, '(A)',advance='no')  'false'
+            ENDIF
+         CALL iotk_write_end(iun, 'fcp_opt',indentation=.FALSE.)
+      ENDIF
+      !
+      IF(obj%fcp_mu_ispresent) THEN
+         CALL iotk_write_begin(iun, 'fcp_mu')
+            WRITE(iun, '(E20.7)') obj%fcp_mu
+         CALL iotk_write_end(iun, 'fcp_mu')
+      ENDIF
+      !
    CALL iotk_write_end(iun, TRIM(obj%tagname))
    !
 END SUBROUTINE qes_write_boundary_conditions
 
-SUBROUTINE qes_init_boundary_conditions(obj, tagname, assume_isolated, esm_ispresent, esm)
+SUBROUTINE qes_init_boundary_conditions(obj, tagname, assume_isolated, esm_ispresent, esm, &
+                              fcp_opt_ispresent, fcp_opt, fcp_mu_ispresent, fcp_mu)
    IMPLICIT NONE
 
    TYPE(boundary_conditions_type) :: obj
@@ -2589,12 +2639,24 @@ SUBROUTINE qes_init_boundary_conditions(obj, tagname, assume_isolated, esm_ispre
    CHARACTER(len=*) :: assume_isolated
    LOGICAL  :: esm_ispresent
    TYPE(esm_type) :: esm
+   LOGICAL  :: fcp_opt_ispresent
+   LOGICAL  :: fcp_opt
+   LOGICAL  :: fcp_mu_ispresent
+   REAL(DP) :: fcp_mu
 
    obj%tagname = TRIM(tagname)
    obj%assume_isolated = assume_isolated
    obj%esm_ispresent = esm_ispresent
    IF(obj%esm_ispresent) THEN
       obj%esm = esm
+   ENDIF
+   obj%fcp_opt_ispresent = fcp_opt_ispresent
+   IF(obj%fcp_opt_ispresent) THEN
+      obj%fcp_opt = fcp_opt
+   ENDIF
+   obj%fcp_mu_ispresent = fcp_mu_ispresent
+   IF(obj%fcp_mu_ispresent) THEN
+      obj%fcp_mu = fcp_mu
    ENDIF
 
 END SUBROUTINE qes_init_boundary_conditions
@@ -2609,6 +2671,12 @@ SUBROUTINE qes_reset_boundary_conditions(obj)
    IF(obj%esm_ispresent) THEN
       CALL qes_reset_esm(obj%esm)
       obj%esm_ispresent = .FALSE.
+   ENDIF
+   IF(obj%fcp_opt_ispresent) THEN
+      obj%fcp_opt_ispresent = .FALSE.
+   ENDIF
+   IF(obj%fcp_mu_ispresent) THEN
+      obj%fcp_mu_ispresent = .FALSE.
    ENDIF
 
 END SUBROUTINE qes_reset_boundary_conditions
@@ -2738,11 +2806,13 @@ SUBROUTINE qes_init_integerMatrix(obj, tagname, ndim1_int_mat, ndim2_int_mat, in
    INTEGER  :: i
    INTEGER  :: ndim1_int_mat
    INTEGER  :: ndim2_int_mat
-   INTEGER, DIMENSION(:,:) :: int_mat
+   INTEGER, DIMENSION(ndim1_int_mat,ndim2_int_mat) :: int_mat
 
    obj%tagname = TRIM(tagname)
    ALLOCATE(obj%int_mat(ndim1_int_mat,ndim2_int_mat))
    obj%int_mat(:,:) = int_mat(:,:)
+   obj%ndim1_int_mat = ndim1_int_mat
+   obj%ndim2_int_mat = ndim2_int_mat
 
 END SUBROUTINE qes_init_integerMatrix
 
@@ -2774,6 +2844,9 @@ SUBROUTINE qes_write_cell_control(iun, obj)
       CALL iotk_write_begin(iun, 'cell_dynamics',new_line=.FALSE.)
          WRITE(iun, '(A)',advance='no')  TRIM(obj%cell_dynamics)
       CALL iotk_write_end(iun, 'cell_dynamics',indentation=.FALSE.)
+      CALL iotk_write_begin(iun, 'pressure')
+         WRITE(iun, '(E20.7)') obj%pressure
+      CALL iotk_write_end(iun, 'pressure')
       IF(obj%wmass_ispresent) THEN
          CALL iotk_write_begin(iun, 'wmass')
             WRITE(iun, '(E20.7)') obj%wmass
@@ -2825,17 +2898,18 @@ SUBROUTINE qes_write_cell_control(iun, obj)
    !
 END SUBROUTINE qes_write_cell_control
 
-SUBROUTINE qes_init_cell_control(obj, tagname, cell_dynamics, wmass_ispresent, wmass, &
-                              cell_factor_ispresent, cell_factor, fix_volume_ispresent, &
-                              fix_volume, fix_area_ispresent, fix_area, &
-                              isotropic_ispresent, isotropic, free_cell_ispresent, &
-                              free_cell)
+SUBROUTINE qes_init_cell_control(obj, tagname, cell_dynamics, pressure, wmass_ispresent, &
+                              wmass, cell_factor_ispresent, cell_factor, &
+                              fix_volume_ispresent, fix_volume, fix_area_ispresent, &
+                              fix_area, isotropic_ispresent, isotropic, &
+                              free_cell_ispresent, free_cell)
    IMPLICIT NONE
 
    TYPE(cell_control_type) :: obj
    CHARACTER(len=*) :: tagname
    INTEGER  :: i
    CHARACTER(len=*) :: cell_dynamics
+   REAL(DP) :: pressure
    LOGICAL  :: wmass_ispresent
    REAL(DP) :: wmass
    LOGICAL  :: cell_factor_ispresent
@@ -2851,6 +2925,7 @@ SUBROUTINE qes_init_cell_control(obj, tagname, cell_dynamics, wmass_ispresent, w
 
    obj%tagname = TRIM(tagname)
    obj%cell_dynamics = cell_dynamics
+   obj%pressure = pressure
    obj%wmass_ispresent = wmass_ispresent
    IF(obj%wmass_ispresent) THEN
       obj%wmass = wmass
@@ -3240,6 +3315,12 @@ SUBROUTINE qes_write_band_structure(iun, obj)
       CALL iotk_write_begin(iun, 'nelec')
          WRITE(iun, '(E20.7)') obj%nelec
       CALL iotk_write_end(iun, 'nelec')
+      IF(obj%num_of_atomic_wfc_ispresent) THEN
+         CALL iotk_write_begin(iun, 'num_of_atomic_wfc')
+            WRITE(iun, '(I12)') obj%num_of_atomic_wfc
+         CALL iotk_write_end(iun, 'num_of_atomic_wfc')
+      ENDIF
+      !
       IF(obj%fermi_energy_ispresent) THEN
          CALL iotk_write_begin(iun, 'fermi_energy')
             WRITE(iun, '(E20.7)') obj%fermi_energy
@@ -3273,7 +3354,8 @@ END SUBROUTINE qes_write_band_structure
 
 SUBROUTINE qes_init_band_structure(obj, tagname, lsda, noncolin, spinorbit, nbnd, &
                               nbnd_up_ispresent, nbnd_up, nbnd_dw_ispresent, nbnd_dw, &
-                              nelec, fermi_energy_ispresent, fermi_energy, &
+                              nelec, num_of_atomic_wfc_ispresent, num_of_atomic_wfc, &
+                              fermi_energy_ispresent, fermi_energy, &
                               highestOccupiedLevel_ispresent, highestOccupiedLevel, &
                               two_fermi_energies_ispresent, &
                               ndim_two_fermi_energies, two_fermi_energies, nks, &
@@ -3292,16 +3374,18 @@ SUBROUTINE qes_init_band_structure(obj, tagname, lsda, noncolin, spinorbit, nbnd
    LOGICAL  :: nbnd_dw_ispresent
    INTEGER  :: nbnd_dw
    REAL(DP) :: nelec
+   LOGICAL  :: num_of_atomic_wfc_ispresent
+   INTEGER  :: num_of_atomic_wfc
    LOGICAL  :: fermi_energy_ispresent
    REAL(DP) :: fermi_energy
    LOGICAL  :: highestOccupiedLevel_ispresent
    REAL(DP) :: highestOccupiedLevel
    LOGICAL  :: two_fermi_energies_ispresent
    INTEGER  :: ndim_two_fermi_energies
-   REAL(DP), DIMENSION(:) :: two_fermi_energies
+   REAL(DP), DIMENSION(ndim_two_fermi_energies) :: two_fermi_energies
    INTEGER  :: nks
    INTEGER  :: ndim_ks_energies
-   TYPE(ks_energies_type), DIMENSION(:) :: ks_energies
+   TYPE(ks_energies_type ), DIMENSION( ndim_ks_energies )  :: ks_energies
 
    obj%tagname = TRIM(tagname)
    obj%lsda = lsda
@@ -3317,6 +3401,10 @@ SUBROUTINE qes_init_band_structure(obj, tagname, lsda, noncolin, spinorbit, nbnd
       obj%nbnd_dw = nbnd_dw
    ENDIF
    obj%nelec = nelec
+   obj%num_of_atomic_wfc_ispresent = num_of_atomic_wfc_ispresent
+   IF(obj%num_of_atomic_wfc_ispresent) THEN
+      obj%num_of_atomic_wfc = num_of_atomic_wfc
+   ENDIF
    obj%fermi_energy_ispresent = fermi_energy_ispresent
    IF(obj%fermi_energy_ispresent) THEN
       obj%fermi_energy = fermi_energy
@@ -3329,6 +3417,7 @@ SUBROUTINE qes_init_band_structure(obj, tagname, lsda, noncolin, spinorbit, nbnd
    IF(obj%two_fermi_energies_ispresent) THEN
    ALLOCATE(obj%two_fermi_energies(ndim_two_fermi_energies))
    obj%two_fermi_energies(:) = two_fermi_energies(:)
+   obj%ndim_two_fermi_energies = ndim_two_fermi_energies
    ENDIF
    obj%nks = nks
    ALLOCATE(obj%ks_energies(SIZE(ks_energies)))
@@ -3351,6 +3440,9 @@ SUBROUTINE qes_reset_band_structure(obj)
    ENDIF
    IF(obj%nbnd_dw_ispresent) THEN
       obj%nbnd_dw_ispresent = .FALSE.
+   ENDIF
+   IF(obj%num_of_atomic_wfc_ispresent) THEN
+      obj%num_of_atomic_wfc_ispresent = .FALSE.
    ENDIF
    IF(obj%fermi_energy_ispresent) THEN
       obj%fermi_energy_ispresent = .FALSE.
@@ -3490,7 +3582,7 @@ SUBROUTINE qes_init_k_points_IBZ(obj, tagname, monkhorst_pack_ispresent, monkhor
    INTEGER  :: nk
    LOGICAL  :: k_point_ispresent
    INTEGER  :: ndim_k_point
-   TYPE(k_point_type), DIMENSION(:) :: k_point
+   TYPE(k_point_type ), DIMENSION( ndim_k_point )  :: k_point
 
    obj%tagname = TRIM(tagname)
    obj%monkhorst_pack_ispresent = monkhorst_pack_ispresent
@@ -3653,6 +3745,20 @@ SUBROUTINE qes_write_electron_control(iun, obj)
             WRITE(iun, '(A)',advance='no')  'false'
          ENDIF
       CALL iotk_write_end(iun, 'real_space_q',indentation=.FALSE.)
+      CALL iotk_write_begin(iun, 'tq_smoothing',new_line=.FALSE.)
+         IF (obj%tq_smoothing) THEN
+            WRITE(iun, '(A)',advance='no')  'true'
+         ELSE
+            WRITE(iun, '(A)',advance='no')  'false'
+         ENDIF
+      CALL iotk_write_end(iun, 'tq_smoothing',indentation=.FALSE.)
+      CALL iotk_write_begin(iun, 'tbeta_smoothing',new_line=.FALSE.)
+         IF (obj%tbeta_smoothing) THEN
+            WRITE(iun, '(A)',advance='no')  'true'
+         ELSE
+            WRITE(iun, '(A)',advance='no')  'false'
+         ENDIF
+      CALL iotk_write_end(iun, 'tbeta_smoothing',indentation=.FALSE.)
       CALL iotk_write_begin(iun, 'diago_thr_init')
          WRITE(iun, '(E20.7)') obj%diago_thr_init
       CALL iotk_write_end(iun, 'diago_thr_init')
@@ -3672,7 +3778,8 @@ END SUBROUTINE qes_write_electron_control
 
 SUBROUTINE qes_init_electron_control(obj, tagname, diagonalization, mixing_mode, &
                               mixing_beta, conv_thr, mixing_ndim, max_nstep, real_space_q, &
-                              diago_thr_init, diago_full_acc, diago_cg_maxiter)
+                              tq_smoothing, tbeta_smoothing, diago_thr_init, &
+                              diago_full_acc, diago_cg_maxiter)
    IMPLICIT NONE
 
    TYPE(electron_control_type) :: obj
@@ -3685,6 +3792,8 @@ SUBROUTINE qes_init_electron_control(obj, tagname, diagonalization, mixing_mode,
    INTEGER  :: mixing_ndim
    INTEGER  :: max_nstep
    LOGICAL  :: real_space_q
+   LOGICAL  :: tq_smoothing
+   LOGICAL  :: tbeta_smoothing
    REAL(DP) :: diago_thr_init
    LOGICAL  :: diago_full_acc
    INTEGER  :: diago_cg_maxiter
@@ -3697,6 +3806,8 @@ SUBROUTINE qes_init_electron_control(obj, tagname, diagonalization, mixing_mode,
    obj%mixing_ndim = mixing_ndim
    obj%max_nstep = max_nstep
    obj%real_space_q = real_space_q
+   obj%tq_smoothing = tq_smoothing
+   obj%tbeta_smoothing = tbeta_smoothing
    obj%diago_thr_init = diago_thr_init
    obj%diago_full_acc = diago_full_acc
    obj%diago_cg_maxiter = diago_cg_maxiter
@@ -3748,8 +3859,8 @@ SUBROUTINE qes_write_basis_set(iun, obj)
       !
       CALL qes_write_basisSetItem(iun, obj%fft_grid)
       !
-      IF(obj%fft_smoooth_ispresent) THEN
-         CALL qes_write_basisSetItem(iun, obj%fft_smoooth)
+      IF(obj%fft_smooth_ispresent) THEN
+         CALL qes_write_basisSetItem(iun, obj%fft_smooth)
          !
       ENDIF
       !
@@ -3777,8 +3888,8 @@ SUBROUTINE qes_write_basis_set(iun, obj)
 END SUBROUTINE qes_write_basis_set
 
 SUBROUTINE qes_init_basis_set(obj, tagname, gamma_only_ispresent, gamma_only, ecutwfc, &
-                              ecutrho_ispresent, ecutrho, fft_grid, fft_smoooth_ispresent, &
-                              fft_smoooth, fft_box_ispresent, fft_box, ngm, ngms_ispresent, &
+                              ecutrho_ispresent, ecutrho, fft_grid, fft_smooth_ispresent, &
+                              fft_smooth, fft_box_ispresent, fft_box, ngm, ngms_ispresent, &
                               ngms, npwx, reciprocal_lattice)
    IMPLICIT NONE
 
@@ -3791,8 +3902,8 @@ SUBROUTINE qes_init_basis_set(obj, tagname, gamma_only_ispresent, gamma_only, ec
    LOGICAL  :: ecutrho_ispresent
    REAL(DP) :: ecutrho
    TYPE(basisSetItem_type) :: fft_grid
-   LOGICAL  :: fft_smoooth_ispresent
-   TYPE(basisSetItem_type) :: fft_smoooth
+   LOGICAL  :: fft_smooth_ispresent
+   TYPE(basisSetItem_type) :: fft_smooth
    LOGICAL  :: fft_box_ispresent
    TYPE(basisSetItem_type) :: fft_box
    INTEGER  :: ngm
@@ -3812,9 +3923,9 @@ SUBROUTINE qes_init_basis_set(obj, tagname, gamma_only_ispresent, gamma_only, ec
       obj%ecutrho = ecutrho
    ENDIF
    obj%fft_grid = fft_grid
-   obj%fft_smoooth_ispresent = fft_smoooth_ispresent
-   IF(obj%fft_smoooth_ispresent) THEN
-      obj%fft_smoooth = fft_smoooth
+   obj%fft_smooth_ispresent = fft_smooth_ispresent
+   IF(obj%fft_smooth_ispresent) THEN
+      obj%fft_smooth = fft_smooth
    ENDIF
    obj%fft_box_ispresent = fft_box_ispresent
    IF(obj%fft_box_ispresent) THEN
@@ -3844,9 +3955,9 @@ SUBROUTINE qes_reset_basis_set(obj)
       obj%ecutrho_ispresent = .FALSE.
    ENDIF
    CALL qes_reset_basisSetItem(obj%fft_grid)
-   IF(obj%fft_smoooth_ispresent) THEN
-      CALL qes_reset_basisSetItem(obj%fft_smoooth)
-      obj%fft_smoooth_ispresent = .FALSE.
+   IF(obj%fft_smooth_ispresent) THEN
+      CALL qes_reset_basisSetItem(obj%fft_smooth)
+      obj%fft_smooth_ispresent = .FALSE.
    ENDIF
    IF(obj%fft_box_ispresent) THEN
       CALL qes_reset_basisSetItem(obj%fft_box)
@@ -4015,7 +4126,7 @@ SUBROUTINE qes_init_inputOccupations(obj, tagname, ispin, spin_factor, ndim_vec,
    INTEGER  :: ispin
    REAL(DP) :: spin_factor
    INTEGER  :: ndim_vec
-   REAL(DP), DIMENSION(:) :: vec
+   REAL(DP), DIMENSION(ndim_vec) :: vec
 
    obj%tagname = TRIM(tagname)
 
@@ -4026,6 +4137,7 @@ SUBROUTINE qes_init_inputOccupations(obj, tagname, ispin, spin_factor, ndim_vec,
 
    ALLOCATE(obj%vec(ndim_vec))
    obj%vec(:) = vec(:)
+   obj%ndim_vec = ndim_vec
 
 END SUBROUTINE qes_init_inputOccupations
 
@@ -4211,7 +4323,7 @@ SUBROUTINE qes_init_bands(obj, tagname, nbnd_ispresent, nbnd, smearing_ispresent
    TYPE(occupations_type) :: occupations
    LOGICAL  :: inputOccupations_ispresent
    INTEGER  :: ndim_inputOccupations
-   TYPE(inputOccupations_type), DIMENSION(:) :: inputOccupations
+   TYPE(inputOccupations_type ), DIMENSION( ndim_inputOccupations )  :: inputOccupations
 
    obj%tagname = TRIM(tagname)
    obj%nbnd_ispresent = nbnd_ispresent
@@ -4470,7 +4582,7 @@ SUBROUTINE qes_init_Hubbard_ns(obj, tagname, specie, label, spin, index, &
    INTEGER  :: index
    INTEGER  :: ndim1_mat
    INTEGER  :: ndim2_mat
-   REAL(DP), DIMENSION(:,:) :: mat
+   REAL(DP), DIMENSION(ndim1_mat,ndim2_mat) :: mat
 
    obj%tagname = TRIM(tagname)
 
@@ -4487,6 +4599,8 @@ SUBROUTINE qes_init_Hubbard_ns(obj, tagname, specie, label, spin, index, &
 
    ALLOCATE(obj%mat(ndim1_mat,ndim2_mat))
    obj%mat(:,:) = mat(:,:)
+   obj%ndim1_mat = ndim1_mat
+   obj%ndim2_mat = ndim2_mat
 
 END SUBROUTINE qes_init_Hubbard_ns
 
@@ -4534,7 +4648,7 @@ SUBROUTINE qes_init_starting_ns(obj, tagname, specie, label, spin, ndim_vec, vec
    CHARACTER(len=*) :: label
    INTEGER  :: spin
    INTEGER  :: ndim_vec
-   REAL(DP), DIMENSION(:) :: vec
+   REAL(DP), DIMENSION(ndim_vec) :: vec
 
    obj%tagname = TRIM(tagname)
 
@@ -4548,6 +4662,7 @@ SUBROUTINE qes_init_starting_ns(obj, tagname, specie, label, spin, ndim_vec, vec
 
    ALLOCATE(obj%vec(ndim_vec))
    obj%vec(:) = vec(:)
+   obj%ndim_vec = ndim_vec
 
 END SUBROUTINE qes_init_starting_ns
 
@@ -4716,7 +4831,7 @@ SUBROUTINE qes_init_vdW(obj, tagname, vdw_corr, non_local_term_ispresent, non_lo
    REAL(DP) :: xdm_a2
    LOGICAL  :: london_c6_ispresent
    INTEGER  :: ndim_london_c6
-   TYPE(HubbardCommon_type), DIMENSION(:) :: london_c6
+   TYPE(HubbardCommon_type ), DIMENSION( ndim_london_c6 )  :: london_c6
 
    obj%tagname = TRIM(tagname)
    obj%vdw_corr = vdw_corr
@@ -4894,25 +5009,25 @@ SUBROUTINE qes_init_dftU(obj, tagname, lda_plus_u_kind_ispresent, lda_plus_u_kin
    INTEGER :: lda_plus_u_kind
    LOGICAL  :: Hubbard_U_ispresent
    INTEGER  :: ndim_Hubbard_U
-   TYPE(HubbardCommon_type), DIMENSION(:) :: Hubbard_U
+   TYPE(HubbardCommon_type ), DIMENSION( ndim_Hubbard_U )  :: Hubbard_U
    LOGICAL  :: Hubbard_J0_ispresent
    INTEGER  :: ndim_Hubbard_J0
-   TYPE(HubbardCommon_type), DIMENSION(:) :: Hubbard_J0
+   TYPE(HubbardCommon_type ), DIMENSION( ndim_Hubbard_J0 )  :: Hubbard_J0
    LOGICAL  :: Hubbard_alpha_ispresent
    INTEGER  :: ndim_Hubbard_alpha
-   TYPE(HubbardCommon_type), DIMENSION(:) :: Hubbard_alpha
+   TYPE(HubbardCommon_type ), DIMENSION( ndim_Hubbard_alpha )  :: Hubbard_alpha
    LOGICAL  :: Hubbard_beta_ispresent
    INTEGER  :: ndim_Hubbard_beta
-   TYPE(HubbardCommon_type), DIMENSION(:) :: Hubbard_beta
+   TYPE(HubbardCommon_type ), DIMENSION( ndim_Hubbard_beta )  :: Hubbard_beta
    LOGICAL  :: Hubbard_J_ispresent
    INTEGER  :: ndim_Hubbard_J
-   TYPE(HubbardJ_type), DIMENSION(:) :: Hubbard_J
+   TYPE(HubbardJ_type ), DIMENSION( ndim_Hubbard_J )  :: Hubbard_J
    LOGICAL  :: starting_ns_ispresent
    INTEGER  :: ndim_starting_ns
-   TYPE(starting_ns_type), DIMENSION(:) :: starting_ns
+   TYPE(starting_ns_type ), DIMENSION( ndim_starting_ns )  :: starting_ns
    LOGICAL  :: Hubbard_ns_ispresent
    INTEGER  :: ndim_Hubbard_ns
-   TYPE(Hubbard_ns_type), DIMENSION(:) :: Hubbard_ns
+   TYPE(Hubbard_ns_type ), DIMENSION( ndim_Hubbard_ns )  :: Hubbard_ns
    LOGICAL  :: U_projection_type_ispresent
    CHARACTER(len=*) :: U_projection_type
 
@@ -5445,7 +5560,7 @@ SUBROUTINE qes_init_wyckoff_positions(obj, tagname, space_group, more_options, m
    LOGICAL  :: more_options_ispresent
    CHARACTER(len=*), OPTIONAL :: more_options
    INTEGER  :: ndim_atom
-   TYPE(atom_type), DIMENSION(:) :: atom
+   TYPE(atom_type ), DIMENSION( ndim_atom )  :: atom
 
    obj%tagname = TRIM(tagname)
 
@@ -5508,7 +5623,7 @@ SUBROUTINE qes_init_atomic_positions(obj, tagname, ndim_atom, atom)
    CHARACTER(len=*) :: tagname
    INTEGER  :: i
    INTEGER  :: ndim_atom
-   TYPE(atom_type), DIMENSION(:) :: atom
+   TYPE(atom_type ), DIMENSION( ndim_atom )  :: atom
 
    obj%tagname = TRIM(tagname)
    ALLOCATE(obj%atom(SIZE(atom)))
@@ -5665,12 +5780,25 @@ SUBROUTINE qes_write_step(iun, obj)
          !
       ENDIF
       !
+      IF(obj%FCP_force_ispresent) THEN
+         CALL iotk_write_begin(iun, 'FCP_force')
+            WRITE(iun, '(E20.7)') obj%FCP_force
+         CALL iotk_write_end(iun, 'FCP_force')
+      ENDIF
+      !
+      IF(obj%FCP_tot_charge_ispresent) THEN
+         CALL iotk_write_begin(iun, 'FCP_tot_charge')
+            WRITE(iun, '(E20.7)') obj%FCP_tot_charge
+         CALL iotk_write_end(iun, 'FCP_tot_charge')
+      ENDIF
+      !
    CALL iotk_write_end(iun, TRIM(obj%tagname))
    !
 END SUBROUTINE qes_write_step
 
 SUBROUTINE qes_init_step(obj, tagname, n_step, scf_conv, atomic_structure, total_energy, &
-                              forces, stress_ispresent, stress)
+                              forces, stress_ispresent, stress, FCP_force_ispresent, &
+                              FCP_force, FCP_tot_charge_ispresent, FCP_tot_charge)
    IMPLICIT NONE
 
    TYPE(step_type) :: obj
@@ -5683,6 +5811,10 @@ SUBROUTINE qes_init_step(obj, tagname, n_step, scf_conv, atomic_structure, total
    TYPE(matrix_type) :: forces
    LOGICAL  :: stress_ispresent
    TYPE(matrix_type) :: stress
+   LOGICAL  :: FCP_force_ispresent
+   REAL(DP) :: FCP_force
+   LOGICAL  :: FCP_tot_charge_ispresent
+   REAL(DP) :: FCP_tot_charge
 
    obj%tagname = TRIM(tagname)
 
@@ -5695,6 +5827,14 @@ SUBROUTINE qes_init_step(obj, tagname, n_step, scf_conv, atomic_structure, total
    obj%stress_ispresent = stress_ispresent
    IF(obj%stress_ispresent) THEN
       obj%stress = stress
+   ENDIF
+   obj%FCP_force_ispresent = FCP_force_ispresent
+   IF(obj%FCP_force_ispresent) THEN
+      obj%FCP_force = FCP_force
+   ENDIF
+   obj%FCP_tot_charge_ispresent = FCP_tot_charge_ispresent
+   IF(obj%FCP_tot_charge_ispresent) THEN
+      obj%FCP_tot_charge = FCP_tot_charge
    ENDIF
 
 END SUBROUTINE qes_init_step
@@ -5713,6 +5853,12 @@ SUBROUTINE qes_reset_step(obj)
    IF(obj%stress_ispresent) THEN
       CALL qes_reset_matrix(obj%stress)
       obj%stress_ispresent = .FALSE.
+   ENDIF
+   IF(obj%FCP_force_ispresent) THEN
+      obj%FCP_force_ispresent = .FALSE.
+   ENDIF
+   IF(obj%FCP_tot_charge_ispresent) THEN
+      obj%FCP_tot_charge_ispresent = .FALSE.
    ENDIF
 
 END SUBROUTINE qes_reset_step
@@ -5748,7 +5894,7 @@ SUBROUTINE qes_init_atomic_species(obj, tagname, ntyp, ndim_species, species)
    INTEGER  :: i
    INTEGER  :: ntyp
    INTEGER  :: ndim_species
-   TYPE(species_type), DIMENSION(:) :: species
+   TYPE(species_type ), DIMENSION( ndim_species )  :: species
 
    obj%tagname = TRIM(tagname)
 
@@ -5825,6 +5971,18 @@ SUBROUTINE qes_write_output(iun, obj)
          !
       ENDIF
       !
+      IF(obj%FCP_force_ispresent) THEN
+         CALL iotk_write_begin(iun, 'FCP_force')
+            WRITE(iun, '(E20.7)') obj%FCP_force
+         CALL iotk_write_end(iun, 'FCP_force')
+      ENDIF
+      !
+      IF(obj%FCP_tot_charge_ispresent) THEN
+         CALL iotk_write_begin(iun, 'FCP_tot_charge')
+            WRITE(iun, '(E20.7)') obj%FCP_tot_charge
+         CALL iotk_write_end(iun, 'FCP_tot_charge')
+      ENDIF
+      !
    CALL iotk_write_end(iun, TRIM(obj%tagname))
    !
 END SUBROUTINE qes_write_output
@@ -5833,7 +5991,9 @@ SUBROUTINE qes_init_output(obj, tagname, convergence_info, algorithmic_info, &
                               atomic_species, atomic_structure, symmetries, basis_set, dft, &
                               magnetization, total_energy, band_structure, &
                               forces_ispresent, forces, stress_ispresent, stress, &
-                              electric_field_ispresent, electric_field)
+                              electric_field_ispresent, electric_field, &
+                              FCP_force_ispresent, FCP_force, FCP_tot_charge_ispresent, &
+                              FCP_tot_charge)
    IMPLICIT NONE
 
    TYPE(output_type) :: obj
@@ -5855,6 +6015,10 @@ SUBROUTINE qes_init_output(obj, tagname, convergence_info, algorithmic_info, &
    TYPE(matrix_type) :: stress
    LOGICAL  :: electric_field_ispresent
    TYPE(outputElectricField_type) :: electric_field
+   LOGICAL  :: FCP_force_ispresent
+   REAL(DP) :: FCP_force
+   LOGICAL  :: FCP_tot_charge_ispresent
+   REAL(DP) :: FCP_tot_charge
 
    obj%tagname = TRIM(tagname)
    obj%convergence_info = convergence_info
@@ -5878,6 +6042,14 @@ SUBROUTINE qes_init_output(obj, tagname, convergence_info, algorithmic_info, &
    obj%electric_field_ispresent = electric_field_ispresent
    IF(obj%electric_field_ispresent) THEN
       obj%electric_field = electric_field
+   ENDIF
+   obj%FCP_force_ispresent = FCP_force_ispresent
+   IF(obj%FCP_force_ispresent) THEN
+      obj%FCP_force = FCP_force
+   ENDIF
+   obj%FCP_tot_charge_ispresent = FCP_tot_charge_ispresent
+   IF(obj%FCP_tot_charge_ispresent) THEN
+      obj%FCP_tot_charge = FCP_tot_charge
    ENDIF
 
 END SUBROUTINE qes_init_output
@@ -5910,6 +6082,12 @@ SUBROUTINE qes_reset_output(obj)
    IF(obj%electric_field_ispresent) THEN
       CALL qes_reset_outputElectricField(obj%electric_field)
       obj%electric_field_ispresent = .FALSE.
+   ENDIF
+   IF(obj%FCP_force_ispresent) THEN
+      obj%FCP_force_ispresent = .FALSE.
+   ENDIF
+   IF(obj%FCP_tot_charge_ispresent) THEN
+      obj%FCP_tot_charge_ispresent = .FALSE.
    ENDIF
 
 END SUBROUTINE qes_reset_output
