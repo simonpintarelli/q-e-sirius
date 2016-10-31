@@ -32,6 +32,8 @@ SUBROUTINE init_run()
   USE mp,                 ONLY : mp_bcast
   USE tsvdw_module,       ONLY : tsvdw_initialize
   USE wavefunctions_module, ONLY : evc
+
+  USE input_parameters, ONLY : use_sirius
   !
   IMPLICIT NONE
   !
@@ -107,8 +109,9 @@ SUBROUTINE init_run()
   IF(use_wannier) CALL wannier_init()
   !
 #ifdef __MPI
+
   ! Cleanup PAW arrays that are only used for init
-  IF (okpaw) CALL paw_post_init() ! only parallel!
+  IF (okpaw .and. .not. use_sirius) CALL paw_post_init() ! only parallel!
 #endif
   !
   IF ( lmd ) CALL allocate_dyn_vars()

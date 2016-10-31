@@ -91,6 +91,11 @@ SUBROUTINE forces()
   !
   ! ... The local contribution
   !
+
+  ! print local forces
+
+
+
   CALL force_lc( nat, tau, ityp, alat, omega, ngm, ngl, igtongl, &
                  g, rho%of_r, nl, nspin, gstart, gamma_only, vloc, &
                  forcelc )
