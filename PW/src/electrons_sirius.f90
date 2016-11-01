@@ -214,6 +214,7 @@ subroutine electrons_sirius()
 
 
     if( upf(iat)%tpawp ) then
+    write(*,*) "PAWPAWPAW"
         call sirius_set_atom_type_paw_data(c_str(atm(iat)), upf(iat)%aewfc(1,1), upf(iat)%pswfc(1,1),&
                                           &upf(iat)%nbeta, upf(iat)%mesh, upf(iat)%paw%iraug,&
                                           &upf(iat)%paw%core_energy, upf(iat)%paw%ae_rho_atc(1),&
@@ -369,6 +370,9 @@ subroutine electrons_sirius()
   ! initialize ground-state class
   CALL sirius_ground_state_initialize(kset_id)
 
+  ! initialize subspace before calling "sirius_find_eigen_states"
+  call sirius_initialize_subspace()
+
   ! initialize internal library mixer
   if (use_sirius_mixer.eq.1) then
     CALL sirius_density_mixer_initialize()
@@ -383,6 +387,7 @@ subroutine electrons_sirius()
   call open_mix_file( iunmix, 'mix', exst )
 
   CALL sirius_start_timer(c_str("electrons"))
+
   DO iter = 1, niter
     WRITE( stdout, 9010 ) iter, ecutwfc, mixing_beta
 
