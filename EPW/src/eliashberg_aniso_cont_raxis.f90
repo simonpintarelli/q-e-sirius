@@ -30,28 +30,29 @@
   USE phcom,         ONLY : nmodes
   USE elph2,         ONLY : wqf, wf
   USE epwcom,        ONLY : nqstep, degaussq, nsiter, conv_thr_racon, fsthick, & 
-                            lacon, lpade, eps_acustic
+                            lpade, eps_acustic
   USE eliashbergcom, ONLY : nsw, estemp, dwsph, ws, wsph, gap, Agap, Gp, Gm, ADsumi, AZsumi, &                           
                             Delta, Znorm, ADelta, ADeltap, AZnorm, AZnormp, g2, lacon_fly, & 
                             a2fij, wkfs, dosef, ixkqf, ixqfs, nqfs, w0g, nkfs, nbndfs, ef0, ekfs
   USE constants_epw, ONLY : pi, ci
-#ifdef __PARA
   USE io_global, ONLY : ionode_id
-  USE mp_global, ONLY : inter_pool_comm, my_pool_id, npool
+  USE mp_global, ONLY : inter_pool_comm
   USE mp_world,  ONLY : mpime
   USE mp,        ONLY : mp_bcast, mp_barrier, mp_sum
-#endif
   ! 
   IMPLICIT NONE
   !
   INTEGER :: i, iw, iwp, iwph, itemp, iter, ik, iq, iq0, ibnd, jbnd, imode, & 
              lower_bnd, upper_bnd, imelt
-  REAL(DP) :: rgammap, rgammam, absdelta, reldelta, errdelta, weight, a2f_
-  REAL(DP), EXTERNAL :: w0gauss
-  COMPLEX(DP) :: esqrt, root
+  REAL(kind=DP) :: rgammap, rgammam, absdelta, reldelta, errdelta, weight, a2f_
+  REAL(kind=DP), EXTERNAL :: w0gauss
+  COMPLEX(kind=DP) :: esqrt, root
   COMPLEX(DP), ALLOCATABLE, SAVE :: Deltaold(:)
   LOGICAL :: conv
   CHARACTER (len=256) :: cname
+  !
+  ! SP: Need initialization
+  a2f_ = 0.0_DP
   !
   IF ( iter .eq. 1 ) THEN
      !
@@ -178,56 +179,51 @@
      ENDDO ! ibnd
   ENDDO ! ik
   !
-#ifdef __PARA
   ! collect contributions from all pools 
   CALL mp_sum( AZnorm, inter_pool_comm )
   CALL mp_sum( ADelta, inter_pool_comm )
   CALL mp_barrier(inter_pool_comm)
-#endif
   !
-#ifdef __PARA 
   IF (mpime .eq. ionode_id) THEN
-#endif 
-  absdelta = 0.d0
-  reldelta = 0.d0
-  DO iw = 1, nsw ! loop over omega
-     DO ik = 1, nkfs
-        DO ibnd = 1, nbndfs
-           IF ( abs( ekfs(ibnd,ik) - ef0 ) .lt. fsthick ) THEN
-              weight = 0.5d0 * wkfs(ik) * w0g(ibnd,ik) / dosef
-              Znorm(iw) = Znorm(iw) + weight * AZnorm(ibnd,ik,iw)
-              Delta(iw) = Delta(iw) + weight * ADelta(ibnd,ik,iw)
-              AZnorm(ibnd,ik,iw) = 1.d0 + pi * AZnorm(ibnd,ik,iw) / ws(iw)
-              ADelta(ibnd,ik,iw) = pi * ADelta(ibnd,ik,iw) / AZnorm(ibnd,ik,iw)
-           ENDIF
-        ENDDO ! ibnd                   
-     ENDDO ! ik
-     Znorm(iw) = 1.0d0 + pi * Znorm(iw) / ws(iw)
-     Delta(iw) = pi * Delta(iw) / Znorm(iw)
-     reldelta = reldelta + abs( Delta(iw) - Deltaold(iw) ) 
-     absdelta = absdelta + abs( Delta(iw) ) 
-  ENDDO ! iw
-  errdelta = reldelta / absdelta
-  Deltaold(:) = Delta(:)
-  !
-  WRITE(stdout,'(5x,a,i6,a,ES20.10,a,ES20.10,a,ES20.10)') 'iter = ', iter, & 
-               '   error = ', errdelta, '   Re[Znorm(1)] = ', real(Znorm(1)), & 
-               '   Re[Delta(1)] = ', real(Delta(1))
-  !
-  IF ( errdelta .lt. conv_thr_racon ) conv = .true.
-  IF ( errdelta .lt. conv_thr_racon .OR. iter .eq. nsiter ) THEN
-     cname = 'acon'
-     CALL eliashberg_write_cont_raxis( itemp, cname )
-  ENDIF
-  !
-  IF ( conv .OR. iter .eq. nsiter ) THEN
-     WRITE(stdout,'(5x,a,i6)') 'Convergence was reached in nsiter = ', iter
-  ENDIF
-  IF ( .not. conv .AND. iter .eq. nsiter ) THEN
-     WRITE(stdout,'(5x,a,i6)') 'Convergence was not reached in nsiter = ', iter
-     CALL errore('analytic_cont_aniso_iaxis_to_raxis','increase nsiter or reduce conv_thr_racon',1)
-  ENDIF
-#ifdef __PARA
+    absdelta = 0.d0
+    reldelta = 0.d0
+    DO iw = 1, nsw ! loop over omega
+       DO ik = 1, nkfs
+          DO ibnd = 1, nbndfs
+             IF ( abs( ekfs(ibnd,ik) - ef0 ) .lt. fsthick ) THEN
+                weight = 0.5d0 * wkfs(ik) * w0g(ibnd,ik) / dosef
+                Znorm(iw) = Znorm(iw) + weight * AZnorm(ibnd,ik,iw)
+                Delta(iw) = Delta(iw) + weight * ADelta(ibnd,ik,iw)
+                AZnorm(ibnd,ik,iw) = 1.d0 + pi * AZnorm(ibnd,ik,iw) / ws(iw)
+                ADelta(ibnd,ik,iw) = pi * ADelta(ibnd,ik,iw) / AZnorm(ibnd,ik,iw)
+             ENDIF
+          ENDDO ! ibnd                   
+       ENDDO ! ik
+       Znorm(iw) = 1.0d0 + pi * Znorm(iw) / ws(iw)
+       Delta(iw) = pi * Delta(iw) / Znorm(iw)
+       reldelta = reldelta + abs( Delta(iw) - Deltaold(iw) ) 
+       absdelta = absdelta + abs( Delta(iw) ) 
+    ENDDO ! iw
+    errdelta = reldelta / absdelta
+    Deltaold(:) = Delta(:)
+    !
+    WRITE(stdout,'(5x,a,i6,a,ES20.10,a,ES20.10,a,ES20.10)') 'iter = ', iter, & 
+                 '   error = ', errdelta, '   Re[Znorm(1)] = ', real(Znorm(1)), & 
+                 '   Re[Delta(1)] = ', real(Delta(1))
+    !
+    IF ( errdelta .lt. conv_thr_racon ) conv = .true.
+    IF ( errdelta .lt. conv_thr_racon .OR. iter .eq. nsiter ) THEN
+       cname = 'acon'
+       CALL eliashberg_write_cont_raxis( itemp, cname )
+    ENDIF
+    !
+    IF ( conv .OR. iter .eq. nsiter ) THEN
+       WRITE(stdout,'(5x,a,i6)') 'Convergence was reached in nsiter = ', iter
+    ENDIF
+    IF ( .not. conv .AND. iter .eq. nsiter ) THEN
+       WRITE(stdout,'(5x,a,i6)') 'Convergence was not reached in nsiter = ', iter
+       CALL errore('analytic_cont_aniso_iaxis_to_raxis','increase nsiter or reduce conv_thr_racon',1)
+    ENDIF
   ENDIF
   CALL mp_bcast( Delta, ionode_id, inter_pool_comm )
   CALL mp_bcast( Znorm, ionode_id, inter_pool_comm )
@@ -236,7 +232,6 @@
   CALL mp_bcast( Agap, ionode_id, inter_pool_comm )
   CALL mp_bcast( conv, ionode_id, inter_pool_comm )
   CALL mp_barrier(inter_pool_comm)
-#endif
   !
   IF ( conv .OR. iter .eq. nsiter ) THEN
      !
@@ -285,17 +280,15 @@
   !
   USE kinds,         ONLY : DP
   USE io_global,     ONLY : stdout
-  USE epwcom,        ONLY : fsthick, lpade
+  USE epwcom,        ONLY : fsthick
   USE eliashbergcom, ONLY : nsw, ws, wsi, gap, Agap, Delta, Znorm, & 
                             ADelta, AZnorm, ADeltai, AZnormi, &              
                             wkfs, dosef, w0g, nkfs, nbndfs, ef0, ekfs
   USE constants_epw, ONLY : cone, ci
-#ifdef __PARA
   USE io_global, ONLY : ionode_id
-  USE mp_global, ONLY : inter_pool_comm, my_pool_id, npool
+  USE mp_global, ONLY : inter_pool_comm
   USE mp_world,  ONLY : mpime
   USE mp,        ONLY : mp_bcast, mp_barrier, mp_sum
-#endif
   ! 
   IMPLICIT NONE
   !
@@ -357,40 +350,35 @@
      ENDDO ! ibnd
   ENDDO ! ik
   !
-#ifdef __PARA
   ! collect contributions from all pools 
   CALL mp_sum( AZnorm, inter_pool_comm )
   CALL mp_sum( ADelta, inter_pool_comm )
   CALL mp_barrier(inter_pool_comm)
-#endif
   !
-#ifdef __PARA 
   IF (mpime .eq. ionode_id) THEN
-#endif 
-  DO iw = 1, nsw ! loop over omega
-     DO ik = 1, nkfs
-        DO ibnd = 1, nbndfs
-           IF ( abs( ekfs(ibnd,ik) - ef0 ) .lt. fsthick ) THEN
-              weight = 0.5d0 * wkfs(ik) * w0g(ibnd,ik) / dosef
-              Znorm(iw) = Znorm(iw) + weight * AZnorm(ibnd,ik,iw)
-              Delta(iw) = Delta(iw) + weight * ADelta(ibnd,ik,iw)
-           ENDIF
-        ENDDO ! ibnd                   
-     ENDDO ! ik
-     reldelta = reldelta + abs( Delta(iw) - Deltaold(iw) )
-     absdelta = absdelta + abs( Delta(iw) )
-  ENDDO ! iw
-  errdelta = reldelta / absdelta
-  !
-  IF ( errdelta .gt. 0.d0 ) THEN
-     conv = .true.
-     WRITE(stdout,'(5x,a,i6,a,ES20.10,a,ES20.10,a,ES20.10)') 'pade = ', N, & 
-            '   error = ', errdelta, '   Re[Znorm(1)] = ', real(Znorm(1)), & 
-            '   Re[Delta(1)] = ', real(Delta(1))
-     cname = 'pade'
-     CALL eliashberg_write_cont_raxis( itemp, cname )
-  ENDIF
-#ifdef __PARA
+    DO iw = 1, nsw ! loop over omega
+       DO ik = 1, nkfs
+          DO ibnd = 1, nbndfs
+             IF ( abs( ekfs(ibnd,ik) - ef0 ) .lt. fsthick ) THEN
+                weight = 0.5d0 * wkfs(ik) * w0g(ibnd,ik) / dosef
+                Znorm(iw) = Znorm(iw) + weight * AZnorm(ibnd,ik,iw)
+                Delta(iw) = Delta(iw) + weight * ADelta(ibnd,ik,iw)
+             ENDIF
+          ENDDO ! ibnd                   
+       ENDDO ! ik
+       reldelta = reldelta + abs( Delta(iw) - Deltaold(iw) )
+       absdelta = absdelta + abs( Delta(iw) )
+    ENDDO ! iw
+    errdelta = reldelta / absdelta
+    !
+    IF ( errdelta .gt. 0.d0 ) THEN
+       conv = .true.
+       WRITE(stdout,'(5x,a,i6,a,ES20.10,a,ES20.10,a,ES20.10)') 'pade = ', N, & 
+              '   error = ', errdelta, '   Re[Znorm(1)] = ', real(Znorm(1)), & 
+              '   Re[Delta(1)] = ', real(Delta(1))
+       cname = 'pade'
+       CALL eliashberg_write_cont_raxis( itemp, cname )
+    ENDIF
   ENDIF
   CALL mp_bcast( Delta, ionode_id, inter_pool_comm )
   CALL mp_bcast( Znorm, ionode_id, inter_pool_comm )
@@ -398,7 +386,6 @@
   CALL mp_bcast( Agap, ionode_id, inter_pool_comm )
   CALL mp_bcast( conv, ionode_id, inter_pool_comm )
   CALL mp_barrier(inter_pool_comm)
-#endif
   !
   IF( ALLOCATED(Deltaold) ) DEALLOCATE(Deltaold)
   IF( ALLOCATED(a) )        DEALLOCATE(a)

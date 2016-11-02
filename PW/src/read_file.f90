@@ -5,6 +5,15 @@
 ! in the root directory of the present distribution,
 ! or http://www.gnu.org/copyleft/gpl.txt .
 !
+#if defined(__XSD)
+SUBROUTINE read_file_dummy()
+END SUBROUTINE read_file_dummy
+#else
+!----------------------------------------------------------------------------
+! TB
+! included allocation of the force field of the monopole, search for 'TB'
+!----------------------------------------------------------------------------
+!
 !----------------------------------------------------------------------------
 SUBROUTINE read_file()
   !----------------------------------------------------------------------------
@@ -33,6 +42,10 @@ SUBROUTINE read_file()
   IMPLICIT NONE 
   INTEGER :: ierr
   LOGICAL :: exst
+  CHARACTER( 256 )  :: dirname
+  !
+  !
+  ierr = 0 
   !
   ! ... Read the contents of the xml data file
   !
@@ -54,8 +67,6 @@ SUBROUTINE read_file()
   ! ... FIXME: should be read from file, not re-computed
   !
   CALL init_igk ( npwx, ngm, g, gcutw ) 
-  !
-  ! ... Read orbitals, write them in 'distributed' form to iunwfc
   !
   CALL pw_readfile( 'wave', ierr )
   !
@@ -108,13 +119,13 @@ SUBROUTINE read_xml_file_internal(withbs)
   USE klist,                ONLY : nkstot, nks, xk, wk
   USE lsda_mod,             ONLY : lsda, nspin, current_spin, isk
   USE wvfct,                ONLY : nbnd, nbndx, et, wg
-  USE symm_base,            ONLY : irt, d1, d2, d3, checkallsym
+  USE symm_base,            ONLY : irt, d1, d2, d3, checkallsym, nsym
   USE ktetra,               ONLY : tetra, ntetra 
-  USE extfield,             ONLY : forcefield, tefield
+  USE extfield,             ONLY : forcefield, tefield, monopole, forcemono
   USE cellmd,               ONLY : cell_factor, lmovecell
   USE fft_base,             ONLY : dfftp
   USE fft_interfaces,       ONLY : fwfft
-  USE grid_subroutines,     ONLY : realspace_grid_init
+  USE fft_types,            ONLY : fft_type_allocate
   USE recvec_subs,          ONLY : ggen
   USE gvect,                ONLY : gg, ngm, g, gcutm, &
                                    eigts1, eigts2, eigts3, nl, gstart
@@ -139,6 +150,7 @@ SUBROUTINE read_xml_file_internal(withbs)
   USE funct,                ONLY : get_inlc, get_dft_name
   USE kernel_table,         ONLY : initialize_kernel_table
   USE esm,                  ONLY : do_comp_esm, esm_init
+  USE mp_bands,             ONLY : intra_bgrp_comm
   !
   IMPLICIT NONE
 
@@ -153,9 +165,9 @@ SUBROUTINE read_xml_file_internal(withbs)
   REAL(DP) :: sr(3,3,48)
   CHARACTER(LEN=20) dft_name
   !
+  !
   ! ... first we get the version of the qexml file
   !     if not already read
-  !
   CALL pw_readfile( 'header', ierr )
   CALL errore( 'read_xml_file ', 'unable to determine qexml version', ABS(ierr) )
   !
@@ -165,15 +177,11 @@ SUBROUTINE read_xml_file_internal(withbs)
                & 'file ' // TRIM( tmp_dir ) // TRIM( prefix ) &
                & // '.save not guaranteed to be safe for post-processing' )
   !
-  ! ... a reset of the internal flags is necessary because some codes call
-  ! ... read_xml_file() more than once
-  !
-  CALL pw_readfile( 'reset', ierr )
-  !
   ! ... here we read the variables that dimension the system
   ! ... in parallel execution, only root proc reads the file
   ! ... and then broadcasts the values to all other procs
   !
+  CALL pw_readfile( 'reset', ierr )
   CALL pw_readfile( 'dim',   ierr )
   CALL errore( 'read_xml_file ', 'problem reading file ' // &
              & TRIM( tmp_dir ) // TRIM( prefix ) // '.save', ierr )
@@ -191,13 +199,14 @@ SUBROUTINE read_xml_file_internal(withbs)
   ALLOCATE( extfor(  3, nat ) )
   !
   IF ( tefield ) ALLOCATE( forcefield( 3, nat ) )
+  IF ( monopole ) ALLOCATE( forcemono( 3, nat ) ) ! TB
   !
   ALLOCATE( irt( 48, nat ) )
   ALLOCATE( tetra( 4, MAX( ntetra, 1 ) ) )
   !
   CALL set_dimensions()
-  CALL realspace_grid_init ( dfftp, at, bg, gcutm )
-  CALL realspace_grid_init ( dffts, at, bg, gcutms)
+  CALL fft_type_allocate ( dfftp, at, bg, gcutm, intra_bgrp_comm )
+  CALL fft_type_allocate ( dffts, at, bg, gcutms, intra_bgrp_comm)
   !
   ! ... check whether LSDA
   !
@@ -229,17 +238,17 @@ SUBROUTINE read_xml_file_internal(withbs)
   !
   ! ... here we read all the variables defining the system
   !
-  if (withbs .eqv. .true.) then
+  IF  ( withbs .EQV. .TRUE. ) THEN  
      CALL pw_readfile( 'nowave', ierr )
-  else 
+  ELSE
      CALL pw_readfile( 'nowavenobs', ierr )
-  end if
+  END IF
   !
   ! ... distribute across pools k-points and related variables.
   ! ... nks is defined by the following routine as the number 
   ! ... of k-points in the current pool
   !
-  CALL divide_et_impera( xk, wk, isk, lsda, nkstot, nks )
+  CALL divide_et_impera( nkstot, xk, wk, isk, nks )
   !
   CALL poolscatter( nbnd, nkstot, et, nks, et )
   CALL poolscatter( nbnd, nkstot, wg, nks, wg )
@@ -266,6 +275,7 @@ SUBROUTINE read_xml_file_internal(withbs)
   ! ... read pseudopotentials
   !
   CALL pw_readfile( 'pseudo', ierr )
+
   dft_name = get_dft_name () ! already set, should not be set again
   CALL readpp ( dft_name )
   !
@@ -283,6 +293,7 @@ SUBROUTINE read_xml_file_internal(withbs)
   ! ... allocate memory for G- and R-space fft arrays
   !
   CALL pre_init()
+  CALL data_structure ( gamma_only )
   CALL allocate_fft()
   CALL ggen ( gamma_only, at, bg ) 
   IF (do_comp_esm) THEN
@@ -340,6 +351,7 @@ SUBROUTINE read_xml_file_internal(withbs)
   CALL v_of_rho( rho, rho_core, rhog_core, &
                  ehart, etxc, vtxc, eth, etotefield, charge, v )
   !
+  !
   RETURN
   !
   CONTAINS
@@ -376,3 +388,4 @@ SUBROUTINE read_xml_file_internal(withbs)
     END SUBROUTINE set_dimensions
     !
   END SUBROUTINE read_xml_file_internal
+#endif

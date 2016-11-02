@@ -7,31 +7,27 @@
   ! present distribution, or http://www.gnu.org/copyleft.gpl.txt .             
   !                                                                            
   !-----------------------------------------------------------------------
-  SUBROUTINE elphon_shuffle ( iq_irr, nqc_irr, iq, gmapsym, eigv, isym, invs0, xq0, timerev )
+  SUBROUTINE elphon_shuffle ( iq_irr, nqc_irr, iq, gmapsym, eigv, isym, xq0, timerev )
+  !-----------------------------------------------------------------------
+  !!
+  !! Electron-phonon calculation from data saved in fildvscf
+  !! Shuffle2 mode (shuffle on electrons + load all phonon q's)
+  !!
+  !! no ultrasoft yet
+  !!
+  !! RM - Nov/Dec 2014
+  !! Imported the noncolinear case implemented by xlzhang
+  !!
+  !
   !-----------------------------------------------------------------------
   !
-  ! Electron-phonon calculation from data saved in fildvscf
-  ! Shuffle2 mode (shuffle on electrons + load all phonon q's)
-  !
-  ! no ultrasoft yet
-  !
-  ! RM - Nov/Dec 2014
-  ! Imported the noncolinear case implemented by xlzhang
-  !
-  !-----------------------------------------------------------------------
-  !
-#ifdef __PARA
   USE mp,        ONLY : mp_barrier, mp_sum
   USE mp_global, ONLY : my_pool_id, nproc_pool,npool,kunit,&
                           inter_pool_comm
   USE mp_images, ONLY : nproc_image
-  USE pwcom,     ONLY : nkstot
-#endif
-  !
-  USE pwcom,     ONLY : nbnd, ngm, doublegrid, nks
+  USE pwcom,     ONLY : nbnd, ngm, doublegrid, nks, nkstot
   USE kinds,     ONLY : DP
   USE modes,     ONLY : nmodes, nirr, npert, u
-  USE epwcom,    ONLY : tshuffle, tshuffle2
   USE elph2,     ONLY : epmatq, el_ph_mat
   USE constants_epw, ONLY : czero, cone
   USE fft_base,  ONLY : dfftp, dffts
@@ -52,15 +48,10 @@
   !  true if we are using time reversal
   !
   integer :: tmp_pool_id, ik0, ik, ibnd, jbnd
-  ! 
-#ifdef __PARA
   integer :: iks, nkl, nkr
-#endif
-  !
-  integer :: gmapsym ( ngm, 48 ), isym, invs0 (48)
+  integer :: gmapsym ( ngm, 48 ), isym
   ! the correspondence G-->S(G)
   ! the symmetry which generates the current q in the star
-  ! the index of the inverse operations
   complex(kind=DP) :: eigv (ngm, 48)
   ! e^{ iGv} for 1...nsym ( v the fractional translation)
   real(kind=DP) :: xq0(3)
@@ -68,14 +59,8 @@
   !
   CALL start_clock ('elphon')
   !
-  ! tshuffle2 implies tshuffle
-  !
-  IF (tshuffle2) tshuffle = .true.
-  !
   ik0 = 0
   tmp_pool_id = 0
-  !
-#ifdef __PARA
   !
   npool =  nproc_image / nproc_pool
   IF (npool.gt.1) THEN
@@ -97,8 +82,6 @@
     !
   ENDIF
   !
-#endif
-  !    
   ! read Delta Vscf and calculate electron-phonon coefficients
   !
   imode0 = 0
@@ -113,17 +96,13 @@
      !   read the <prefix>.dvscf_q[iq] files
      !
      dvscfin = (0.d0,0.d0)
-#ifdef __PARA
      IF (my_pool_id.eq.0) THEN
-#endif
         DO ipert = 1, npert (irr)
            CALL readdvscf ( dvscfin(1,1,ipert), imode0 + ipert, iq_irr, nqc_irr )
         ENDDO
-#ifdef __PARA
      ENDIF
      CALL mp_sum(dvscfin,inter_pool_comm)
      !
-#endif
      !
      IF (doublegrid) THEN
         ALLOCATE (dvscfins ( dffts%nnr , nspin_mag , npert(irr)) )
@@ -136,16 +115,14 @@
         dvscfins => dvscfin
      ENDIF
      !
-     CALL elphel2_shuffle (npert(irr), imode0, dvscfins, gmapsym, eigv, isym, invs0, xq0, timerev)
+     CALL elphel2_shuffle (npert(irr), imode0, dvscfins, gmapsym, eigv, isym, xq0, timerev)
      !
      imode0 = imode0 + npert (irr)
      IF (doublegrid) DEALLOCATE (dvscfins)
      DEALLOCATE (dvscfin)
   ENDDO
   !
-#ifdef __PARA
   CALL mp_barrier(inter_pool_comm)
-#endif
   !
   !  the output e-p matrix in the pattern representation
   !  must be transformed in the cartesian basis

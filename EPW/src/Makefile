@@ -16,6 +16,7 @@ MODFLAGS = -I../../iotk/src -I../../Modules -I../../LAXlib -I../../iotk/src \
 #
 
 EPWOBJS = \
+transportcom.o \
 io_epw.o\
 elph2.o \
 epw.o \
@@ -27,7 +28,6 @@ close_epw.o \
 constants_epw.o \
 create_mesh.o \
 createkmap.o \
-dasmio.o \
 deallocate_epw.o \
 deallocate_eliashberg.o \
 distribution.o \
@@ -124,6 +124,7 @@ LIBOBJS = ../../clib/clib.a ../../iotk/src/libiotk.a
 TLDEPS= bindir mods libs pw-lib pw ph
 
 all :   pw ph wannier wcorr pp ld1 upf libepw.a epw.x 
+#all :   pw ph wannier pp ld1 upf libepw.a epw.x 
 
 libepw.a : $(EPWOBJS)
 	$(AR) $(ARFLAGS) $@ $?

@@ -212,7 +212,7 @@ module PH\#auto -title "PWSCF GUI: module PH.x" -script {
 		##separator -label "--- Potential variations ---"
 
 		group dvscf -name "Potential variations" -decor normal {
-		    # to trich the chek_gui only
+		    # to trick the chek_gui only
 		    var dvscf_star
 		    #/
 		    var dvscf_star_open {
@@ -222,37 +222,39 @@ module PH\#auto -title "PWSCF GUI: module PH.x" -script {
 			-value     {.true. .false.}
 			-widget    radiobox
 		    }
-		    var dvscf_star_dir {
-			-variable dvscf_star%dir
-			-label    "Directory where to store rotated dvscf files (dvscf_star%dir):" 
-			-widget   entrydirselectquote
-			-fmt      %S -validate string
-		    }
-		    var dvscf_star_ext {
-			-variable dvscf_star%ext
-			-label    "Extension to use for the name of dvscf files (dvscf_star%ext):" 
-			-fmt      %S -validate string
-		    }
-		    var dvscf_star_basis {
-			-variable dvscf_star%basis
-			-label    "Basis used for the dvscf files (dvscf_star%basis):" 
-			-widget   radiobox
-			-fmt      %s
-			-value {
-			    'cartesian'
-			    'modes'
+		    group dvscf_star_specs -decor none {
+			var dvscf_star_dir {
+			    -variable dvscf_star%dir
+			    -label    "Directory where to store rotated dvscf files (dvscf_star%dir):" 
+			    -widget   entrydirselectquote
+			    -fmt      %S -validate string
 			}
-			-textvalue {
-			    "basis of cartesian 1-atom displacements <cartesian>"
-			    "basis of the modes at the rotated q-point <modes>"
+			var dvscf_star_ext {
+			    -variable dvscf_star%ext
+			    -label    "Extension to use for the name of dvscf files (dvscf_star%ext):" 
+			    -fmt      %S -validate string
 			}
-		    }
-		    var dvscf_star_pat {
-			-variable  dvscf_star%pat
-			-label     "Save displacement patterns and q vector for each dvscf file (dvscf_star%pat):"
-			-textvalue {Yes No}
-			-value     {.true. .false.}
-			-widget    radiobox
+			var dvscf_star_basis {
+			    -variable dvscf_star%basis
+			    -label    "Basis used for the dvscf files (dvscf_star%basis):" 
+			    -widget   radiobox
+			    -fmt      %s
+			    -value {
+				'cartesian'
+				'modes'
+			    }
+			    -textvalue {
+				"basis of cartesian 1-atom displacements <cartesian>"
+				"basis of the modes at the rotated q-point <modes>"
+			    }
+			}
+			var dvscf_star_pat {
+			    -variable  dvscf_star%pat
+			    -label     "Save displacement patterns and q vector (dvscf_star%pat):"
+			    -textvalue {Yes No}
+			    -value     {.true. .false.}
+			    -widget    radiobox
+			}
 		    }
 		}
 
@@ -269,37 +271,39 @@ module PH\#auto -title "PWSCF GUI: module PH.x" -script {
 			-value     {.true. .false.}
 			-widget    radiobox
 		    }
-		    var drho_star_dir {
-			-variable drho_star%dir
-			-label    "Directory where to store rotated drho files (drho_star%dir):" 
-			-widget   entrydirselectquote
-			-fmt      %S -validate string
-		    }
-		    var drho_star_ext {
-			-variable drho_star%ext
-			-label    "Extension to use for the name of drho files (drho_star%ext):" 
-			-fmt      %S -validate string
-		    }
-		    var drho_star_basis {
-			-variable drho_star%basis
-			-label    "Basis used for the drho files (drho_star%basis):" 
-			-widget   radiobox
-			-fmt      %s
-			-value {
-			    'cartesian'
-			    'modes'
+		    group drho_star_specs -decor none {
+			var drho_star_dir {
+			    -variable drho_star%dir
+			    -label    "Directory where to store rotated drho files (drho_star%dir):" 
+			    -widget   entrydirselectquote
+			    -fmt      %S -validate string
 			}
-			-textvalue {
-			    "basis of cartesian 1-atom displacements <cartesian>"
-			    "basis of the modes at the rotated q-point <modes>"
+			var drho_star_ext {
+			    -variable drho_star%ext
+			    -label    "Extension to use for the name of drho files (drho_star%ext):" 
+			    -fmt      %S -validate string
 			}
-		    }
-		    var drho_star_pat {
-			-variable  drho_star%pat
-			-label     "Save displacement patterns and q vector for each drho file (drho_star%pat):"
-			-textvalue {Yes No}
-			-value     {.true. .false.}
-			-widget    radiobox
+			var drho_star_basis {
+			    -variable drho_star%basis
+			    -label    "Basis used for the drho files (drho_star%basis):" 
+			    -widget   radiobox
+			    -fmt      %s
+			    -value {
+				'cartesian'
+				'modes'
+			    }
+			    -textvalue {
+				"basis of cartesian 1-atom displacements <cartesian>"
+				"basis of the modes at the rotated q-point <modes>"
+			    }
+			}
+			var drho_star_pat {
+			    -variable  drho_star%pat
+			    -label     "Save displacement patterns and q vector (drho_star%pat):"
+			    -textvalue {Yes No}
+			    -value     {.true. .false.}
+			    -widget    radiobox
+			}
 		    }
 		}
 	    }
@@ -448,7 +452,7 @@ module PH\#auto -title "PWSCF GUI: module PH.x" -script {
 		    -label    "Threshold for selfconsistency (tr2_ph):"
 		    -validate fortranreal
 		}
-		var alpha_mix1 {
+		var alpha_mix {
 		    -variable alpha_mix(1) 
 		    -label    "Mixing factor for updating the SCF potential (alpha_mix(1)):"
 		    -validate fortranreal

@@ -6,13 +6,14 @@ include ../make.inc
 #MODFLAGS= $(MOD_FLAG)../iotk/src $(MOD_FLAG).
 
 FFTX = \
+task_groups.o \
 scatter_mod.o  \
 fft_scalar.o  \
 fft_parallel.o  \
 fft_interfaces.o  \
 stick_base.o  \
-stick_set.o  \
 fft_smallbox.o  \
+fft_smallbox_type.o  \
 fft_support.o  \
 fft_error.o  \
 fft_stick.o  \

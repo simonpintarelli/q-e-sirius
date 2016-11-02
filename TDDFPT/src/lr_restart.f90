@@ -25,14 +25,15 @@ SUBROUTINE lr_restart(iter_restart,rflag)
                                    lr_verbosity, charge_response, LR_polarization, n_ipol, &
                                    eels, sum_rule
   USE charg_resp,           ONLY : resonance_condition, rho_1_tot,rho_1_tot_im
-  USE wvfct,                ONLY : nbnd
+  USE wvfct,                ONLY : nbnd, npwx
   USE becmod,               ONLY : bec_type, becp, calbec
   USE uspp,                 ONLY : vkb 
   USE io_global,            ONLY : ionode
   USE mp,                   ONLY : mp_bcast
   USE mp_world,             ONLY : world_comm
   USE fft_base,             ONLY : dfftp
-  USE noncollin_module,     ONLY : nspin_mag
+  USE noncollin_module,     ONLY : nspin_mag, npol
+  USE qpoint,               ONLY : nksq
 
   IMPLICIT NONE
   !
@@ -94,7 +95,7 @@ SUBROUTINE lr_restart(iter_restart,rflag)
   ! Ionode only reads
   ! Note: ionode file I/O is done in tmp_dir
   !
-#ifdef __MPI
+#if defined(__MPI)
   IF (ionode) THEN
 #endif
   !
@@ -128,7 +129,7 @@ SUBROUTINE lr_restart(iter_restart,rflag)
   !
   CLOSE(158)
   !
-#ifdef __MPI
+#if defined(__MPI)
   ENDIF
   CALL mp_bcast (iter_restart, ionode_id, world_comm)
   CALL mp_bcast (norm0(pol_index), ionode_id, world_comm)
@@ -140,7 +141,7 @@ SUBROUTINE lr_restart(iter_restart,rflag)
   ! Optical case: read projection
   !
   IF (project .and. .not.eels) THEN
-#ifdef __MPI
+#if defined(__MPI)
   IF (ionode) THEN
 #endif
     !
@@ -168,7 +169,7 @@ SUBROUTINE lr_restart(iter_restart,rflag)
     ENDDO
     !
     CLOSE(158)
-#ifdef __MPI
+#if defined(__MPI)
   ENDIF
   CALL mp_bcast (F, ionode_id, world_comm)
 #endif
@@ -179,6 +180,8 @@ SUBROUTINE lr_restart(iter_restart,rflag)
   ! Parallel reading
   ! Note: Restart files are always in outdir
   ! Reading Lanczos vectors
+  !
+  nwordrestart = 2 * nbnd * npwx * npol * nksq
   !
   CALL diropn ( iunrestart, 'restart_lanczos.'//trim(int_to_char(LR_polarization)), nwordrestart, exst)
   !

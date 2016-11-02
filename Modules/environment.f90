@@ -5,8 +5,9 @@
 ! in the root directory of the present distribution,
 ! or http://www.gnu.org/copyleft/gpl.txt .
 !
-#define __HAVE_CONFIG_INFO
-!
+! Uncomment next line to print compilation info. BEWARE: may occasionally
+! give compilation errors due to lines too long if paths are very long
+!#define __HAVE_CONFIG_INFO
 !==-----------------------------------------------------------------------==!
 MODULE environment
   !==-----------------------------------------------------------------------==!
@@ -52,7 +53,7 @@ CONTAINS
     ! ... One may use "ulimit -s unlimited" but it doesn't always work
     ! ... The following call does the same and always works
     !
-#ifdef __INTEL_COMPILER
+#if defined(__INTEL_COMPILER)
     CALL remove_stack_limit ( )
 #endif
     ! ... use ".FALSE." to disable all clocks except the total cpu time clock
@@ -67,7 +68,7 @@ CONTAINS
 
     ! ... for compatibility with PWSCF
 
-#ifdef __MPI
+#if defined(__MPI)
     nd_nmbr = TRIM ( int_to_char( me_image+1 ))
 #else
     nd_nmbr = ' '
@@ -110,10 +111,8 @@ CONTAINS
     END IF
     !
     CALL opening_message( code_version )
-#ifdef __HAVE_CONFIG_INFO
     CALL compilation_info ( )
-#endif
-#ifdef __MPI
+#if defined(__MPI)
     CALL parallel_info ( )
 #else
     CALL serial_info()
@@ -244,6 +243,7 @@ CONTAINS
   !
   ! code borrowed by WanT - prints architecture / compilation details
   !
+#if defined(__HAVE_CONFIG_INFO)
 #include "configure.h"
 ! #include "build_date.h"
 !
@@ -252,8 +252,6 @@ CONTAINS
      WRITE( stdout, * ) 
      ! note: if any preprocessed variables __CONF_* exceeds 128 characters,
      ! the compilation may give error because the line exceeds 132 characters
-     WRITE( stdout, "(2x,'         HOST :',4x,a)" ) TRIM( ADJUSTL( &
-__CONF_HOST))
      WRITE( stdout, "(2x,'         ARCH :',4x,a)" ) TRIM( ADJUSTL( &
 __CONF_ARCH))
      WRITE( stdout, "(2x,'           CC :',4x,a)" ) TRIM( ADJUSTL( &
@@ -275,6 +273,7 @@ __CONF_FFT_LIBS))
      WRITE( stdout, "(2x,'    MASS LIBS :',4x,a)" ) TRIM( ADJUSTL( &
 __CONF_MASS_LIBS))
      !
+#endif
    END SUBROUTINE compilation_info
 
   !==-----------------------------------------------------------------------==!

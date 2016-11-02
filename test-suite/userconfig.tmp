@@ -32,34 +32,35 @@ exe = XXXXXX/test-suite/run-epw.sh
 extract_program = XXXXXX/test-suite/extract-epw.x
 inputs_args = ('*.in', '')
 run_cmd_template = tc.program tc.args tc.input tc.output tc.error
-tolerance = ( (1.0e-6, None, 'e1'),
-              (2.0, None, 'n1'),
-              (1.0e-3, None, 'f1'),
-              (1.0e-1, None, 'p1'),
-              (1.0e-2, None, 'ef1'),
-              (1.0e-2, None, 'eh1'),
-              (1.0e-2, None, 'el1'),
-              (1.0e-2, None, 'tf1'),
-              (1.0e-5, None, 'q1'),
-              (1.0e-5, None, 'dos1'),
-              (1.0e-5, None, 'e2'),
-              (1.0e-1, None, 'rsig'),
-              (1.0e-2, None, 'isig'),
-              (1.0e-3, None, 'z1'),
-              (1.0e-4, None, 'lam'),
-              (1.0e-5, None, 'lambda'),
-              (1.0e-5, None, 'gamma'),
-              (1.0e-4, None, 'omega'),
-              (1.0e-5, None, 'lam_tot'),
-              (1.0e-5, None, 'lam_tr'),
-              (1.0e-5, None, 'logavg'),
-              (1.0e-5, None, 'l_a2F'),
-              (1.0e-5, None, 'efm'),
-              (1.0e-5, None, 'lam_max'),
-              (1.0e-5, None, 'lam_kmax'),
-              (1.0e-5, None, 'elph'),
-              (1.0e-5, None, 'allDyn'),
-              (1.0e-5, None, 'bcsgap'))
+tolerance = ( (1.0e-6, 5.0e-3, 'e1'),
+              (3.0e+0, 5.0e-1, 'n1'),
+              (1.0e-3, 1.0e-5, 'f1'),
+              (1.0e-1, 1.0e-3, 'p1'),
+              (1.0e-2, 1.0e-5, 'ef1'),
+              (1.0e-2, 1.0e-5, 'eh1'),
+              (1.0e-2, 1.0e-5, 'el1'),
+              (1.0e-2, 1.0e-5, 'tf1'),
+              (1.0e-5, 1.0e-5, 'q1'),
+              (1.0e-5, 1.0e-5, 'dos1'),
+              (1.0e-3, 5.0e-3, 'e2'),
+              (3.0e-2, 4.0e-2, 'rsig'), # epw_base3 on desktop 0.054364
+              (5.0e-2, 6.0e-4, 'isig'),
+              (9.8e-2, 3.0e-3, 'z1'),  # epw_soc on desktop
+              (3.0e-4, 2.0e-1, 'lam'), # epw_base3 on desktop 7e-06
+              (1.0e-5, 1.0e-5, 'lambda'),
+              (6.0e-1, 5.0e+3, 'lambda_tr'),  #epw_trev on desktop -0.004794
+              (8.0e-3, 9.0e+0, 'gamma'),
+              (5.0e-3, 5.0e-4, 'omega'),
+              (1.0e-4, 2.0e-4, 'lam_tot'),
+              (3.0e+1, 1.0e+0, 'lam_tr'),
+              (1.0e-5, 2.0e-3, 'logavg'),
+              (1.0e-3, 2.0e-3, 'l_a2F'),
+              (1.0e-5, 1.0e-5, 'efm'),
+              (5.0e-4, 1.0e-4, 'lam_max'),
+              (1.0e-4, 1.0e-4, 'lam_kmax'),
+              (5.0e-4, 5.0e-4, 'elph'),
+              (2.0e-2, 5.0e-4, 'allDyn'),
+              (1.0e-4, 5.0e-4, 'bcsgap'))
 
 
 skip_program = grep

@@ -40,7 +40,7 @@ PROGRAM do_bands
   !
   ! initialise environment
   !
-#ifdef __MPI
+#if defined(__MPI)
   CALL mp_startup ( )
 #endif
   CALL environment_start ( 'BANDS' )
@@ -379,12 +379,12 @@ SUBROUTINE punch_band (filband, spin_component, lsigma, no_overlap)
            ENDDO
         ENDIF
         WRITE (iunpun, '(10x,3f10.6)') xk(1,ik),xk(2,ik),xk(3,ik)
-        WRITE (iunpun, '(10f8.3)') (et_(ibnd, ik), ibnd = 1, nbnd)
+        WRITE (iunpun, '(10f9.3)') (et_(ibnd, ik), ibnd = 1, nbnd)
         DO ipol=1,4
            IF (lsigma(ipol)) THEN
               WRITE (iunpun_sigma(ipol), '(10x,3f10.6)')            &
                                           xk(1,ik),xk(2,ik),xk(3,ik)
-              WRITE (iunpun_sigma(ipol), '(10f8.3)')                &
+              WRITE (iunpun_sigma(ipol), '(10f9.3)')                &
                             (sigma_avg(ipol, ibnd, ik), ibnd = 1, nbnd)
            ENDIF
         ENDDO
@@ -446,7 +446,8 @@ SUBROUTINE punch_band_2d(filband,spin_component)
    
    ALLOCATE(xk_collect(3,nkstot))
    ALLOCATE(et_collect(nbnd,nkstot))
-   CALL xk_et_collect( xk_collect, et_collect, xk, et, nkstot, nks, nbnd )
+   CALL poolcollect(    3, nks, xk, nkstot, xk_collect)
+   CALL poolcollect( nbnd, nks, et, nkstot, et_collect)
 
    start_k=1
    last_k=nkstot

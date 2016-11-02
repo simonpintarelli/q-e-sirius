@@ -11,41 +11,37 @@
   ! Modified from stop_ph
   !
   !-----------------------------------------------------------------------
-  subroutine stop_epw (flag)
+  subroutine stop_epw
   !-----------------------------------------------------------------------
-  !
-  ! Close all files and synchronize processes before stopping.
-  ! Called at the end of the run with flag=.true. (removes 'recover')
-  ! or during execution with flag=.false. (does not remove 'recover')
-  !
-#ifdef __PARA
-  use mp,            ONLY: mp_end, mp_barrier
-  USE mp_global,     ONLY :  inter_pool_comm, mp_global_end
-#endif
+  !!
+  !! Close all files and synchronize processes before stopping.
+  !! Called at the end of the run (removes 'recover')
+  !!
+  use mp,            ONLY : mp_end, mp_barrier
+  USE mp_global,     ONLY : inter_pool_comm, mp_global_end
+  USE io_global,     ONLY : stdout
+  ! 
   implicit none
-  logical :: flag
-  INTEGER :: ierr
   !
   CALL print_clock_epw
-#ifdef __PARA
+write(stdout,'(a)') "                                                                                          "
+write(stdout,'(a)') " Please consider citing:                                                                  "
+write(stdout,'(a)') " S. Ponce, E. R. Margine, C. Verdi and F. Giustino, Comput. Phys. Commun. 209, 116 (2016) " 
+write(stdout,'(a)') "                                                                                          "
   CALL mp_barrier(inter_pool_comm)
   CALL mp_end(inter_pool_comm)
   !
   CALL mp_global_end()
-#endif
-#ifdef __T3E
-  !
-  ! set streambuffers off
-  !
-  CALL set_d_stream (0)
-#endif
+!#ifdef __T3E
+!  !
+!  ! set streambuffers off
+!  !
+!  CALL set_d_stream (0)
+!#endif
 
-  CALL deallocate_part
-  IF (flag) then
-     stop
-  ELSE
-     stop 1
-  ENDIF
-
+!  CALL deallocate_part
+  ! 
+  STOP
+  ! 
   RETURN
 end subroutine stop_epw

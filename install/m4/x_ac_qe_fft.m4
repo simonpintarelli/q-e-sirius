@@ -145,30 +145,46 @@ then
         LDFLAGS=" $test_ldflags $try_loption"
         LIBS="$fft_libs"
 
-         #here we check if dfti explicit calls work
-         #it should work with blas flags
+        #here we check if dfti explicit calls work
+        #it should work with blas flags
         AC_CHECK_LIB([mkl_intel_lp64],DftiComputeForward,have_fft=1,
         ,$blas_libs -lm)
 
-
-        if test "$have_fft" == "1"
+        if test "$have_fft" == "1" 
         then
-              try_dflags="$try_dflags -D__DFTI"
-              try_incdir="$MKL_INCLUDE $MKLROOT/include $CPATH $FPATH"
+              try_incdir=""
+              try_incdir="$try_incdir /opt/intel/Compiler/*/*/mkl/include
+                          /opt/intel/mkl/*/include
+                          /opt/intel/mkl*/include"
+              try_incdir="$try_incdir $MKLROOT/include $MKL_INCLUDE $CPATH $FPATH"
+              try_incdir="`echo $try_incdir | sed 's/:/ /g'`"
+              # 
               for inc in $try_incdir
               do
-                 #we need to add the fft include path to IFLAGS
-                 AC_CHECK_HEADERS([$inc/mkl_dfti.f90],have_fft_include=1,)
-                 if test "$have_fft_include=1"
+                 if test "$cross_compiling" == "no"
+                 then
+                    # when cross-compilation is disabled I can check file paths... 
+                    AC_CHECK_FILE( $inc/mkl_dfti.f90, 
+                                have_fft_include=1, have_fft_include=0) 
+                 else
+                    # when cross-compilation is enabled I need to rely on header 
+                    # checking (bit it complains...
+                    AC_CHECK_HEADER($inc/mkl_dfti.f90,
+                                have_fft_include=1,have_fft_include=0)
+                 fi
+                 if test "$have_fft_include" == "1"
                  then
                    try_iflags="$try_iflags -I$inc"
+                   try_dflags="$try_dflags -D__DFTI"
+                   have_fft=1
                    break
+                 else
+                   # continue the search
+                   have_fft=0
                  fi
               done
-              break
         fi
 
-        #done
         AC_LANG_POP(C)
         AC_LANG_PUSH(Fortran 77)
 
@@ -199,7 +215,7 @@ then
                                fft_libs="$try_loption $LIBS", , -lm)
                   fi
 
-                  if test "$have_fft" == "1"
+                  if test "$have_fft" -eq 1
                   then
                         try_dflags="$try_dflags -D__FFTW3"
                         try_incdir="$FFTW_INCLUDE $FFTW_INC $INCLUDE_PATH $CPATH $FPATH"
@@ -207,16 +223,13 @@ then
                         do
                            #AC_LANG_POP([Fortran 77])
                            #AC_LANG_PUSH([C])
-                           #AC_CHECK_HEADERS([$inc/fftw3.f03],have_fft_include=1,)
-                           AC_MSG_CHECKING([for fftw3.f03])
-                           AC_COMPILE_IFELSE(
-                           [include "fftw3.f03"],
-                           [AC_MSG_RESULT([yes])],
-                           [AC_MSG_RESULT([no])]
-                           )
+
+                           AC_COMPILE_IFELSE([include "fftw3.f03"],have_fft_include=1,)
+                           
                            #AC_LANG_POP([C])
                            #AC_LANG_PUSH([Fortran 77])
-                           if test "$have_fft_include=1"
+
+                           if test "$have_fft_include" -eq 1
                            then
                              try_iflags="$try_iflags -I$inc"
                              break

@@ -38,10 +38,8 @@
   USE uspp,                 ONLY : nlcc_any
   USE fft_base,             ONLY : dfftp
   USE elph2,                ONLY : igk_k_all, ngk_all
-#ifdef __PARA
   USE mp,                   ONLY : mp_barrier
   USE mp_global,            ONLY : inter_pool_comm
-#endif  
   !
   IMPLICIT NONE
   !
@@ -80,7 +78,7 @@
              xq(2) * tau(2,na) + &
              xq(3) * tau(3,na) ) * tpi
      !        
-     eigqts(na) = CMPLX( COS( arg ), - SIN( arg ) )
+     eigqts(na) = CMPLX( COS( arg ), - SIN( arg ), kind=DP )
      !
   END DO
   !
@@ -172,7 +170,7 @@
   IF(.not. ALLOCATED(igk_k_all) ) ALLOCATE(igk_k_all( npwx, nkstot))
   IF(.not. ALLOCATED(ngk_all) ) ALLOCATE(ngk_all(nkstot))
   !
-#ifdef __PARA
+#if defined(__MPI)
   !
   CALL poolgather_int (npwx, nkstot, nks, igk_k(:,1:nks), igk_k_all ) 
   CALL poolgather_int1 (nkstot, nks, ngk(1:nks), ngk_all ) 

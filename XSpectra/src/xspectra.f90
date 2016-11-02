@@ -16,7 +16,7 @@ PROGRAM X_Spectra
   USE ions_base,       ONLY : nat, ntyp => nsp, ityp, tau
   USE ktetra,          ONLY : ltetra, ntetra, tetra
   USE start_k,         ONLY : nk1, nk2, nk3, k1, k2, k3
-  USE wvfct,           ONLY : npwx,nbnd,npw,igk,et, wg! et(nbnd,nkstot)
+  USE wvfct,           ONLY : npwx ,nbnd, et, wg ! et(nbnd,nkstot)
   USE radial_grids,    ONLY : ndmx
   USE atom,            ONLY : rgrid
   USE becmod,          ONLY : becp
@@ -38,6 +38,7 @@ PROGRAM X_Spectra
        nelec,nelup,neldw,             & !number of electrons
        xk,                & ! k-points coordinates
        wk ,               & ! k-points weight
+       ngk, igk_k,        & ! number of plane waves and indices of k+G
        npk,               &
        degauss,lgauss,ngauss,    &
        two_fermi_energies
@@ -103,7 +104,7 @@ PROGRAM X_Spectra
   ! $   Initialize MPI environment, clocks and a few other things
   ! $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
 
-#ifdef __MPI
+#if defined(__MPI)
   CALL mp_startup ( )
 #endif
   CALL environment_start ( 'XSpectra' )
@@ -227,7 +228,7 @@ PROGRAM X_Spectra
      !  wk(1:nkstot)=2.d0/nkstot
      ENDIF
      wk(1:nkstot)=2.d0/nkstot
-     CALL divide_et_impera( xk, wk, isk, lsda, nkstot, nks )
+     CALL divide_et_impera( nkstot, xk, wk, isk, nks )
 
   ENDIF   
 
@@ -438,7 +439,7 @@ SUBROUTINE stop_xspectra
   USE mp_global, ONLY: mp_global_end
   USE parallel_include
   !
-#ifdef __MPI
+#if defined(__MPI)
 
   INTEGER :: info
   LOGICAL :: op

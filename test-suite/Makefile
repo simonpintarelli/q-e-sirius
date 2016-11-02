@@ -7,8 +7,6 @@
 # of the present distribution.
 #
 # Maintainer: Filippo Spiga (filippo.spiga@quantum-espresso.org)
-#
-# Makefile to run regression numerical tests. Simple is good
 
 include ./ENVIRONMENT
 
@@ -20,7 +18,10 @@ default :
 	@echo 'where <target> identifies an action'
 	@echo ' run-tests          : run-tests-serial (default)'
 	@echo ' run-tests-serial   : run all tests in SERIAL' 
+	@echo ' run-tests-XX-serial: run tests for XX={pw,cp} only, as above' 
 	@echo ' run-tests-parallel : run all tests in PARALLEL (4 MPI)'
+	@echo ' run-tests-XX-parallel: run tests for XX={pw,cp} only, as above' 
+	@echo ' run-custom-test testdir=DIR: run test in DIR only (serial)'
 	@echo ' compare            : compare last output generated with reference'
 	@echo ' clean              : clean output (our/err files) of all tests'
 	@echo ' '
@@ -28,8 +29,7 @@ default :
 	@echo 'ENVIRONMENT and Makefile files'
 
 prolog :
-	@if [ ! -f userconfig ]; then \
-	sed "s|XXXXXX|$(ESPRESSO_ROOT)|g" < userconfig.tmp > userconfig; fi
+	@sed "s|XXXXXX|$(ESPRESSO_ROOT)|g" < userconfig.tmp > userconfig
 
 pseudo :
 	@./check_pseudo.sh pw_
@@ -55,6 +55,12 @@ run-tests-pw-serial : prolog pseudo
 run-tests-pw-parallel : prolog pseudo
 	env QE_USE_MPI=1 ${TESTCODE_DIR}/bin/testcode.py --verbose --category=pw_all
 
+run-tests-epw-serial : prolog pseudo
+	env QE_USE_MPI=0 ${TESTCODE_DIR}/bin/testcode.py --verbose --category=epw_all
+
+run-tests-epw-parallel : prolog pseudo
+	env QE_USE_MPI=1 ${TESTCODE_DIR}/bin/testcode.py --verbose --category=epw_all
+
 
 run-custom-test : run-custom-test-serial
 
@@ -67,11 +73,17 @@ run-custom-test-parallel : prolog pseudo
 	env QE_USE_MPI=1 ${TESTCODE_DIR}/bin/testcode.py --verbose --category=$(testdir) ; fi
 
 
-compare : compare-cp compare-pw
+create-reference-cp : pseudo prolog
+	env QE_USE_MPI=0 ${TESTCODE_DIR}/bin/testcode.py --category=cp_all make-benchmarks
 
-# All comparison outputs are, so far, generated only in SERIAL
-create-reference : pseudo prolog
-	env QE_USE_MPI=0 ${TESTCODE_DIR}/bin/testcode.py --category=_default_ make-benchmarks
+create-reference-pw : pseudo prolog
+	env QE_USE_MPI=0 ${TESTCODE_DIR}/bin/testcode.py --category=pw_all make-benchmarks
+
+create-reference-epw : pseudo prolog
+	env QE_USE_MPI=0 ${TESTCODE_DIR}/bin/testcode.py --category=epw_all make-benchmarks
+
+
+compare : compare-cp compare-pw compare-epw
 
 compare-cp : prolog
 	${TESTCODE_DIR}/bin/testcode.py --category=cp_all  --verbose compare 2>&1 | tee out.CP.`date +%Y%m%d_%H%M%S`
@@ -79,10 +91,13 @@ compare-cp : prolog
 compare-pw : prolog
 	${TESTCODE_DIR}/bin/testcode.py --category=pw_all  --verbose compare 2>&1 | tee out.PW.`date +%Y%m%d_%H%M%S`
 
+compare-epw : prolog
+	${TESTCODE_DIR}/bin/testcode.py --category=epw_all  --verbose compare 2>&1 | tee out.EPW.`date +%Y%m%d_%H%M%S`
 
 clean:
 	@for x in `find pw_* -name "test*"`; do rm -rf $$x; done
 	@for x in `find cp_* -name "test*"`; do rm -rf $$x; done
+	@for x in `find epw_* -name "test*"`; do rm -rf $$x; done
 # Special case for 'pw_vc-relax' test-case
 	@rm -f pw_vc-relax/ave pw_vc-relax/e pw_vc-relax/tv pw_vc-relax/p pw_vc-relax/eal pw_vc-relax/avec
 # Special case for 'pw_langevin' test-case

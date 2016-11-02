@@ -271,7 +271,7 @@ SUBROUTINE elphel (irr, npe, imode0, dvscfins)
   !      Original routine written by Francesco Mauri
   !
   USE kinds, ONLY : DP
-  USE fft_base, ONLY : dffts
+  USE fft_base, ONLY : dffts, dtgs
   USE fft_parallel, ONLY : tg_cgather
   USE wavefunctions_module,  ONLY: evc
   USE buffers,  ONLY : get_buffer
@@ -310,7 +310,6 @@ SUBROUTINE elphel (irr, npe, imode0, dvscfins)
   COMPLEX(DP), EXTERNAL :: zdotc
   !
   IF (.NOT. comp_elph(irr) .OR. done_elph(irr)) RETURN
-  IF ( ntask_groups > 1 ) dffts%have_task_groups=.TRUE.
 
   ALLOCATE (aux1    (dffts%nnr, npol))
   ALLOCATE (elphmat ( nbnd , nbnd , npe))
@@ -318,12 +317,12 @@ SUBROUTINE elphel (irr, npe, imode0, dvscfins)
   el_ph_mat_rec=(0.0_DP,0.0_DP)
   ALLOCATE (aux2(npwx*npol, nbnd))
   incr=1
-  IF ( dffts%have_task_groups ) THEN
+  IF ( dtgs%have_task_groups ) THEN
      !
-     v_siz =  dffts%tg_nnr * dffts%nogrp
+     v_siz =  dtgs%tg_nnr * dtgs%nogrp
      ALLOCATE( tg_dv   ( v_siz, nspin_mag ) )
      ALLOCATE( tg_psic( v_siz, npol ) )
-     incr = dffts%nogrp
+     incr = dtgs%nogrp
      !
   ENDIF
   !
@@ -364,30 +363,29 @@ SUBROUTINE elphel (irr, npe, imode0, dvscfins)
            CALL get_buffer (dvpsi, lrbar, iubar, nrec)
         ELSE
            mode = imode0 + ipert
-           ! TODO : .false. or .true. ???
+           ! FIXME: .false. or .true. ???
            CALL dvqpsi_us (ik, u (1, mode), .FALSE. )
         ENDIF
         !
         ! calculate dvscf_q*psi_k
         !
-        IF ( ntask_groups > 1 ) dffts%have_task_groups=.TRUE.
-        IF ( dffts%have_task_groups ) THEN
+        IF ( dtgs%have_task_groups ) THEN
            IF (noncolin) THEN
-              CALL tg_cgather( dffts, dvscfins(:,1,ipert), tg_dv(:,1))
+              CALL tg_cgather( dffts, dtgs, dvscfins(:,1,ipert), tg_dv(:,1))
               IF (domag) THEN
                  DO ipol=2,4
-                    CALL tg_cgather( dffts, dvscfins(:,ipol,ipert), &
+                    CALL tg_cgather( dffts, dtgs, dvscfins(:,ipol,ipert), &
                                                           tg_dv(:,ipol))
                  ENDDO
               ENDIF
            ELSE
-              CALL tg_cgather( dffts, dvscfins(:,current_spin,ipert), &
+              CALL tg_cgather( dffts, dtgs, dvscfins(:,current_spin,ipert), &
                                                             tg_dv(:,1))
            ENDIF
         ENDIF
         aux2=(0.0_DP,0.0_DP)
         DO ibnd = 1, nbnd, incr
-           IF ( dffts%have_task_groups ) THEN
+           IF ( dtgs%have_task_groups ) THEN
               CALL cft_wave_tg (ik, evc, tg_psic, 1, v_siz, ibnd, nbnd )
               CALL apply_dpot(v_siz, tg_psic, tg_dv, 1)
               CALL cft_wave_tg (ik, aux2, tg_psic, -1, v_siz, ibnd, nbnd)
@@ -398,7 +396,6 @@ SUBROUTINE elphel (irr, npe, imode0, dvscfins)
            ENDIF
         ENDDO
         dvpsi=dvpsi+aux2
-        dffts%have_task_groups=.FALSE.
 
         CALL adddvscf (ipert, ik)
         !
@@ -443,12 +440,10 @@ SUBROUTINE elphel (irr, npe, imode0, dvscfins)
   DEALLOCATE (elphmat)
   DEALLOCATE (aux1)
   DEALLOCATE (aux2)
-  IF ( ntask_groups > 1) dffts%have_task_groups=.TRUE.
-  IF ( dffts%have_task_groups ) THEN
+  IF ( dtgs%have_task_groups ) THEN
      DEALLOCATE( tg_dv )
      DEALLOCATE( tg_psic )
   ENDIF
-  dffts%have_task_groups=.FALSE.
   !
   RETURN
 END SUBROUTINE elphel
@@ -580,9 +575,9 @@ SUBROUTINE elphsum ( )
      ELSE
         nksqtot=nkstot/2
      ENDIF
+     CALL poolcollect(3, nks, xk, nkstot, xk_collect)
      ALLOCATE(el_ph_mat_collect(nbnd,nbnd,nksqtot,3*nat))
-  ! FIXME: these two routines should be replaced by a generic routine
-     CALL xk_wk_collect(xk_collect,xk,nkstot,nks)
+     ! FIXME: this routine should be replaced by a generic routine
      CALL el_ph_collect(3*nat,el_ph_mat,el_ph_mat_collect,nksqtot,nksq)
   ENDIF
   !
@@ -631,7 +626,7 @@ SUBROUTINE elphsum ( )
   kunit_save=kunit
   kunit=1
 
-#ifdef __MPI
+#if defined(__MPI)
   ALLOCATE(etfit_dist(nbnd,nksfit_dist))
   ALLOCATE(wkfit_dist(nksfit_dist))
   CALL poolscatter( 1, nksfit, wkfit, nksfit_dist, wkfit_dist )
@@ -654,7 +649,7 @@ SUBROUTINE elphsum ( )
      dosfit(isig) = dos_ef ( ngauss1, deg(isig), effit(isig), etfit_dist, &
           wkfit_dist, nksfit_dist, nbnd) / 2.0d0
   enddo
-#ifdef __MPI
+#if defined(__MPI)
   DEALLOCATE(etfit_dist)
   DEALLOCATE(wkfit_dist)
 #endif
@@ -907,7 +902,7 @@ SUBROUTINE elphsum ( )
   DEALLOCATE( deg )
   DEALLOCATE( effit )
   DEALLOCATE( dosfit )
-  DEALLOCATE(xk_collect)
+  DEALLOCATE( xk_collect )
   IF (npool /= 1) DEALLOCATE(el_ph_mat_collect)
 
   !

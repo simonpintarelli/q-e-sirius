@@ -6,8 +6,9 @@
 # of the License. See the file `License' in the root directory
 # of the present distribution.
 
-AC_INIT(ESPRESSO, 5.4.0, , espresso)
+AC_INIT(ESPRESSO, 6.0-beta, , espresso)
 
+# Do not use Autoconf 2.69 
 AC_PREREQ(2.60)
 AC_CONFIG_MACRO_DIR([m4/])
 
@@ -25,7 +26,9 @@ X_AC_QE_ARCH()
 
 # Add all needed -D options to try_dflags
 try_dflags=""
-try_iflags="-I../include"
+
+# "-I../include" is required by IOTK ...
+try_iflags="-I\$(TOPDIR)/include -I../include/"
 
 # Checking archiver...
 X_AC_QE_AR()
@@ -89,8 +92,11 @@ X_AC_QE_SCALAPACK()
 # Setting ELPA...
 X_AC_QE_ELPA()
 
+# Enable XML ...
+X_AC_QE_XML()
+
 # Setting HDF5...
-#X_AC_QE_HDF5()
+X_AC_QE_HDF5()
 
 # Checking SIGNAL...
 X_AC_QE_SIGNAL()

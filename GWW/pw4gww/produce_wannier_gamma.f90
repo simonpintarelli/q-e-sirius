@@ -104,15 +104,15 @@
        endif
 
 !setup parallel environment
-#ifndef __MPI
+#if !defined(__MPI)
          l_pmatrix=.false.
 #endif
-#ifndef __SCALAPACK
+#if !defined(__SCALAPACK)
          l_pmatrix=.false.
 #endif
 
          if(l_pmatrix) then
-#ifdef __SCALAPACK
+#if defined(__SCALAPACK)
             call blacs_pinfo(p_mpime,p_nproc)
             write(stdout,*) 'PINFO',p_mpime,p_nproc
        !     nprow=int(sqrt(real(p_nproc)))

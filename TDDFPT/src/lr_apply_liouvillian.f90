@@ -31,7 +31,7 @@ SUBROUTINE lr_apply_liouvillian( evc1, evc1_new, interaction )
   USE kinds,                ONLY : DP
   USE ions_base,            ONLY : ityp, nat, ntyp=>nsp
   USE cell_base,            ONLY : tpiba2
-  USE fft_base,             ONLY : dffts, dfftp
+  USE fft_base,             ONLY : dffts, dfftp, dtgs
   USE fft_interfaces,       ONLY : fwfft
   USE gvecs,                ONLY : nls, nlsm
   USE gvect,                ONLY : nl, ngm, gstart, g, gg
@@ -61,7 +61,7 @@ SUBROUTINE lr_apply_liouvillian( evc1, evc1_new, interaction )
   USE becmod,               ONLY : bec_type, becp, calbec
   USE lr_exx_kernel
   USE dv_of_drho_lr
-#ifdef __ENVIRON
+#if defined(__ENVIRON)
   USE plugin_flags,         ONLY : use_environ
   USE scf,                  ONLY : rho
   USE solvent_tddfpt,       ONLY : calc_vsolvent_tddfpt
@@ -168,7 +168,7 @@ SUBROUTINE lr_apply_liouvillian( evc1, evc1_new, interaction )
            !
            DEALLOCATE(dvrs_temp)
            !
-#ifdef __ENVIRON
+#if defined(__ENVIRON)
            !
            IF ( use_environ ) THEN
               !
@@ -359,11 +359,9 @@ CONTAINS
     !
     REAL(DP), ALLOCATABLE :: becp2(:,:)
     REAL(DP), ALLOCATABLE :: tg_dvrss(:)
-    LOGICAL :: use_tg
     INTEGER :: v_siz, incr, ioff
     INTEGER :: ibnd_start_gamma, ibnd_end_gamma
     !
-    use_tg = dffts%have_task_groups
     incr = 2
     !
     IF ( nkb > 0 .and. okvan ) THEN
@@ -420,16 +418,16 @@ CONTAINS
           !end: calculation of becp2
        ENDIF
 
-      IF ( dffts%have_task_groups ) THEN
+      IF ( dtgs%have_task_groups ) THEN
          !
-         v_siz =  dffts%tg_nnr * dffts%nogrp
+         v_siz =  dtgs%tg_nnr * dtgs%nogrp
          !
-         incr = 2 * dffts%nogrp
+         incr = 2 * dtgs%nogrp
          !
          ALLOCATE( tg_dvrss(1:v_siz) )
          tg_dvrss=0.0d0
          !
-         CALL tg_gather(dffts, dvrss, tg_dvrss)
+         CALL tg_gather(dffts, dtgs, dvrss, tg_dvrss)
          !
       ENDIF
        !
@@ -449,9 +447,9 @@ CONTAINS
           ! Product with the potential vrs = (vltot+vr)
           ! revc0 is on smooth grid. psic is used up to smooth grid
           !
-          IF (dffts%have_task_groups) THEN
+          IF (dtgs%have_task_groups) THEN
              !
-             DO ir=1, dffts%nr1x*dffts%nr2x*dffts%tg_npp( me_bgrp + 1 )
+             DO ir=1, dffts%nr1x*dffts%nr2x*dtgs%tg_npp( me_bgrp + 1 )
                 !
                 tg_psic(ir) = tg_revc0(ir,ibnd,1)*CMPLX(tg_dvrss(ir),0.0d0,DP)
                 !
@@ -514,7 +512,7 @@ CONTAINS
                            iqs = jqs + ir
                            psic( box_beta(ir,ia) ) = &
                                 &psic(  box_beta(ir,ia) ) + &
-                                &betasave(ia,ih,ir)*&
+                                &betasave(ir,ih,ia)*&
                                 &CMPLX( w1(ih), w2(ih) )
                           !
                           ENDDO
@@ -539,10 +537,10 @@ CONTAINS
           !
        ENDDO
        !
-#ifdef __MPI
+#if defined(__MPI)
        CALL mp_sum( evc1_new(:,:,1), inter_bgrp_comm )
 #endif
-       IF (dffts%have_task_groups) DEALLOCATE (tg_dvrss)
+       IF (dtgs%have_task_groups) DEALLOCATE (tg_dvrss)
        !
        IF( nkb > 0 .and. okvan .and. real_space_debug <= 7) THEN
           !The non real_space part

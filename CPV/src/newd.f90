@@ -48,7 +48,7 @@
       INTEGER :: na_bgrp, ia_bgrp
       EXTERNAL boxdotgrid
 
-#ifdef __OPENMP
+#if defined(__OPENMP)
       INTEGER :: itid, mytid, ntids, omp_get_thread_num, omp_get_num_threads
       EXTERNAL :: omp_get_thread_num, omp_get_num_threads
 #endif
@@ -69,7 +69,7 @@
 
       isa = 1
 
-#ifdef __OPENMP
+#if defined(__OPENMP)
       mytid = omp_get_thread_num()  ! take the thread ID
       ntids = omp_get_num_threads() ! take the number of threads
       itid  = 0
@@ -83,7 +83,7 @@
 
       DO is = 1, nvb
 
-#ifdef __MPI
+#if defined(__MPI)
 
          DO ia=1,na(is)
              nfft = 1
@@ -96,7 +96,7 @@
             nfft=2
 #endif
 
-#ifdef __OPENMP
+#if defined(__OPENMP)
             IF ( mytid /= itid ) THEN
                isa = isa + nfft
                itid = MOD( itid + 1, ntids )
@@ -131,7 +131,7 @@
                      END DO
                   END IF
 !
-                  CALL invfft( 'Box', qv, dfftb, isa )
+                  CALL invfft( qv, dfftb, isa )
 !
                   DO iss=1,nspin
                      res = boxdotgrid(irb(1,isa),1,qv,vr(1,iss))
@@ -181,7 +181,7 @@
          iss=1
          isa=1
 
-#ifdef __OPENMP
+#if defined(__OPENMP)
          mytid = omp_get_thread_num()  ! take the thread ID
          ntids = omp_get_num_threads() ! take the number of threads
          itid  = 0
@@ -189,7 +189,7 @@
 
          DO is = 1, nvb
 
-#ifdef __MPI
+#if defined(__MPI)
             DO ia=1,na(is)
                nfft=1
                IF ( ( dfftb%np3( isa ) <= 0 ) .OR. ( my_bgrp_id /= MOD( ia, nbgrp ) ) ) THEN
@@ -201,7 +201,7 @@
                nfft=2
 #endif
 
-#ifdef __OPENMP
+#if defined(__OPENMP)
                IF ( mytid /= itid ) THEN
                   isa = isa + nfft
                   itid = MOD( itid + 1, ntids )
@@ -251,7 +251,7 @@
                      END DO
                   END DO
 !
-                  CALL invfft('Box',qv,dfftb,isa)
+                  CALL invfft( qv, dfftb, isa)
 !
                   res = boxdotgrid(irb(1,isa),1,qv,vr(1,iss))
                   fvan(ik,ia,is) = res
@@ -281,7 +281,7 @@
          isa=1
          DO is=1,nvb
             DO ia=1,na(is)
-#ifdef __MPI
+#if defined(__MPI)
                IF ( dfftb%np3( isa ) <= 0 ) go to 25
 #endif
                DO ik=1,3
@@ -310,7 +310,7 @@
                      END DO
                   END DO
 !
-                  CALL invfft('Box',qv,dfftb,isa)
+                  CALL invfft( qv, dfftb, isa)
 !
                   fvan(ik,ia,is) =                                      &
      &                    boxdotgrid(irb(1,isa),isup,qv,vr(1,isup)) + &

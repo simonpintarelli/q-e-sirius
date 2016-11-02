@@ -23,7 +23,7 @@ SUBROUTINE lr_readin
                                   & do_makov_payne
   USE scf,                 ONLY : vltot, v, vrs, vnew, &
                                   & destroy_scf_type, rho
-  USE fft_base,            ONLY : dfftp, dffts
+  USE fft_base,            ONLY : dfftp, dffts, dtgs
   USE gvecs,               ONLY : doublegrid
   USE wvfct,               ONLY : nbnd, et, wg, current_k
   USE lsda_mod,            ONLY : isk
@@ -59,7 +59,7 @@ SUBROUTINE lr_readin
   USE mp_bands,            ONLY : ntask_groups
   USE constants,           ONLY : eps4
   USE control_lr,          ONLY : lrpa
-#ifdef __ENVIRON
+#if defined(__ENVIRON)
   USE environ_base,        ONLY : environ_base_init, ir_end
   USE environ_input,       ONLY : read_environ
   USE environ_base,        ONLY : ifdtype, nfdpoint
@@ -103,7 +103,7 @@ SUBROUTINE lr_readin
   !
   auto_rs = .TRUE.
   !
-#ifdef __MPI
+#if defined(__MPI)
   IF (ionode) THEN
 #endif
      !
@@ -333,7 +333,7 @@ SUBROUTINE lr_readin
         !
      ENDIF
      !
-#ifdef __MPI
+#if defined(__MPI)
   ENDIF
   !
   CALL bcast_lr_input
@@ -413,15 +413,7 @@ SUBROUTINE lr_readin
   !
   CALL input_sanity()
   !
-  ! EELS: Task groups are used only in some places (like in PHonon). 
-  ! Activated only in some places, namely where the FFTs create
-  ! a bottleneck of a calculation.
-  !
-  IF (eels) THEN
-     IF (ntask_groups > 1) dffts%have_task_groups = .FALSE.
-  ENDIF
-  !
-#ifdef __ENVIRON
+#if defined(__ENVIRON)
   !
   ! Self-consistent continuum solvation model
   !
@@ -429,7 +421,7 @@ SUBROUTINE lr_readin
      !
      ! Periodic boundary corrections, which were possibly activated in PW
      !
-#ifdef __MPI
+#if defined(__MPI)
   IF (ionode) THEN
 #endif
      if (do_makov_payne) then
@@ -441,7 +433,7 @@ SUBROUTINE lr_readin
      else
         assume_isolated = 'none'
      endif
-#ifdef __MPI
+#if defined(__MPI)
   ENDIF
   CALL mp_bcast(assume_isolated, ionode_id, world_comm)
 #endif
@@ -527,7 +519,7 @@ SUBROUTINE lr_readin
   !
   ! Scalapack related stuff.
   !
-#ifdef __MPI
+#if defined(__MPI)
   use_para_diag = .TRUE.
   CALL check_para_diag( nbnd )
 #else
@@ -619,13 +611,13 @@ CONTAINS
     !
     ! No taskgroups and EXX.
     !
-    IF (dffts%have_task_groups .AND. dft_is_hybrid()) &
+    IF (dtgs%have_task_groups .AND. dft_is_hybrid()) &
          & CALL errore( 'lr_readin', ' Linear response calculation ' // &
          & 'not implemented for EXX+Task groups', 1 )
     !
     ! Experimental task groups warning.
     !
-    IF (dffts%have_task_groups) &
+    IF (dtgs%have_task_groups) &
          & CALL infomsg( 'lr_readin','Usage of task &
          &groups with TDDFPT is still experimental. Use at your own risk.' )
     !
@@ -668,7 +660,7 @@ CONTAINS
        !
        ! Note, all variables of the turboDavidson code cannot be used by turboEELS.
        !
-#ifdef __ENVIRON
+#if defined(__ENVIRON)
        !
        ! EELS + implicit solvent model is not supported.
        !

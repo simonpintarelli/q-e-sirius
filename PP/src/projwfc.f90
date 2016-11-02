@@ -52,7 +52,7 @@ PROGRAM do_projwfc
   !
   ! initialise environment
   !
-#ifdef __MPI
+#if defined(__MPI)
   CALL mp_startup ( )
 #endif
   CALL environment_start ( 'PROJWFC' )
@@ -1480,7 +1480,7 @@ SUBROUTINE projwave_paw( filproj)
   !
   DO ik = 1, nks
      CALL davcio (evc, 2*nwordwfc, iunwfc, ik, - 1)
-
+     npw = ngk(ik)
      CALL init_us_2 (npw, igk_k(1,ik), xk (1, ik), vkb)
 
      proj0=0; 

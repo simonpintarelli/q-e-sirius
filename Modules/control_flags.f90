@@ -44,12 +44,8 @@ MODULE control_flags
   PUBLIC :: tksw, trhor, thdyn, trhow
   PUBLIC :: twfcollect
   PUBLIC :: lkpoint_dir
-  PUBLIC :: program_name
   !
   ! ...   declare execution control variables
-  !
-  CHARACTER(LEN=4) :: program_name = ' '  !  used to control execution flow 
-                                          !  inside module: 'PW' or 'CP'
   !
   LOGICAL :: trhor     = .FALSE. ! read rho from unit 47 (only cp, seldom used)
   LOGICAL :: trhow     = .FALSE. ! CP code, write rho to restart dir
@@ -256,6 +252,11 @@ MODULE control_flags
   LOGICAL,          PUBLIC :: tqr=.FALSE. ! if true the Q are in real space
 
   !LOGICAL,          PUBLIC :: real_space=.false. ! beta functions in real space
+  !
+  ! ... Augmetation charge and beta smoothing
+  !
+  LOGICAL,          PUBLIC :: tq_smoothing=.FALSE. ! if true the Q are smoothed 
+  LOGICAL,          PUBLIC :: tbeta_smoothing=.FALSE. ! if true the betas are smoothed 
   !
   ! ... External Forces on Ions
   !

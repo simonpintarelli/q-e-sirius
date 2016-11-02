@@ -17,8 +17,8 @@
       USE control_flags,            ONLY: iverbosity
       USE io_global,                ONLY: stdout
       USE mp_global,                ONLY: nproc_bgrp, me_bgrp, intra_bgrp_comm
-      USE fft_base,                 ONLY: dfftb, dfftp, dfftb, fft_dlay_descriptor
-      USE fft_types,                ONLY: fft_box_set
+      USE fft_base,                 ONLY: dfftb, dfftp, dfftb, fft_type_descriptor
+      USE fft_smallbox_type,        ONLY: fft_box_set
 
       IMPLICIT NONE
 ! input
@@ -116,7 +116,7 @@
             END DO
       ENDIF
 
-#ifdef __MPI
+#if defined(__MPI)
       ! 
       ! for processor that do not call fft on the box
       ! artificially start the clock

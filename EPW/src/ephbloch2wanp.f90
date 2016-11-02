@@ -7,52 +7,58 @@
   ! present distribution, or http://www.gnu.org/copyleft.gpl.txt .             
   !                                                                            
   !--------------------------------------------------------------------------
-  SUBROUTINE ephbloch2wanp ( nbnd, nmodes, xk, nq, irvec, wslen, &
+  SUBROUTINE ephbloch2wanp ( nbnd, nmodes, xk, nq, irvec, &
     nrk, nrr, epmatwe )
   !--------------------------------------------------------------------------
-  !
-  !  From the EP Matrix in Electron Bloch representation (coarse mesh), 
-  !  find the corresponding matrix in Phonon Wannier representation 
-  !
+  !!
+  !!  From the EP Matrix in Electron Bloch representation (coarse mesh), 
+  !!  find the corresponding matrix in Phonon Wannier representation 
+  !!
   !--------------------------------------------------------------------------------
   !
   USE kinds,         ONLY : DP
   USE pwcom,         ONLY : at, bg, celldm
   USE elph2,         ONLY : epmatwp
   USE constants_epw, ONLY : bohr2ang, twopi, ci, czero
-#ifdef __PARA
+  USE io_epw,        ONLY : iuwanep
   USE io_global,     ONLY : ionode_id
   USE mp,            ONLY : mp_barrier
   USE mp_world,      ONLY : mpime
-#endif
   implicit none
   !
-  !  input variables - note irvec is dimensioned with nrr_k 
+  !  Input variables - note irvec is dimensioned with nrr_k 
   !                    (which is assumed to be larger than nrr_q)
   !
-  integer :: nbnd, nrk, nmodes, nq, nrr, irvec (3, nrk)
-  ! number of electronic bands
-  ! number of electronic WS points
-  ! number of branches
-  ! number of qpoints
-  ! number of WS points and coordinates
-  complex(kind=DP) :: epmatwe (nbnd, nbnd, nrk, nmodes, nq)
-  ! EP matrix in electron-wannier representation and phonon bloch representation
-  !   (Cartesian coordinates)
-  real(kind=DP) :: xk (3, nq), wslen (nrr) 
-  ! kpoint coordinates (cartesian in units of 2piba)
-  ! WS vectors length (alat units)
+  INTEGER, INTENT(in) :: nbnd
+  !! Number of electronic bands
+  INTEGER, INTENT(in) :: nrk
+  !! number of electronic WS points
+  INTEGER, INTENT(in) :: nmodes
+  !! number of branches
+  INTEGER, INTENT(in) :: nq 
+  !! number of qpoints
+  INTEGER, INTENT(in) :: nrr
+  !! number of WS points and coordinates
+  INTEGER, INTENT(in) :: irvec (3, nrk)
+  !! Real space vector (irvec is dimensioned with nrr_k)
   !
-  !  output variables
+  REAL(kind=DP), INTENT(in) :: xk (3, nq)
+  !! Kpoint coordinates (cartesian in units of 2piba) 
+  ! 
+  COMPLEX(kind=DP), INTENT(in) :: epmatwe (nbnd, nbnd, nrk, nmodes, nq)
+  !! EP matrix in electron-wannier representation and phonon bloch representation
+  !!   (Cartesian coordinates)
+  !
+  !  Output variables
   !
   ! EP matrix in electron-wannier representation and phonon-wannier
   ! representation
   !
-  ! work variables 
+  ! Work variables 
   !
-  integer :: ik, ir, ire
-  real(kind=DP) :: rdotk, tmp, rvec1(3), rvec2(3), len1, len2
-  complex(kind=DP) :: cfac
+  INTEGER :: ik, ir, ire
+  REAL(kind=DP) :: rdotk, tmp, rvec1(3), rvec2(3), len1, len2
+  COMPLEX(kind=DP) :: cfac
   !
   !----------------------------------------------------------
   !  Fourier transform to go into Wannier basis
@@ -82,10 +88,9 @@
     !
     !  we plot: R_e, R_p, max_{m,n,nu} |g(m,n,nu;R_e,R_p)|
     !
-#ifdef __PARA
     IF (mpime.eq.ionode_id) THEN
-#endif
-      IF (ir.eq.1) open(unit=303,file='decay.epmat_wanep',status='unknown')
+      IF (ir.eq.1) open(unit=iuwanep,file='decay.epmat_wanep',status='unknown')
+      IF (ir.eq.1) WRITE(iuwanep, '(a)') '#  R_e,    R_p, max_{m,n,nu} |g(m,n,nu;R_e,R_p)| '
       DO ire = 1, nrk
         !
         rvec1 = dble(irvec(1,ire))*at(:,1) + &
@@ -101,13 +106,11 @@
         ! rvec1 : electron-electron0 distance
         ! rvec2 : phonon - electron0 distance
         !
-        WRITE(303, '(5f15.10)') len1 * celldm (1) * bohr2ang, &
+        WRITE(iuwanep, '(5f15.10)') len1 * celldm (1) * bohr2ang, &
                                 len2 * celldm (1) * bohr2ang, tmp
       ENDDO
-      IF (ir.eq.nrr) close(303)
-#ifdef __PARA
+      IF (ir.eq.nrr) close(iuwanep)
     ENDIF
-#endif
     !
   ENDDO
   !
@@ -119,7 +122,7 @@
   !
   ! -----------------------------------------------------------
   !--------------------------------------------------------------------------
-  SUBROUTINE ephbloch2wanp_mem ( nbnd, nmodes, xk, nq, irvec, wslen, &
+  SUBROUTINE ephbloch2wanp_mem ( nbnd, nmodes, xk, nq, irvec, &
     nrk, nrr, epmatwe )
   !--------------------------------------------------------------------------
   !
@@ -131,29 +134,34 @@
   USE kinds,         ONLY : DP
   USE pwcom,         ONLY : at, bg, celldm
   USE constants_epw, ONLY : bohr2ang, twopi, ci, czero
-  USE io_epw,        ONLY : iunepmatwe, iunepmatwp
-#ifdef __PARA
+  USE io_epw,        ONLY : iunepmatwe, iunepmatwp, iuwanep
   USE io_global,     ONLY : ionode_id
   USE mp,            ONLY : mp_barrier
   USE mp_world,      ONLY : mpime
-#endif
   implicit none
   !
   !  input variables - note irvec is dimensioned with nrr_k 
   !                    (which is assumed to be larger than nrr_q)
   !
-  integer :: nbnd, nrk, nmodes, nq, nrr, irvec (3, nrk)
-  ! number of electronic bands
-  ! number of electronic WS points
-  ! number of branches
-  ! number of qpoints
-  ! number of WS points and coordinates
-  complex(kind=DP) :: epmatwe (nbnd, nbnd, nrk, nmodes)
-  ! EP matrix in electron-wannier representation and phonon bloch representation
-  !   (Cartesian coordinates)
-  real(kind=DP) :: xk (3, nq), wslen (nrr)
-  ! kpoint coordinates (cartesian in units of 2piba)
-  ! WS vectors length (alat units)
+  INTEGER, INTENT(in) :: nbnd
+  !! Number of electronic bands
+  INTEGER, INTENT(in) :: nrk
+  !! number of electronic WS points
+  INTEGER, INTENT(in) :: nmodes
+  !! number of branches
+  INTEGER, INTENT(in) :: nq
+  !! number of qpoints
+  INTEGER, INTENT(in) :: nrr
+  !! number of WS points and coordinates
+  INTEGER, INTENT(in) :: irvec (3, nrk)
+  !! Real space vector (irvec is dimensioned with nrr_k)
+  !
+  REAL(kind=DP), INTENT(in) :: xk (3, nq)
+  !! Kpoint coordinates (cartesian in units of 2piba) 
+  ! 
+  COMPLEX(kind=DP), INTENT(in) :: epmatwe (nbnd, nbnd, nrk, nmodes)
+  !! EP matrix in electron-wannier representation and phonon bloch representation
+  !!   (Cartesian coordinates)
   !
   !  output variables
   !
@@ -203,10 +211,9 @@
     !
     !  we plot: R_e, R_p, max_{m,n,nu} |g(m,n,nu;R_e,R_p)|
     !
-#ifdef __PARA
     IF (mpime.eq.ionode_id) THEN
-#endif
-      IF (ir.eq.1) open(unit=303,file='decay.epmat_wanep',status='unknown')
+      IF (ir.eq.1) open(unit=iuwanep,file='decay.epmat_wanep',status='unknown')
+      IF (ir.eq.1) WRITE(iuwanep, '(a)') '#  R_e,    R_p, max_{m,n,nu} |g(m,n,nu;R_e,R_p)| '
       DO ire = 1, nrk
         !
         rvec1 = dble(irvec(1,ire))*at(:,1) + &
@@ -222,13 +229,11 @@
         ! rvec1 : electron-electron0 distance
         ! rvec2 : phonon - electron0 distance
         !
-        WRITE(303, '(5f15.10)') len1 * celldm (1) * bohr2ang, &
+        WRITE(iuwanep, '(5f15.10)') len1 * celldm (1) * bohr2ang, &
                                 len2 * celldm (1) * bohr2ang, tmp
       ENDDO
-      IF (ir.eq.nrr) close(303)
-#ifdef __PARA
+      IF (ir.eq.nrr) close(iuwanep)
     ENDIF
-#endif
     !
   ENDDO
   !
@@ -239,8 +244,4 @@
   IF ( ALLOCATED (epmatwp_mem) ) DEALLOCATE (epmatwp_mem)
   !
   END SUBROUTINE ephbloch2wanp_mem
-
-
-
-
 

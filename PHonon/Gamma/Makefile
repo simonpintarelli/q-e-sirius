@@ -4,10 +4,9 @@ include ../../make.inc
 
 # location of needed modules and included files (if any)
 MODFLAGS= $(MOD_FLAG)../../iotk/src $(MOD_FLAG)../../Modules \
-          $(MOD_FLAG)../../LAXlib $(MOD_FLAG)../../FFTXlib $(MOD_FLAG)../../PW/src $(MOD_FLAG).
+          $(MOD_FLAG)../../LAXlib $(MOD_FLAG)../../FFTXlib \
+          $(MOD_FLAG)../../PW/src $(MOD_FLAG).
 IFLAGS=
-
-LIBOBJS        = ../../clib/clib.a ../../iotk/src/libiotk.a
 
 CGOBJS = \
 a_h.o \
@@ -53,7 +52,7 @@ tldeps :
 	( cd ../.. ; $(MAKE) $(TLDEPS) || exit 1 ) ; fi
 
 clean :
-	- /bin/rm -f *.x *.o *.d *.i *~ *_tmp.f90 *.mod *.L
+	- /bin/rm -f *.x *.o *.d *.i *~ *_tmp.f90 *.mod *.L *.a
 	- /bin/rm -f ../../bin/phcg.x
 
 libcg.a : $(CGOBJS)

@@ -384,8 +384,6 @@ SUBROUTINE vofrho_x( nfi, rhor, drhor, rhog, drhog, rhos, rhoc, tfirst, &
                if (nspin>2) call errore('stress_rVV10', 'rVV10 non implemented with nspin>2',1)
                CALL stress_rVV10(rhosave, rhocsave, nspin, denlc )
              end if
-
-             CALL mp_sum( denlc, intra_bgrp_comm )
              dxc(:,:) = dxc(:,:) - omega/e2 * MATMUL(denlc,TRANSPOSE(ainv))
          END IF
          DEALLOCATE ( rhocsave, rhosave )
@@ -397,30 +395,26 @@ SUBROUTINE vofrho_x( nfi, rhor, drhor, rhog, drhog, rhos, rhoc, tfirst, &
       !
       IF (ts_vdw) THEN
         !
-        IF (dffts%npp(me_image+1).NE.0) THEN
-          !
-          IF (nspin.EQ.1) THEN
-            !
+        IF (nspin.EQ.1) THEN
+           !
 !$omp parallel do
-            DO ir=1,dffts%npp(me_image+1)*dfftp%nr1*dfftp%nr2
+           DO ir=1,dfftp%npp(me_image+1)*dfftp%nr1*dfftp%nr2
               !
               rhor(ir,1)=rhor(ir,1)+UtsvdW(ir)
               !
-            END DO
+           END DO
 !$omp end parallel do
-            !
-          ELSE IF (nspin.EQ.2) THEN
-            !
+           !
+        ELSE IF (nspin.EQ.2) THEN
+           !
 !$omp parallel do
-            DO ir=1,dffts%npp(me_image+1)*dfftp%nr1*dfftp%nr2
+           DO ir=1,dfftp%npp(me_image+1)*dfftp%nr1*dfftp%nr2
               !
               rhor(ir,1)=rhor(ir,1)+UtsvdW(ir)
               rhor(ir,2)=rhor(ir,2)+UtsvdW(ir)
               !
-            END DO
+           END DO
 !$omp end parallel do
-            !
-          END IF
           !
         END IF
         !
@@ -794,11 +788,13 @@ SUBROUTINE vofrho_x( nfi, rhor, drhor, rhog, drhog, rhos, rhoc, tfirst, &
             detmp = -1.0d0 * MATMUL( dxc, TRANSPOSE( h ) ) / omega * au_gpa * 10.0d0
             WRITE( stdout,5555) ((detmp(i,j),j=1,3),i=1,3)
             !
-            WRITE( stdout,*) "derivative of e(TS-vdW)"
-            WRITE( stdout,5555) ((HtsvdW(i,j),j=1,3),i=1,3)
-            WRITE( stdout,*) "kbar"
-            detmp = -1.0d0 * MATMUL( HtsvdW, TRANSPOSE( h ) ) / omega * au_gpa * 10.0d0
-            WRITE( stdout,5555) ((detmp(i,j),j=1,3),i=1,3)
+            IF (ts_vdw) THEN
+               WRITE( stdout,*) "derivative of e(TS-vdW)"
+               WRITE( stdout,5555) ((HtsvdW(i,j),j=1,3),i=1,3)
+               WRITE( stdout,*) "kbar"
+               detmp = -1.0d0 * MATMUL( HtsvdW, TRANSPOSE( h ) ) / omega * au_gpa * 10.0d0
+               WRITE( stdout,5555) ((detmp(i,j),j=1,3),i=1,3)
+            END IF
          ENDIF
       ENDIF
 

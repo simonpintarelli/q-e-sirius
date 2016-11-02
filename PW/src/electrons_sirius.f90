@@ -47,7 +47,7 @@ subroutine electrons_sirius()
   integer ierr, rank, use_sirius_mixer, num_ranks_k, dims(3)
   real(8) vlat(3, 3), vlat_inv(3, 3), v1(3), bg_inv(3, 3)
   integer kmesh(3), kshift(3), printout
-  integer, external :: find_current_k
+  integer, external :: global_kpoint_index
   real(8), allocatable :: qij(:,:,:)
   !---------------
   ! paw one elec
@@ -424,7 +424,7 @@ subroutine electrons_sirius()
 
     DO ik = 1, nks
       ! convert to Ry
-      et(:, ik) = 2.d0 * band_e(:, find_current_k(ik, nkstot, nks))
+      et(:, ik) = 2.d0 * band_e(:, global_kpoint_index ( nkstot, ik ))
     ENDDO
     DEALLOCATE(band_e)
 
@@ -437,7 +437,7 @@ subroutine electrons_sirius()
     ! define a maximum band occupancy (2 in case of spin-unpolarized, 1 in case of spin-polarized)
     maxocc = 2.d0
     DO ik = 1, nks
-      bnd_occ(:, find_current_k(ik, nkstot, nks)) = maxocc * wg(:, ik) / wk(ik)
+      bnd_occ(:, global_kpoint_index ( nkstot, ik )) = maxocc * wg(:, ik) / wk(ik)
     END DO
     CALL mpi_allreduce(MPI_IN_PLACE, bnd_occ(1, 1), nbnd * nkstot, MPI_DOUBLE, MPI_SUM, inter_pool_comm, ierr)
     ! set band occupancies

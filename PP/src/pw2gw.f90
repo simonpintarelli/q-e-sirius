@@ -41,7 +41,7 @@ PROGRAM pw2gw
   !
   ! initialise environment
   !
-#ifdef __MPI
+#if defined(__MPI)
   CALL mp_startup ( )
 #endif
   CALL environment_start ( 'PW2GW' )
@@ -863,8 +863,8 @@ SUBROUTINE write_gmaps ( kunit)
 
   INTEGER :: npw, i, j, k, ig, ik, ibnd, na, ngg, ikw
   INTEGER, ALLOCATABLE :: kisort(:)
-  INTEGER :: npool, nkbl, nkl, nkr, npwx_g
-  INTEGER :: ike, iks, npw_g, ispin
+  INTEGER :: ike, iks, npw_g, npwx_g, ispin
+  INTEGER, EXTERNAL :: global_kpoint_index
   INTEGER, ALLOCATABLE :: ngk_g( : )
   INTEGER, ALLOCATABLE :: ngk_gw( : )
   INTEGER, ALLOCATABLE :: itmp( :, : )
@@ -887,27 +887,8 @@ SUBROUTINE write_gmaps ( kunit)
      IF( ( nproc_pool > nproc ) .or. ( mod( nproc, nproc_pool ) /= 0 ) ) &
        CALL errore( ' write_wannier ',' nproc_pool ', 1 )
 
-     !  find out the number of pools
-     npool = nproc / nproc_pool
-
-     !  find out number of k points blocks
-     nkbl = nkstot / kunit
-
-     !  k points per pool
-     nkl = kunit * ( nkbl / npool )
-
-     !  find out the reminder
-     nkr = ( nkstot - nkl * npool ) / kunit
-
-     !  Assign the reminder to the first nkr pools
-     IF( my_pool_id < nkr ) nkl = nkl + kunit
-
-     !  find out the index of the first k point in this pool
-     iks = nkl * my_pool_id + 1
-     IF( my_pool_id >= nkr ) iks = iks + nkr * kunit
-
-     !  find out the index of the last k point in this pool
-     ike = iks + nkl - 1
+     iks = global_kpoint_index (nkstot, 1)
+     ike = iks + nks - 1
 
   ENDIF
 

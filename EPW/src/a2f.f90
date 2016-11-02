@@ -9,19 +9,20 @@
   !-----------------------------------------------------------------------
   SUBROUTINE eliashberg_a2f
   !-----------------------------------------------------------------------
-  !
-  !  Compute the Eliasberg spectral function
-  !  in the Migdal approximation. 
-  !  
-  !  If the q-points are not on a uniform grid (i.e. a line)
-  !  the function will not be correct
-  !  
-  !  02/2009 works in serial on ionode at the moment.  can be parallelized
-  !  03/2009 added transport spectral function -- this involves a v_k dot v_kq term 
-  !          in the quantities coming from selfen_phon.f90.  Not fully implemented  
-  !  10/2009 the code is transitioning to 'on-the-fly' phonon selfenergies
-  !          and this routine is not currently functional
-  !  10/2015 RM: added calcution of Tc based on Allen-Dynes formula 
+  !!
+  !!  Compute the Eliasberg spectral function
+  !!  in the Migdal approximation. 
+  !!  
+  !!  If the q-points are not on a uniform grid (i.e. a line)
+  !!  the function will not be correct
+  !!  
+  !!  02/2009 works in serial on ionode at the moment.  can be parallelized
+  !!  03/2009 added transport spectral function -- this involves a v_k dot v_kq term 
+  !!          in the quantities coming from selfen_phon.f90.  Not fully implemented  
+  !!  10/2009 the code is transitioning to 'on-the-fly' phonon selfenergies
+  !!          and this routine is not currently functional
+  !!  10/2015 RM: added calcution of Tc based on Allen-Dynes formula 
+  !!
   !-----------------------------------------------------------------------
   !
   USE kinds,     ONLY : DP
@@ -30,18 +31,15 @@
                         delta_smear, degaussw, fsthick
   USE elph2,     ONLY : nqtotf, wf, wqf, lambda_all, lambda_v_all
   USE constants_epw, ONLY : ryd2mev, ryd2ev, kelvin2eV, two, zero
-#ifdef __PARA
   USE mp,        ONLY : mp_barrier, mp_sum
-  USE mp_global, ONLY : my_pool_id, npool
   USE mp_world,  ONLY : mpime, world_comm
   USE io_global, ONLY : ionode_id
-#endif
   USE io_global, ONLY : stdout
   USE io_epw,    ONLY : iua2ffil, iudosfil, iua2ftrfil
   USE io_files,  ONLY : prefix
   implicit none
   !
-  integer :: imode, iq, iw, ismear, isig, i
+  integer       :: imode, iq, iw, ismear, isig, i
   real(kind=DP) :: weight
   real(kind=DP) :: lambda_tot, lambda_tr_tot
   real(kind=DP) :: iomega, sigma, a2F_tmp, a2F_tr_tmp, om_max, dw, w0, l, l_tr, tc, mu
@@ -51,9 +49,7 @@
   !
   !
   CALL start_clock('a2F')
-#ifdef __PARA
   IF (mpime .eq. ionode_id) THEN
-#endif
   !
   DO isig = 1, nsmear
     !
@@ -170,16 +166,16 @@
              lambda_tr_tot = lambda_tr_tot + wqf(iq) * lambda_v_all(imode,iq,isig)
        ENDDO
     ENDDO
-    WRITE (6,'(5x,a,f12.7)') "lambda : ", lambda_tot
-    WRITE (6,'(5x,a,f12.7)') "lambda_tr : ", lambda_tr_tot
-    WRITE(6,*)
+    WRITE (stdout,'(5x,a,f12.7)') "lambda : ", lambda_tot
+    WRITE (stdout,'(5x,a,f12.7)') "lambda_tr : ", lambda_tr_tot
+    WRITE (stdout,'(a)') " "
     !
     !
     ! Allen-Dynes estimate of Tc for ismear = 1
     !
-    WRITE(6,'(5x,a,f12.7,a)') "Estimated Allen-Dynes Tc"
-    WRITE(6,*)
-    WRITE(6,'(5x,a,f12.7,a,f12.7)') "logavg = ", logavg(1), " l_a2F = ", l_a2F(1)
+    WRITE(stdout,'(5x,a,f12.7,a)') "Estimated Allen-Dynes Tc"
+    WRITE (stdout,'(a)') " "
+    WRITE(stdout,'(5x,a,f12.7,a,f12.7)') "logavg = ", logavg(1), " l_a2F = ", l_a2F(1)
     DO i = 1, 6
        !
        mu = 0.1d0 + 0.02d0 * dble(i-1)
@@ -188,7 +184,10 @@
        ! tc in K
        !
        tc = tc * ryd2ev / kelvin2eV
-       WRITE(6,'(5x,a,f6.2,a,f22.12,a)') "mu = ", mu, " Tc = ", tc, " K"
+       !SP: IF Tc is too big, it is not physical
+       IF (tc < 1000.0 ) THEN
+         WRITE(stdout,'(5x,a,f6.2,a,f22.12,a)') "mu = ", mu, " Tc = ", tc, " K"
+       ENDIF 
        !
     ENDDO
     !
@@ -221,10 +220,8 @@
     !
   ENDDO ! isig
   !
-#ifdef __PARA
   ENDIF
   CALL mp_barrier(world_comm)
-#endif
   !
   CALL stop_clock('a2F')
   CALL print_clock('a2F')
