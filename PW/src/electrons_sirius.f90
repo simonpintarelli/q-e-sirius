@@ -517,7 +517,10 @@ subroutine electrons_sirius()
     if ( okpaw ) then
         call sirius_get_paw_total_energy(epaw)
         call sirius_get_paw_one_elec_energy( paw_one_elec_energy )
-        etot = etot - 2.0 * paw_one_elec_energy + 2.0 * epaw
+        epaw = epaw * 2.0;
+        paw_one_elec_energy = paw_one_elec_energy * 2.0;
+
+        etot = etot -  paw_one_elec_energy +  epaw
     endif
 
     ! TODO: this has to be called correcly - there are too many dependencies
