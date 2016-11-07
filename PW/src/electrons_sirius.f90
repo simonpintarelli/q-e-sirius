@@ -45,8 +45,8 @@ subroutine electrons_sirius()
   real(8) :: dr2
   logical exst
   integer ierr, rank, use_sirius_mixer, num_ranks_k, dims(3)
-  real(8) vlat(3, 3), vlat_inv(3, 3), v1(3), bg_inv(3, 3)
-  integer kmesh(3), kshift(3), printout
+  real(8) vlat(3, 3), vlat_inv(3, 3), v1(3), v2(3), bg_inv(3, 3)
+  integer kmesh(3), kshift(3), printout, vt(3)
   integer, external :: global_kpoint_index
   real(8), allocatable :: qij(:,:,:)
   !---------------
@@ -148,7 +148,7 @@ subroutine electrons_sirius()
   !-----------------------------------------
 
   call sirius_set_gamma_point(gamma_only)
-    
+  
   num_ranks_k = nproc_image / npool
   i = sqrt(dble(num_ranks_k) + 1d-10)
   if (i * i .ne. num_ranks_k) then
@@ -296,14 +296,13 @@ subroutine electrons_sirius()
   ! WARNING: sirius accepts only fractional coordinates;
   !          if QE stores coordinates in a different way, the conversion must be made here
   do ia = 1, nat
+    ! Cartesian coordinates
     v1(:) = tau(:, ia) * alat
+    ! fractional coordinates
     v1(:) = matmul(vlat_inv, v1)
-    do j = 1, 3
-      v1(j) = v1(j) - floor(v1(j))
-      !if (v1(j).lt.0.d0) v1(j) = v1(j) + 1.d0
-      if (abs(v1(j) - 1.d0).lt.1e-12) v1(j) = 0.d0
-    enddo
-    call sirius_add_atom(c_str(atm(ityp(ia))), v1(1))
+    ! reduce coordinates to [0, 1) interval
+    call sirius_reduce_coordinates(v1(1), v2(1), vt(1))
+    call sirius_add_atom(c_str(atm(ityp(ia))), v2(1))
   enddo
 
   ! initialize global variables/indices/arrays/etc. of the simulation
