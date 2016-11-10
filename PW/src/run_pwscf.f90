@@ -112,7 +112,6 @@ SUBROUTINE run_pwscf ( exit_status )
         else
           CALL electrons() 
         endif
-        CALL electrons()
      END IF
      !
      ! ... code stopped by user or not converged
