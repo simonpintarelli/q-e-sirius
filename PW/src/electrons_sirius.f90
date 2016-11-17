@@ -56,6 +56,8 @@ subroutine electrons_sirius()
 
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
+  !nbnd = 50
+
   !
   if ( dft_is_hybrid() ) then
      printout = 0  ! do not print etot and energy components at each scf step
@@ -147,7 +149,10 @@ subroutine electrons_sirius()
   !endif
   !-----------------------------------------
 
-  call sirius_set_gamma_point(gamma_only)
+  ! set number of first-variational states
+  CALL sirius_set_num_fv_states(nbnd)
+
+  call sirius_set_gamma_point(gamma_only )
   
   num_ranks_k = nproc_image / npool
   i = sqrt(dble(num_ranks_k) + 1d-10)
@@ -172,8 +177,7 @@ subroutine electrons_sirius()
   ! convert from |G+k|^2/2 Rydbergs to |G+k| in [a.u.^-1]
   CALL sirius_set_gk_cutoff(sqrt(ecutwfc))
 
-  ! set number of first-variational states
-  CALL sirius_set_num_fv_states(nbnd)
+
 
   CALL sirius_set_num_mag_dims(0)
 
@@ -209,7 +213,7 @@ subroutine electrons_sirius()
 
     ! set beta-projectors
     call sirius_set_atom_type_beta_rf(c_str(atm(iat)), upf(iat)%nbeta, upf(iat)%lll(1),&
-                                     &upf(iat)%kbeta(1), upf(iat)%beta(1, 1), upf(iat)%mesh)
+                                     &upf(iat)%kbeta(1), upf(iat)%beta(1, 1), upf(iat)%mesh )
 
 
 
@@ -334,8 +338,7 @@ subroutine electrons_sirius()
   ! initialize density class
   allocate(rho_rg(num_fft_grid_points))
   call sirius_density_initialize(rho_rg(1))
-  ! generate initial density from atomic densities rho_at
-  call sirius_generate_initial_density()
+
   ! initialize potential class
   allocate(veff_rg(num_fft_grid_points))
   call sirius_potential_initialize(veff_rg(1))
@@ -363,11 +366,17 @@ subroutine electrons_sirius()
 
   ! create a set of k-points
   ! WARNING: k-points must be provided in fractional coordinates of the reciprocal lattice
-  CALL sirius_create_kset(nkstot, xk(1, 1), tmp(1), 1, kset_id)
+  CALL sirius_create_kset( nkstot, xk(1, 1), tmp(1), 1, kset_id)
   DEALLOCATE(tmp)
 
   ! initialize ground-state class
   CALL sirius_ground_state_initialize(kset_id)
+
+  ! generate initial density from atomic densities rho_at
+  call sirius_generate_initial_density()
+
+  ! generate effective potential
+  CALL sirius_generate_effective_potential()
 
   ! initialize subspace before calling "sirius_find_eigen_states"
   call sirius_initialize_subspace()
@@ -383,7 +392,7 @@ subroutine electrons_sirius()
   call create_scf_type(rhoin)
   call sirius_get_rho_pw(ngm, mill(1, 1), rho%of_g(1, 1))
   call scf_type_copy(rho, rhoin)
-  call open_mix_file( iunmix, 'mix', exst )
+  call open_mix_file( iunmix, 'mix', exst  )
 
   CALL sirius_start_timer(c_str("electrons"))
 
@@ -411,39 +420,51 @@ subroutine electrons_sirius()
     CALL sirius_find_eigen_states(kset_id, precompute=1)
 
     ! use sirius to calculate band occupancies
-    !== CALL sirius_find_band_occupancies(kset_id)
-    !== CALL sirius_get_energy_fermi(kset_id, ef)
-    !== ef = ef * 2.d0
-
-    ALLOCATE(band_e(nbnd, nkstot))
-    ! get band energies
-    DO ik = 1, nkstot
-      CALL sirius_get_band_energies(kset_id, ik, band_e(1, ik))
-    END DO
-
-    DO ik = 1, nks
-      ! convert to Ry
-      et(:, ik) = 2.d0 * band_e(:, global_kpoint_index ( nkstot, ik ))
-    ENDDO
-    DEALLOCATE(band_e)
-
-    ! compute band weights
-    CALL weights()
-
-    ! compute occupancies
-    ALLOCATE(bnd_occ(nbnd, nkstot))
-    bnd_occ = 0.d0
-    ! define a maximum band occupancy (2 in case of spin-unpolarized, 1 in case of spin-polarized)
-    maxocc = 2.d0
-    DO ik = 1, nks
-      bnd_occ(:, global_kpoint_index ( nkstot, ik )) = maxocc * wg(:, ik) / wk(ik)
-    END DO
-    CALL mpi_allreduce(MPI_IN_PLACE, bnd_occ(1, 1), nbnd * nkstot, MPI_DOUBLE, MPI_SUM, inter_pool_comm, ierr)
-    ! set band occupancies
-    DO ik = 1, nkstot
-      CALL sirius_set_band_occupancies(kset_id, ik, bnd_occ(1, ik))
-    END DO
-    DEALLOCATE(bnd_occ)
+     CALL sirius_find_band_occupancies(kset_id)
+     CALL sirius_get_energy_fermi(kset_id, ef)
+     ef = ef * 2.d0
+!
+!    ALLOCATE(band_e(nbnd, nkstot))
+!    ! get band energies
+!    DO ik = 1, nkstot
+!      CALL sirius_get_band_energies(kset_id, ik, band_e(1, ik))
+!    END DO
+!
+!    DO ik = 1, nbnd
+!      write (*,*) band_e(ik, 1 )
+!    END DO
+!
+!    DO ik = 1, nks
+!      ! convert to Ry
+!      et(:, ik) = 2.d0 * band_e(:, global_kpoint_index ( nkstot, ik ))
+!    ENDDO
+!
+!    DEALLOCATE(band_e)
+!
+!    ! compute band weights
+!    CALL weights()
+!
+!    ! compute occupancies
+!    ALLOCATE(bnd_occ(nbnd, nkstot))
+!    bnd_occ = 0.d0
+!    ! define a maximum band occupancy (2 in case of spin-unpolarized, 1 in case of spin-polarized)
+!    maxocc = 2.d0
+!    DO ik = 1, nks
+!      bnd_occ(:, global_kpoint_index ( nkstot, ik )) = maxocc * wg(:, ik) / wk(ik)
+!    END DO
+!    CALL mpi_allreduce(MPI_IN_PLACE, bnd_occ(1, 1), nbnd * nkstot, MPI_DOUBLE, MPI_SUM, inter_pool_comm, ierr)
+!
+!
+!!    DO ik = 1, nbnd
+!!      write (*,*) bnd_occ(ik, global_kpoint_index ( nkstot, 1 )), "   ", et(ik, 1)
+!!    END DO
+!
+!
+!    ! set band occupancies
+!    DO ik = 1, nkstot
+!      CALL sirius_set_band_occupancies(kset_id, ik, bnd_occ(1, ik))
+!    END DO
+!    DEALLOCATE(bnd_occ)
 
     !  generate valence density
     CALL sirius_generate_valence_density(kset_id)
