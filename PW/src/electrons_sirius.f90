@@ -54,11 +54,6 @@ subroutine electrons_sirius()
   !---------------
   real(8) :: paw_one_elec_energy
 
-  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
-  !nbnd = 50
-
-  !
   if ( dft_is_hybrid() ) then
      printout = 0  ! do not print etot and energy components at each scf step
   else if ( lmd ) then
@@ -130,24 +125,8 @@ subroutine electrons_sirius()
     end select
   endif
   
-  !---- set up a type of calculation -----
-  if (  okvan .and. .not. okpaw ) then
-    call sirius_set_esm_type(c_str("ultrasoft_pseudopotential"))
-  endif
-
-  if (  okvan .and. okpaw ) then
-    call sirius_set_esm_type(c_str("paw_pseudopotential"))
-  endif
-
-  if ( .not.  okvan .and. .not. okpaw ) then
-    call sirius_set_esm_type(c_str("norm_conserving_pseudopotential"))
-  endif
-
-  !if ( okvan .and.  okpaw ) then
-  !  write(*,*) "ERROR: PAW and Vanderbilt poetntials in one calculation are not implemented ! ABORT!"
-  !  STOP
-  !endif
-  !-----------------------------------------
+  ! set up a type of calculation
+  call sirius_set_esm_type(c_str("pseudopotential"))
 
   ! set number of first-variational states
   CALL sirius_set_num_fv_states(nbnd)
@@ -176,8 +155,6 @@ subroutine electrons_sirius()
   ! set |G+k| cutoff for the wave-functions
   ! convert from |G+k|^2/2 Rydbergs to |G+k| in [a.u.^-1]
   CALL sirius_set_gk_cutoff(sqrt(ecutwfc))
-
-
 
   CALL sirius_set_num_mag_dims(0)
 
@@ -215,16 +192,6 @@ subroutine electrons_sirius()
     call sirius_set_atom_type_beta_rf(c_str(atm(iat)), upf(iat)%nbeta, upf(iat)%lll(1),&
                                      &upf(iat)%kbeta(1), upf(iat)%beta(1, 1), upf(iat)%mesh )
 
-
-
-    if( upf(iat)%tpawp ) then
-    write(*,*) "PAWPAWPAW"
-        call sirius_set_atom_type_paw_data(c_str(atm(iat)), upf(iat)%aewfc(1,1), upf(iat)%pswfc(1,1),&
-                                          &upf(iat)%nbeta, upf(iat)%mesh, upf(iat)%paw%iraug,&
-                                          &upf(iat)%paw%core_energy, upf(iat)%paw%ae_rho_atc(1),&
-                                          &upf(iat)%mesh, upf(iat)%paw%oc(1), upf(iat)%nbeta )
-    endif
-
     allocate(dion(upf(iat)%nbeta, upf(iat)%nbeta))
     ! convert to hartree
     do i = 1, upf(iat)%nbeta
@@ -236,10 +203,9 @@ subroutine electrons_sirius()
     call sirius_set_atom_type_dion(c_str(atm(iat)), upf(iat)%nbeta, dion(1,1))
     deallocate(dion)
 
-    if (okvan) then
+    if (upf(iat)%tvanp) then
       allocate(qij(upf(iat)%mesh, upf(iat)%nbeta*(upf(iat)%nbeta+1)/2, 0:2*upf(iat)%lmax))
       qij = 0
-
       ! set radial function of augmentation charge
       if (upf(iat)%q_with_l) then
         do l = 0, upf(iat)%nqlc-1
@@ -276,8 +242,14 @@ subroutine electrons_sirius()
         enddo
       endif
       call sirius_set_atom_type_q_rf(c_str(atm(iat)), qij(1, 1, 0), upf(iat)%lmax)
-      !call sirius_set_atom_type_q_rf(c_str(atm(iat)), qij(1, 1, 0), (upf(iat)%nqlc-1) / 2)
       deallocate(qij)
+    endif
+
+    if (upf(iat)%tpawp) then
+      call sirius_set_atom_type_paw_data(c_str(atm(iat)), upf(iat)%aewfc(1,1), upf(iat)%pswfc(1,1),&
+                                        &upf(iat)%nbeta, upf(iat)%mesh, upf(iat)%paw%iraug,&
+                                        &upf(iat)%paw%core_energy, upf(iat)%paw%ae_rho_atc(1),&
+                                        &upf(iat)%mesh, upf(iat)%paw%oc(1), upf(iat)%nbeta )
     endif
 
     ! set non-linear core correction
@@ -413,58 +385,45 @@ subroutine electrons_sirius()
        CALL sirius_set_iterative_solver_tolerance(ethr)
     END IF
 
-    ! generate effective potential
-    CALL sirius_generate_effective_potential()
-
     ! solve H\spi = E\psi
     CALL sirius_find_eigen_states(kset_id, precompute=1)
 
-    ! use sirius to calculate band occupancies
-     CALL sirius_find_band_occupancies(kset_id)
-     CALL sirius_get_energy_fermi(kset_id, ef)
-     ef = ef * 2.d0
-!
-!    ALLOCATE(band_e(nbnd, nkstot))
-!    ! get band energies
-!    DO ik = 1, nkstot
-!      CALL sirius_get_band_energies(kset_id, ik, band_e(1, ik))
-!    END DO
-!
-!    DO ik = 1, nbnd
-!      write (*,*) band_e(ik, 1 )
-!    END DO
-!
-!    DO ik = 1, nks
-!      ! convert to Ry
-!      et(:, ik) = 2.d0 * band_e(:, global_kpoint_index ( nkstot, ik ))
-!    ENDDO
-!
-!    DEALLOCATE(band_e)
-!
-!    ! compute band weights
-!    CALL weights()
-!
-!    ! compute occupancies
-!    ALLOCATE(bnd_occ(nbnd, nkstot))
-!    bnd_occ = 0.d0
-!    ! define a maximum band occupancy (2 in case of spin-unpolarized, 1 in case of spin-polarized)
-!    maxocc = 2.d0
-!    DO ik = 1, nks
-!      bnd_occ(:, global_kpoint_index ( nkstot, ik )) = maxocc * wg(:, ik) / wk(ik)
-!    END DO
-!    CALL mpi_allreduce(MPI_IN_PLACE, bnd_occ(1, 1), nbnd * nkstot, MPI_DOUBLE, MPI_SUM, inter_pool_comm, ierr)
-!
-!
-!!    DO ik = 1, nbnd
-!!      write (*,*) bnd_occ(ik, global_kpoint_index ( nkstot, 1 )), "   ", et(ik, 1)
-!!    END DO
-!
-!
-!    ! set band occupancies
-!    DO ik = 1, nkstot
-!      CALL sirius_set_band_occupancies(kset_id, ik, bnd_occ(1, ik))
-!    END DO
-!    DEALLOCATE(bnd_occ)
+!    ! use sirius to calculate band occupancies
+!     CALL sirius_find_band_occupancies(kset_id)
+!     CALL sirius_get_energy_fermi(kset_id, ef)
+!     ef = ef * 2.d0
+
+    ALLOCATE(band_e(nbnd, nkstot))
+    ! get band energies
+    DO ik = 1, nkstot
+      CALL sirius_get_band_energies(kset_id, ik, band_e(1, ik))
+    END DO
+
+    DO ik = 1, nks
+      ! convert to Ry
+      et(:, ik) = 2.d0 * band_e(:, global_kpoint_index ( nkstot, ik ))
+    ENDDO
+
+    DEALLOCATE(band_e)
+
+    ! compute band weights
+    CALL weights()
+
+    ! compute occupancies
+    ALLOCATE(bnd_occ(nbnd, nkstot))
+    bnd_occ = 0.d0
+    ! define a maximum band occupancy (2 in case of spin-unpolarized, 1 in case of spin-polarized)
+    maxocc = 2.d0
+    DO ik = 1, nks
+      bnd_occ(:, global_kpoint_index ( nkstot, ik )) = maxocc * wg(:, ik) / wk(ik)
+    END DO
+    CALL mpi_allreduce(MPI_IN_PLACE, bnd_occ(1, 1), nbnd * nkstot, MPI_DOUBLE, MPI_SUM, inter_pool_comm, ierr)
+
+    ! set band occupancies
+    DO ik = 1, nkstot
+      CALL sirius_set_band_occupancies(kset_id, ik, bnd_occ(1, ik))
+    END DO
+    DEALLOCATE(bnd_occ)
 
     !  generate valence density
     CALL sirius_generate_valence_density(kset_id)
@@ -501,6 +460,9 @@ subroutine electrons_sirius()
     etxc = etxc * 2.d0
     eband = eband * 2.d0
     deband = -deband * 2.d0
+
+    ! generate effective potential
+    CALL sirius_generate_effective_potential()
 
     !!== !
     !!== ! ... the Harris-Weinert-Foulkes energy is computed here using only
