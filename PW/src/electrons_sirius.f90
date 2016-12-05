@@ -35,6 +35,7 @@ subroutine electrons_sirius()
   use fft_base,         only : dfftp
   use atom,             only : rgrid
   USE paw_variables,    only : okpaw, total_core_energy
+  USE force_mod,        ONLY : force
   !
   implicit none
   integer iat, ia, i, j, kset_id, num_gvec, num_fft_grid_points, ik, iter, ig, li, lj, ijv, ilast, ir, l, mb, nb
@@ -574,6 +575,17 @@ subroutine electrons_sirius()
   WRITE( stdout, 9120 ) iter
 
 10 continue
+
+  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  !probably calculate forces here
+  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  call sirius_calc_forces(force(1,1))
+
+  do ia=1,nat
+    do i=1,3
+      force(i,ia) = 2.0 * force(i,ia)
+    enddo
+  enddo
 
   CALL sirius_stop_timer(c_str("electrons"))
 

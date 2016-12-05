@@ -45,6 +45,7 @@ SUBROUTINE run_pwscf ( exit_status )
 #if defined(__XSD)
   USE qexsd_module,     ONLY:   qexsd_set_status
 #endif
+  USE cellmd,                 ONLY : lmovecell
   !
 
   IMPLICIT NONE
@@ -144,14 +145,20 @@ SUBROUTINE run_pwscf ( exit_status )
      ELSE
         CALL pw2casino( 0 )
      END IF
-     !
-     ! ... force calculation
-     !
-     IF ( lforce ) CALL forces()
-     !
-     ! ... stress calculation
-     !
-     IF ( lstres ) CALL stress ( sigma )
+
+
+     if ( .not. use_sirius ) then
+         !
+         ! ... force calculation
+         !
+         IF ( lforce ) CALL forces()
+         !
+         ! ... stress calculation
+         !
+         IF ( lstres ) CALL stress ( sigma )
+     else
+         lmovecell = .FALSE.
+     endif
      !
      ! ... send out forces to MM code in QM/MM run
      !
