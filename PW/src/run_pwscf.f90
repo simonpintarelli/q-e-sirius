@@ -158,14 +158,17 @@ SUBROUTINE run_pwscf ( exit_status )
          IF ( lstres ) CALL stress ( sigma )
      else
          lmovecell = .FALSE.
+         lstres = .FALSE.
      endif
      !
      ! ... send out forces to MM code in QM/MM run
      !
      IF ( lmd .OR. lbfgs ) THEN
         !
-        if (fix_volume) CALL impose_deviatoric_stress(sigma)
-        if (fix_area)  CALL  impose_deviatoric_stress_2d(sigma)
+        if ( .not. use_sirius ) then
+            if (fix_volume) CALL impose_deviatoric_stress(sigma)
+            if (fix_area)  CALL  impose_deviatoric_stress_2d(sigma)
+        endif
         !
         ! ... save data needed for potential and wavefunction extrapolation
         !
