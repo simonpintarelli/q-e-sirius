@@ -43,7 +43,7 @@ subroutine electrons_sirius()
   real(8), allocatable :: bnd_occ(:,:), band_e(:,:)
   real(8) v(3), a1(3), a2(3), a3(3), maxocc, rms
   type (scf_type) :: rhoin ! used to store rho_in of current/next iteration
-  real(8) :: dr2
+  real(8) :: dr2, etot_old
   logical exst
   integer ierr, rank, use_sirius_mixer, num_ranks_k, dims(3)
   real(8) vlat(3, 3), vlat_inv(3, 3), v1(3), v2(3), bg_inv(3, 3 )
@@ -303,7 +303,7 @@ subroutine electrons_sirius()
     stop 111
   endif
   
-  use_sirius_mixer = 0
+  use_sirius_mixer = 1
   !CALL sirius_use_internal_mixer(use_sirius_mixer)
   !write(*,*)"use_sirius_mixer=",use_sirius_mixer
 
@@ -358,18 +358,22 @@ subroutine electrons_sirius()
   ! initialize internal library mixer
   if (use_sirius_mixer.eq.1) then
     CALL sirius_density_mixer_initialize()
+  else
+    call create_scf_type(rhoin)
+    call sirius_get_rho_pw(ngm, mill(1, 1), rho%of_g(1, 1))
+    call scf_type_copy(rho, rhoin)
+    call open_mix_file( iunmix, 'mix', exst  )
   endif
 
   WRITE( stdout, 9002 )
   !CALL flush_unit( stdout )
 
-  call create_scf_type(rhoin)
-  call sirius_get_rho_pw(ngm, mill(1, 1), rho%of_g(1, 1))
-  call scf_type_copy(rho, rhoin)
-  call open_mix_file( iunmix, 'mix', exst  )
 
   CALL sirius_start_timer(c_str("electrons"))
 
+  etot_old = 0.0;
+
+  !!! DFT LOOP !!!!!!!!!!!
   DO iter = 1, niter
     WRITE( stdout, 9010 ) iter, ecutwfc, mixing_beta
 
@@ -433,6 +437,7 @@ subroutine electrons_sirius()
     if (.not.nosym) CALL sirius_symmetrize_density()
     
     CALL sirius_start_timer(c_str("qe|mix"))
+
     IF (use_sirius_mixer.eq.1) THEN
       CALL sirius_mix_density(rms)
       CALL sirius_get_density_dr2(dr2)
@@ -449,6 +454,7 @@ subroutine electrons_sirius()
       ! set new (mixed) rho(G)
       CALL sirius_set_rho_pw(ngm, mill(1, 1), rhoin%of_g(1, 1), intra_bgrp_comm)
     ENDIF
+
     CALL sirius_stop_timer(c_str("qe|mix"))
 
     !== CALL sirius_get_energy_tot(etot)
@@ -507,8 +513,21 @@ subroutine electrons_sirius()
         etot = etot -  paw_one_elec_energy +  epaw
     endif
 
+!    IF (use_sirius_mixer.eq.1) THEN
+!
+!          conv_elec = (ABS( etot - etot_old ) .le. 1.D-10)
+!
+!    endif
+!
+!    etot_old = etot
+
+
     ! TODO: this has to be called correcly - there are too many dependencies
     CALL print_energies(printout)
+
+    if (dr2.lt.conv_thr) then
+      conv_elec=.true.
+    endif
 
     IF ( conv_elec ) THEN
        !
@@ -528,16 +547,15 @@ subroutine electrons_sirius()
        !
     END IF
 
-    !if (dr2.lt.conv_thr) then
-    !  conv_elec=.true.
-    !  EXIT
-    !endif
+
+
 
   ENDDO
   WRITE( stdout, 9101 )
   WRITE( stdout, 9120 ) iter
 
 10 continue
+
 
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   !probably calculate forces here
@@ -552,11 +570,13 @@ subroutine electrons_sirius()
 
   CALL sirius_stop_timer(c_str("electrons"))
 
-  IF ( conv_elec ) THEN
+  if (use_sirius_mixer .ne. 1) then
+    IF ( conv_elec ) THEN
      CALL close_mix_file( iunmix, 'delete' )
-  ELSE
+    ELSE
      CALL close_mix_file( iunmix, 'keep' )
-  END IF
+    END IF
+  endif
 
   !
   !!IF ( ABS( charge - nelec ) / charge > 1.D-7 ) THEN
@@ -635,6 +655,12 @@ subroutine electrons_sirius()
   CALL sirius_write_json_output()
 
   CALL sirius_clear()
+
+  ! deallocate what we allocated
+  deallocate(rho_rg)
+  deallocate(veff_rg)
+
+
 
 9000 FORMAT(/'     total cpu time spent up to now is ',F10.1,' secs' )
 9001 FORMAT(/'     per-process dynamical memory: ',f7.1,' Mb' )
