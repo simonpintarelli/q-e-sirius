@@ -110,7 +110,6 @@ SUBROUTINE run_pwscf ( exit_status )
      ELSE
         if (use_sirius) then
           CALL electrons_sirius()
-          CALL electrons_sirius()
         else
           CALL electrons() 
         endif

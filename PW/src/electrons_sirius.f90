@@ -12,7 +12,8 @@ subroutine electrons_sirius()
                               &lmd, iprint, llondon, lxdm, iverbosity, gamma_only
   use input_parameters, only : conv_thr, sirius_cfg
   use gvect,            only : ngm_g
-  use scf,              only : scf_type, rho, create_scf_type, open_mix_file, close_mix_file, scf_type_copy, bcast_scf_type
+  use scf,              only : scf_type, rho, create_scf_type, open_mix_file, scf_type_copy, bcast_scf_type,&
+                               close_mix_file, destroy_scf_type
   use io_files,         only : iunwfc, iunmix, nwordwfc, output_drho, &
                                iunres, iunefield, seqopn
   use mp_bands,         only : intra_bgrp_comm
@@ -36,17 +37,18 @@ subroutine electrons_sirius()
   use atom,             only : rgrid
   USE paw_variables,    only : okpaw, total_core_energy
   USE force_mod,        ONLY : force
+
   !
   implicit none
   integer iat, ia, i, j, kset_id, num_gvec, num_fft_grid_points, ik, iter, ig, li, lj, ijv, ilast, ir, l, mb, nb
   real(8), allocatable :: rho_rg(:), veff_rg(:), vloc(:), dion(:,:), tmp(:)
-  real(8), allocatable :: bnd_occ(:,:), band_e(:,:)
+  real(8), allocatable :: bnd_occ(:,:), band_e(:,:), wk_tmp(:), xk_tmp(:,:)
   real(8) v(3), a1(3), a2(3), a3(3), maxocc, rms
   type (scf_type) :: rhoin ! used to store rho_in of current/next iteration
-  real(8) :: dr2, etot_old
+  real(8) :: dr2
   logical exst
   integer ierr, rank, use_sirius_mixer, num_ranks_k, dims(3)
-  real(8) vlat(3, 3), vlat_inv(3, 3), v1(3), v2(3), bg_inv(3, 3 )
+  real(8) vlat(3, 3), vlat_inv(3, 3), v1(3), v2(3), bg_inv(3, 3)
   integer kmesh(3), kshift(3), printout, vt(3)
   integer, external :: global_kpoint_index
   real(8), allocatable :: qij(:,:,:)
@@ -67,7 +69,7 @@ subroutine electrons_sirius()
   !CALL sirius_create_global_parameters()
 
   ! create context of simulation
-  CALL sirius_create_simulation_context(c_str(trim(adjustl(sirius_cfg))))
+  call sirius_create_simulation_context(c_str(trim(adjustl(sirius_cfg))))
 
   if (get_meta().ne.0.or.get_inlc().ne.0) then
     write(*,*)get_igcx()
@@ -130,9 +132,9 @@ subroutine electrons_sirius()
   call sirius_set_esm_type(c_str("pseudopotential"))
 
   ! set number of first-variational states
-  CALL sirius_set_num_fv_states(nbnd)
+  call sirius_set_num_fv_states(nbnd)
 
-  call sirius_set_gamma_point(gamma_only )
+  call sirius_set_gamma_point(gamma_only)
   
   num_ranks_k = nproc_image / npool
   i = sqrt(dble(num_ranks_k) + 1d-10)
@@ -280,11 +282,10 @@ subroutine electrons_sirius()
     ! reduce coordinates to [0, 1) interval
     call sirius_reduce_coordinates(v1(1), v2(1), vt(1))
     call sirius_add_atom(c_str(atm(ityp(ia))), v2(1))
-    write(*,*) "COORDS  ", v2
   enddo
 
   ! initialize global variables/indices/arrays/etc. of the simulation
-  call sirius_global_initialize()
+  call sirius_initialize_simulation_context()
 
   ! get number of g-vectors of the dense fft grid
   call sirius_get_num_gvec(num_gvec)
@@ -311,11 +312,11 @@ subroutine electrons_sirius()
   call sirius_get_num_fft_grid_points(num_fft_grid_points)
   ! initialize density class
   allocate(rho_rg(num_fft_grid_points))
-  call sirius_density_initialize(rho_rg(1))
+  call sirius_create_density(rho_rg(1))
 
   ! initialize potential class
   allocate(veff_rg(num_fft_grid_points))
-  call sirius_potential_initialize(veff_rg(1))
+  call sirius_create_potential(veff_rg(1))
   
   !!== i = 1
   !!== if (nosym) i = 0
@@ -323,28 +324,32 @@ subroutine electrons_sirius()
   !!== kshift(:) = (/k1, k2, k3/)
   !!== call sirius_create_irreducible_kset(kmesh, kshift, i, kset_id)
 
-  ALLOCATE(tmp(nkstot))
+  ALLOCATE(wk_tmp(nkstot))
+  ALLOCATE(xk_tmp(3,nkstot))
   ! weights of k-points must sum to one
   ! WARNING: if QE has different weights for non-magnetic and magnectic cases,
   !          this has to be fixed here
   DO i = 1, nkstot
-    tmp(i) = wk(i) / 2.d0
+    wk_tmp(i) = wk(i) / 2.d0
+    xk_tmp(:,i) = xk(:,i)
   END DO
 
-  CALL mpi_bcast(tmp(1), nkstot, MPI_DOUBLE, 0, inter_pool_comm, ierr)
-  CALL mpi_bcast(xk(1, 1), 3 * nkstot, MPI_DOUBLE, 0, inter_pool_comm, ierr)
-
+  CALL mpi_bcast(wk_tmp(1),        nkstot, MPI_DOUBLE, 0, inter_pool_comm, ierr)
+  CALL mpi_bcast(xk_tmp(1, 1), 3 * nkstot, MPI_DOUBLE, 0, inter_pool_comm, ierr)
+    
+  ! convert to fractional coordinates
   DO ik = 1, nkstot
-    xk(:, ik) = matmul(bg_inv, xk(:, ik))
+    xk_tmp(:, ik) = matmul(bg_inv, xk_tmp(:, ik))
   END DO
 
   ! create a set of k-points
   ! WARNING: k-points must be provided in fractional coordinates of the reciprocal lattice
-  CALL sirius_create_kset( nkstot, xk(1, 1), tmp(1), 1, kset_id)
-  DEALLOCATE(tmp)
+  CALL sirius_create_kset(nkstot, xk_tmp(1, 1), wk_tmp(1), 1, kset_id)
+  DEALLOCATE(wk_tmp)
+  DEALLOCATE(xk_tmp)
 
   ! initialize ground-state class
-  CALL sirius_ground_state_initialize(kset_id)
+  CALL sirius_create_ground_state(kset_id)
 
   ! generate initial density from atomic densities rho_at
   call sirius_generate_initial_density()
@@ -353,27 +358,23 @@ subroutine electrons_sirius()
   CALL sirius_generate_effective_potential()
 
   ! initialize subspace before calling "sirius_find_eigen_states"
-  call sirius_initialize_subspace()
+  call sirius_initialize_subspace(kset_id)
 
   ! initialize internal library mixer
   if (use_sirius_mixer.eq.1) then
     CALL sirius_density_mixer_initialize()
-  else
-    call create_scf_type(rhoin)
-    call sirius_get_rho_pw(ngm, mill(1, 1), rho%of_g(1, 1))
-    call scf_type_copy(rho, rhoin)
-    call open_mix_file( iunmix, 'mix', exst  )
   endif
 
   WRITE( stdout, 9002 )
   !CALL flush_unit( stdout )
 
+  call create_scf_type(rhoin)
+  call sirius_get_rho_pw(ngm, mill(1, 1), rho%of_g(1, 1))
+  call scf_type_copy(rho, rhoin)
+  call open_mix_file( iunmix, 'mix', exst  )
 
   CALL sirius_start_timer(c_str("electrons"))
 
-  etot_old = 0.0;
-
-  !!! DFT LOOP !!!!!!!!!!!
   DO iter = 1, niter
     WRITE( stdout, 9010 ) iter, ecutwfc, mixing_beta
 
@@ -437,7 +438,6 @@ subroutine electrons_sirius()
     if (.not.nosym) CALL sirius_symmetrize_density()
     
     CALL sirius_start_timer(c_str("qe|mix"))
-
     IF (use_sirius_mixer.eq.1) THEN
       CALL sirius_mix_density(rms)
       CALL sirius_get_density_dr2(dr2)
@@ -454,7 +454,6 @@ subroutine electrons_sirius()
       ! set new (mixed) rho(G)
       CALL sirius_set_rho_pw(ngm, mill(1, 1), rhoin%of_g(1, 1), intra_bgrp_comm)
     ENDIF
-
     CALL sirius_stop_timer(c_str("qe|mix"))
 
     !== CALL sirius_get_energy_tot(etot)
@@ -513,15 +512,6 @@ subroutine electrons_sirius()
         etot = etot -  paw_one_elec_energy +  epaw
     endif
 
-!    IF (use_sirius_mixer.eq.1) THEN
-!
-!          conv_elec = (ABS( etot - etot_old ) .le. 1.D-10)
-!
-!    endif
-!
-!    etot_old = etot
-
-
     ! TODO: this has to be called correcly - there are too many dependencies
     CALL print_energies(printout)
 
@@ -549,13 +539,13 @@ subroutine electrons_sirius()
 
 
 
-
   ENDDO
   WRITE( stdout, 9101 )
   WRITE( stdout, 9120 ) iter
 
 10 continue
 
+  CALL sirius_stop_timer(c_str("electrons"))
 
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   !probably calculate forces here
@@ -568,15 +558,6 @@ subroutine electrons_sirius()
     enddo
   enddo
 
-  CALL sirius_stop_timer(c_str("electrons"))
-
-  if (use_sirius_mixer .ne. 1) then
-    IF ( conv_elec ) THEN
-     CALL close_mix_file( iunmix, 'delete' )
-    ELSE
-     CALL close_mix_file( iunmix, 'keep' )
-    END IF
-  endif
 
   !
   !!IF ( ABS( charge - nelec ) / charge > 1.D-7 ) THEN
@@ -651,16 +632,22 @@ subroutine electrons_sirius()
   !!   !
   !!END IF
 
-  !CALL sirius_print_timers()
-  CALL sirius_write_json_output()
+  CALL close_mix_file( iunmix, 'delete' )
+  call destroy_scf_type ( rhoin )
 
-  CALL sirius_clear()
-
-  ! deallocate what we allocated
   deallocate(rho_rg)
   deallocate(veff_rg)
 
+  !CALL sirius_print_timers()
+  CALL sirius_write_json_output()
+  
+  call sirius_delete_ground_state()
+  call sirius_delete_kset(kset_id)
+  call sirius_delete_density()
+  call sirius_delete_potential()
+  call sirius_delete_simulation_context()
 
+  !CALL sirius_clear()
 
 9000 FORMAT(/'     total cpu time spent up to now is ',F10.1,' secs' )
 9001 FORMAT(/'     per-process dynamical memory: ',f7.1,' Mb' )
