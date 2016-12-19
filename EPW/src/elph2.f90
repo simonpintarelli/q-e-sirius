@@ -67,7 +67,8 @@
        sumr(:,:,:,:),          &!  to apply the ASR correction to every xq
        zstar(:,:,:),           &!  Born effective charges
        epsi(:,:),              &!  dielectric tensor
-       inv_tau(:,:,:)           !  scattering rate
+       inv_tau(:,:,:),         &!  scattering rate
+       ifc(:,:,:,:,:,:,:)       !  Interatomic force constant in real space
   REAL(KIND=DP) ::             &!
        efnew                    !  SP: Fermi level on the fine grid. Added globaly for efficiency reason 
   INTEGER ::                   &!
@@ -80,7 +81,9 @@
        nrr_k,                  &!  number of wigner-seitz points for electrons
        nrr_q,                  &!  number of wigner-seitz points for phonons
        ibndmin,                &!  band bounds for slimming down electron-phonon matrix 
-       ibndmax                  !
+       ibndmax,                &!
+       lower_band,             &!  Lower band index for image (band) parallelization
+       upper_band               !  Upper band index for image (band) parallelization
   INTEGER, ALLOCATABLE ::      & 
        irvec(:,:),             &!  crys coordinates of wigner-seitz vectors (both elec and phon)
        ndegen(:),              &!  corresponding degeneragy, electrons (old version)

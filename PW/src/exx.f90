@@ -8,7 +8,7 @@
 !--------------------------------------
 MODULE exx
   !--------------------------------------
-!   !
+  !
   USE kinds,                ONLY : DP
   USE coulomb_vcut_module,  ONLY : vcut_init, vcut_type, vcut_info, &
                                    vcut_get,  vcut_spheric_get
@@ -17,6 +17,7 @@ MODULE exx
   USE fft_custom,           ONLY : fft_cus
   !
   USE control_flags,        ONLY : gamma_only, tqr
+  USE io_global,            ONLY : stdout
 
   IMPLICIT NONE
   SAVE
@@ -45,8 +46,13 @@ MODULE exx
 
   COMPLEX(DP), ALLOCATABLE :: exxbuff(:,:,:)
                                          ! temporary buffer for wfc storage
-!civn
-  COMPLEX(DP), ALLOCATABLE :: xi(:,:,:)
+  !
+#if defined(__EXX_ACE)
+  LOGICAL :: use_ace=.true.              ! Use Lin Lin's ACE method
+#else
+  LOGICAL :: use_ace=.false. 
+#endif
+  COMPLEX(DP), ALLOCATABLE :: xi(:,:,:)  ! ACE projectors
   INTEGER :: nbndproj
   LOGICAL :: domat
   !
@@ -127,7 +133,6 @@ MODULE exx
     USE mp_bands,     ONLY : intra_bgrp_comm
     USE control_flags,ONLY : tqr
     USE realus,       ONLY : qpointlist, tabxx, tabp!, tabs
-    USE io_global,    ONLY : stdout
 
     IMPLICIT NONE
 
@@ -227,7 +232,7 @@ MODULE exx
     USE mp_orthopools,  ONLY : mp_start_orthopools, intra_orthopool_comm
     USE mp,             ONLY : mp_sum
     USE klist,          ONLY : nkstot
-    !USE exx,            ONLY : nkqs, working_pool
+    !
     IMPLICIT NONE
     INTEGER :: ikq, current_ik, ik
     INTEGER, EXTERNAL :: local_kpoint_index
@@ -274,9 +279,7 @@ MODULE exx
     USE noncollin_module, ONLY : nspin_lsda
     USE klist,      ONLY : xk, wk, nkstot, nks, qnorm
     USE wvfct,      ONLY : nbnd
-    USE io_global,  ONLY : stdout
     USE start_k,    ONLY : nk1,nk2,nk3
-    USE mp_pools,   ONLY : npool
     USE control_flags, ONLY : iverbosity
     !
     IMPLICIT NONE
@@ -432,6 +435,7 @@ MODULE exx
     ENDDO
     !
     ! allocate and fill the arrays xkq(3,nkqs), index_xk(nkqs) and index_sym(nkqs)
+    ! NOTE: nkqs will be redefined as nspin_lsda*nkqs later 
     !
     ALLOCATE( xkq_collect(3,nspin_lsda*nkqs), index_xk(nspin_lsda*nkqs),  &
               index_sym(nspin_lsda*nkqs) )
@@ -503,7 +507,6 @@ MODULE exx
     !------------------------------------------------------------------------
     !
     USE cell_base,  ONLY : at, alat
-    USE io_global,  ONLY : stdout
     USE funct,      ONLY : get_screening_parameter
     !
     IMPLICIT NONE
@@ -519,15 +522,16 @@ MODULE exx
       !
       use_regularization = .true.
       !
-      !
     CASE ( "vcut_ws" )
       !
+      use_regularization = .true.
       use_coulomb_vcut_ws = .true.
       IF ( x_gamma_extrapolation ) &
             CALL errore(sub_name,'cannot USE x_gamm_extrap and vcut_ws', 1)
       !
     CASE ( "vcut_spherical" )
       !
+      use_regularization = .true.
       use_coulomb_vcut_spheric = .true.
       IF ( x_gamma_extrapolation ) &
             CALL errore(sub_name,'cannot USE x_gamm_extrap and vcut_spherical', 1)
@@ -570,7 +574,6 @@ MODULE exx
     USE symm_base,  ONLY : s
     USE cell_base,  ONLY : at
     USE klist,      ONLY : nkstot, xk
-    USE mp_pools,   ONLY : npool
     IMPLICIT NONE
     REAL(dp), INTENT(in) :: xk_collect(:,:)
     !
@@ -664,7 +667,6 @@ MODULE exx
     USE wvfct,                ONLY : nbnd, npwx, wg, current_k
     USE klist,                ONLY : ngk, nks, nkstot, xk, wk, igk_k
     USE symm_base,            ONLY : nsym, s, sr, ftau
-    USE mp_pools,             ONLY : npool, nproc_pool, me_pool, inter_pool_comm
     USE mp_bands,             ONLY : me_bgrp, set_bgrp_indices, nbgrp
     USE mp,                   ONLY : mp_sum, mp_bcast
     USE funct,                ONLY : get_exx_fraction, start_exx,exx_is_active,&
@@ -674,9 +676,7 @@ MODULE exx
     USE uspp,                 ONLY : nkb, vkb, okvan
     USE us_exx,               ONLY : rotate_becxx
     USE paw_variables,        ONLY : okpaw
-    USE paw_exx,              ONLY : PAW_init_keeq
-    USE mp_pools,             ONLY : me_pool, my_pool_id, root_pool, nproc_pool, &
-                                     inter_pool_comm, my_pool_id, intra_pool_comm
+    USE paw_exx,              ONLY : PAW_init_fock_kernel
     USE mp_orthopools,        ONLY : intra_orthopool_comm
 
     IMPLICIT NONE
@@ -772,8 +772,13 @@ MODULE exx
         ibnd_buff_end   = ibnd_end
     ENDIF
     !
-    IF (.not. allocated(exxbuff)) &
-        ALLOCATE( exxbuff(nrxxs*npol, ibnd_buff_start:ibnd_buff_end, nkqs))
+    IF (.not. allocated(exxbuff)) THEN
+       IF (gamma_only) THEN
+          ALLOCATE( exxbuff(nrxxs*npol, ibnd_buff_start:ibnd_buff_end, nks))
+       ELSE
+          ALLOCATE( exxbuff(nrxxs*npol, ibnd_buff_start:ibnd_buff_end, nkqs))
+       END IF
+    END IF
     exxbuff=(0.0_DP,0.0_DP)
     !
     !   This is parallelized over pools. Each pool computes only its k-points
@@ -917,22 +922,26 @@ MODULE exx
     ! Each wavefunction in exxbuff is computed by a single pool, collect among 
     ! pools in a smart way (i.e. without doing all-to-all sum and bcast)
     ! See also the initialization of working_pool in exx_mp_init
-!      IF (npool>1 ) CALL mp_sum(exxbuff, inter_pool_comm)
-    DO ikq = 1, nkqs
-      CALL mp_bcast(exxbuff(:,:,ikq), working_pool(ikq), intra_orthopool_comm)
-    ENDDO
+    ! Note that in Gamma-only LSDA can be parallelized over two pools, and there
+    ! is no need to communicate anything: each pools deals with its own spin
+    !
+    IF ( .NOT.gamma_only ) THEN
+       DO ikq = 1, nkqs
+         CALL mp_bcast(exxbuff(:,:,ikq), working_pool(ikq), intra_orthopool_comm)
+       ENDDO
+    END IF
     !
     ! For US/PAW only: compute <beta_I|psi_j,k+q> for the entire 
-    ! de-symmetrized k+q grid by rotating the ones fro mthe irreducible wedge
+    ! de-symmetrized k+q grid by rotating the ones from the irreducible wedge
+    !
     IF(okvan) CALL rotate_becxx(nkqs, index_xk, index_sym, xkq_collect)
     !
     ! Initialize 4-wavefunctions one-center Fock integrals
     !    \int \psi_a(r)\phi_a(r)\phi_b(r')\psi_b(r')/|r-r'|
-    IF(okpaw) CALL PAW_init_keeq()
     !
-#if defined(__EXX_ACE)
-    CALL aceinit ( )
-#endif
+    IF(okpaw) CALL PAW_init_fock_kernel()
+    !
+    IF ( use_ace) CALL aceinit ( )
     !
     CALL stop_clock ('exxinit')
     !
@@ -1198,13 +1207,13 @@ MODULE exx
              IF( mod(im,2) == 0 ) THEN
 !$omp parallel do default(shared), private(ir)
                 DO ir = 1, nrxxs
-                   rhoc(ir) = exxbuff(ir,h_ibnd,ikq) * temppsic_aimag(ir) / omega
+                   rhoc(ir) = exxbuff(ir,h_ibnd,current_k) * temppsic_aimag(ir) / omega
                 ENDDO
 !$omp end parallel do
              ELSE
 !$omp parallel do default(shared), private(ir)
                 DO ir = 1, nrxxs
-                   rhoc(ir) = exxbuff(ir,h_ibnd,ikq) * temppsic_dble(ir) / omega
+                   rhoc(ir) = exxbuff(ir,h_ibnd,current_k) * temppsic_dble(ir) / omega
                 ENDDO
 !$omp end parallel do
              ENDIF
@@ -1267,23 +1276,24 @@ MODULE exx
              !
              IF(okpaw) THEN
                 IF(ibnd>=ibnd_start) &
-                CALL PAW_newdxx(x1/nqs, _CX(becxx(ikq)%r(:,ibnd)),   _CX(becpsi%r(:,im)), deexx)
+                CALL PAW_newdxx(x1/nqs, _CX(becxx(ikq)%r(:,ibnd)),&
+                                        _CX(becpsi%r(:,im)), deexx)
                 IF(ibnd<ibnd_end) &
-                CALL PAW_newdxx(x2/nqs, _CX(becxx(ikq)%r(:,ibnd+1)), _CX(becpsi%r(:,im)), deexx)
+                CALL PAW_newdxx(x2/nqs, _CX(becxx(ikq)%r(:,ibnd+1)), &
+                                        _CX(becpsi%r(:,im)), deexx)
              ENDIF
              !
              ! accumulates over bands and k points
              !
 !$omp parallel do default(shared), private(ir)
              DO ir = 1, nrxxs
-                RESULT(ir) = RESULT(ir)+x1* dble(vc(ir))* dble(exxbuff(ir,h_ibnd,ikq))&
-                                       +x2*aimag(vc(ir))*aimag(exxbuff(ir,h_ibnd,ikq))
+                RESULT(ir) = RESULT(ir)+x1* dble(vc(ir))* dble(exxbuff(ir,h_ibnd,current_k))&
+                                       +x2*aimag(vc(ir))*aimag(exxbuff(ir,h_ibnd,current_k))
              ENDDO
 !$omp end parallel do
              !
           ENDDO &
           IBND_LOOP_GAM
-          !
           !
           IF(okvan) THEN
              CALL mp_sum(deexx,intra_bgrp_comm)
@@ -1398,12 +1408,12 @@ MODULE exx
     !
     LOOP_ON_PSI_BANDS : &
     DO im = 1,m !for each band of psi (the k cycle is outside band)
-       IF(okvan) deexx = 0.0_DP
+       IF(okvan) deexx = 0._DP
        !
        IF (noncolin) THEN
           temppsic_nc = 0._DP
        ELSE
-          temppsic    = 0.0_DP
+          temppsic    = 0._DP
        ENDIF
        !
        IF (noncolin) THEN
@@ -1507,7 +1517,7 @@ MODULE exx
              CALL invfft ('Custom', vc, exx_fft%dfftt)
              !
              ! Add ultrasoft contribution (REAL SPACE)
-             IF(okvan .and. tqr) CALL newdxx_r(exx_fft,vc, becxx(ikq)%k(:,ibnd),deexx)
+             IF(okvan .and. tqr) CALL newdxx_r(exx_fft,vc, becxx(ikq)%k(:,ibnd), deexx)
              !
              ! Add PAW one-center contribution
              IF(okpaw) THEN
@@ -1591,7 +1601,7 @@ MODULE exx
        ENDIF
        !
        ! add non-local \sum_I |beta_I> \alpha_Ii (the sum on i is outside)
-       IF(okvan) CALL add_nlxx_pot(lda, hpsi(:,im), xkp, n, igk_k(1,current_k),&
+       IF(okvan) CALL add_nlxx_pot(lda, hpsi(:,im), xkp, n, igk_k(:,current_k),&
                                        deexx, eps_occ, exxalfa)
        !
     ENDDO &
@@ -2003,13 +2013,13 @@ MODULE exx
                 IF( mod(jbnd,2) == 0 ) THEN
 !$omp parallel do default(shared), private(ir)
                    DO ir = 1, nrxxs
-                      rhoc(ir) = exxbuff(ir,h_ibnd,ikq) * temppsic_aimag(ir) / omega
+                      rhoc(ir) = exxbuff(ir,h_ibnd,ikk) * temppsic_aimag(ir) / omega
                    ENDDO
 !$omp end parallel do
                 ELSE
 !$omp parallel do default(shared), private(ir)
                    DO ir = 1, nrxxs
-                      rhoc(ir) = exxbuff(ir,h_ibnd,ikq) * temppsic_dble(ir) / omega
+                      rhoc(ir) = exxbuff(ir,h_ibnd,ikk) * temppsic_dble(ir) / omega
                    ENDDO
 !$omp end parallel do
                 ENDIF
@@ -2702,11 +2712,11 @@ IMPLICIT NONE
   CHARACTER(len=50) :: frmt
   CHARACTER(len=*) :: label
 
-  WRITE(*,'(A)') label
+  WRITE(stdout,'(A)') label
   frmt = ' '
   WRITE(frmt,'(A,I4,A)') '(',m,'f16.10)'
   DO i = 1,n
-    WRITE(*,frmt) A(i,:)
+    WRITE(stdout,frmt) A(i,:)
   ENDDO
 END SUBROUTINE
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -2731,7 +2741,6 @@ SUBROUTINE aceinit( )
                          bec_type, calbec
   USE lsda_mod,   ONLY : current_spin, lsda, isk
   USE io_files,   ONLY : nwordwfc, iunwfc
-  USE io_global,  ONLY : stdout
   USE buffers,    ONLY : get_buffer
   USE mp_pools,   ONLY : inter_pool_comm
   USE mp_bands,   ONLY : intra_bgrp_comm
@@ -2849,10 +2858,10 @@ IMPLICIT NONE
     CALL matcalc('ACE',.true.,.false.,nnpw,nbnd,nbnd,phi,vv,rmexx,exxe)
     DEALLOCATE( rmexx )
 #if defined(__DEBUG)
-    WRITE(*,'(4(A,I3),A,I9,A,f12.6)') 'vexxace: nbnd=', nbnd, ' nbndproj=',nbndproj, &
+    WRITE(stdout,'(4(A,I3),A,I9,A,f12.6)') 'vexxace: nbnd=', nbnd, ' nbndproj=',nbndproj, &
                                               ' k=',current_k,' spin=',current_spin,' npw=',nnpw, ' E=',exxe
   ELSE
-    WRITE(*,'(4(A,I3),A,I9)')         'vexxace: nbnd=', nbnd, ' nbndproj=',nbndproj, &
+    WRITE(stdout,'(4(A,I3),A,I9)')         'vexxace: nbnd=', nbnd, ' nbndproj=',nbndproj, &
                                               ' k=',current_k,' spin=',current_spin,' npw=',nnpw
 #endif
   ENDIF
@@ -2895,7 +2904,7 @@ IMPLICIT NONE
     DO i = 1,n
      ee = ee + wg(i,current_k)*mat(i,i)
     ENDDO
-    WRITE(*,'(A,f16.8,A)') string//label, ee, ' Ry'
+    !WRITE(stdout,'(A,f16.8,A)') string//label, ee, ' Ry'
   ENDIF
 
   CALL stop_clock('matcalc')
@@ -2960,7 +2969,7 @@ TYPE(bec_type), INTENT(in) :: becpsi
 ! mexx = <phi|Vx[phi]|phi>
   CALL matcalc_k('exact',.true.,.false.,current_k,npwx*npol,nbndproj,nbndproj,phi,xitmp,mexx,exxe)
 #if defined(__DEBUG)
-  WRITE(*,'(3(A,I3),A,I9,A,f12.6)') 'aceinit_k: nbnd=', nbnd, ' nbndproj=',nbndproj, &
+  WRITE(stdout,'(3(A,I3),A,I9,A,f12.6)') 'aceinit_k: nbnd=', nbnd, ' nbndproj=',nbndproj, &
                                     ' k=',current_k,' npw=',nnpw,' Ex(k)=',exxe
 #endif
 ! |xi> = -One * Vx[phi]|phi> * rmexx^T
@@ -3009,7 +3018,7 @@ IMPLICIT NONE
     DO i = 1,n
       ee = ee + wg(i,ik)*DBLE(mat(i,i))
     ENDDO
-    !write(*,'(A,f16.8,A)') string//label, ee, ' Ry'
+    !write(stdout,'(A,f16.8,A)') string//label, ee, ' Ry'
   ENDIF
 
   CALL stop_clock('matcalc')
@@ -3023,18 +3032,18 @@ IMPLICIT NONE
   CHARACTER(len=50) :: frmt
   CHARACTER(len=*) :: label
 
-  WRITE(*,'(A)') label//'(real)'
+  WRITE(stdout,'(A)') label//'(real)'
   frmt = ' '
   WRITE(frmt,'(A,I4,A)') '(',m,'f12.6)'
   DO i = 1,n
-    WRITE(*,frmt) dreal(A(i,:))
+    WRITE(stdout,frmt) dreal(A(i,:))
   ENDDO
 
-  WRITE(*,'(A)') label//'(imag)'
+  WRITE(stdout,'(A)') label//'(imag)'
   frmt = ' '
   WRITE(frmt,'(A,I4,A)') '(',m,'f12.6)'
   DO i = 1,n
-    WRITE(*,frmt) aimag(A(i,:))
+    WRITE(stdout,frmt) aimag(A(i,:))
   ENDDO
 END SUBROUTINE
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -3100,10 +3109,10 @@ IMPLICIT NONE
   IF(domat) THEN
      CALL matcalc_k('ACE',.true.,.false.,current_k,npwx*npol,nbnd,nbnd,phi,vv,cmexx,exxe)
 #if defined(__DEBUG)
-    WRITE(*,'(3(A,I3),A,I9,A,f12.6)') 'vexxace_k: nbnd=', nbnd, ' nbndproj=',nbndproj, &
+    WRITE(stdout,'(3(A,I3),A,I9,A,f12.6)') 'vexxace_k: nbnd=', nbnd, ' nbndproj=',nbndproj, &
                    ' k=',current_k,' npw=',nnpw, ' Ex(k)=',exxe
   ELSE
-    WRITE(*,'(3(A,I3),A,I9)') 'vexxace_k: nbnd=', nbnd, ' nbndproj=',nbndproj, &
+    WRITE(stdout,'(3(A,I3),A,I9)') 'vexxace_k: nbnd=', nbnd, ' nbndproj=',nbndproj, &
                    ' k=',current_k,' npw=',nnpw
 #endif
   ENDIF
