@@ -78,7 +78,6 @@ lr_apply_liouvillian_eels.o : ../../PW/src/buffers.o
 lr_apply_liouvillian_eels.o : ../../PW/src/pwcom.o
 lr_apply_liouvillian_eels.o : lr_variables.o
 lr_calc_dens.o : ../../FFTXlib/fft_interfaces.o
-lr_calc_dens.o : ../../FFTXlib/fft_parallel.o
 lr_calc_dens.o : ../../Modules/becmod.o
 lr_calc_dens.o : ../../Modules/cell_base.o
 lr_calc_dens.o : ../../Modules/constants.o
@@ -569,7 +568,6 @@ stop_lr.o : ../../Modules/ions_base.o
 stop_lr.o : ../../Modules/kind.o
 stop_lr.o : ../../Modules/mp_global.o
 stop_lr.o : ../../Modules/noncol.o
-stop_lr.o : ../../Modules/parallel_include.o
 stop_lr.o : ../../Modules/plugin_flags.o
 stop_lr.o : ../../PW/src/buffers.o
 stop_lr.o : ../../PW/src/pwcom.o
