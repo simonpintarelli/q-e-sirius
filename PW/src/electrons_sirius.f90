@@ -349,7 +349,7 @@ subroutine electrons_sirius()
   DEALLOCATE(xk_tmp)
 
   ! initialize ground-state class
-  CALL sirius_create_ground_state(kset_id)
+  CALL sirius_create_ground_state(kset_id )
 
   ! generate initial density from atomic densities rho_at
   call sirius_generate_initial_density()
@@ -374,6 +374,8 @@ subroutine electrons_sirius()
   call open_mix_file( iunmix, 'mix', exst  )
 
   CALL sirius_start_timer(c_str("electrons"))
+
+  conv_elec=.false.
 
   DO iter = 1, niter
     WRITE( stdout, 9010 ) iter, ecutwfc, mixing_beta
@@ -417,7 +419,7 @@ subroutine electrons_sirius()
     CALL weights()
 
     ! compute occupancies
-    ALLOCATE(bnd_occ(nbnd, nkstot))
+    ALLOCATE(bnd_occ(nbnd, nkstot ))
     bnd_occ = 0.d0
     ! define a maximum band occupancy (2 in case of spin-unpolarized, 1 in case of spin-polarized)
     maxocc = 2.d0
@@ -515,11 +517,11 @@ subroutine electrons_sirius()
     ! TODO: this has to be called correcly - there are too many dependencies
     CALL print_energies(printout)
 
-    if (dr2.lt.conv_thr) then
+    if (dr2 .lt. conv_thr .and. use_sirius_mixer.eq.1) then
       conv_elec=.true.
     endif
 
-    IF ( conv_elec ) THEN
+    IF ( conv_elec  ) THEN
        !
        ! ... if system is charged add a Makov-Payne correction to the energy
        !
