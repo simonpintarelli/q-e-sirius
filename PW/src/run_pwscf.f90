@@ -36,11 +36,12 @@ SUBROUTINE run_pwscf ( exit_status )
   USE mp_images,        ONLY : intra_image_comm
   USE extrapolation,    ONLY : update_file, update_pot
   USE scf,              ONLY : rho
+  USE klist,            ONLY : kset_id
   USE lsda_mod,         ONLY : nspin
   USE fft_base,         ONLY : dfftp
   USE qmmm,             ONLY : qmmm_initialization, qmmm_shutdown, &
                                qmmm_update_positions, qmmm_update_forces
-  USE input_parameters, ONLY : use_sirius
+  USE input_parameters, ONLY : use_sirius, sirius_cfg
   USE sirius
 #if defined(__XSD)
   USE qexsd_module,     ONLY:   qexsd_set_status
@@ -101,6 +102,12 @@ SUBROUTINE run_pwscf ( exit_status )
   ENDIF
   !
   main_loop: DO idone = 1, nstep
+     if (use_sirius) then
+        ! create context of simulation
+        call sirius_create_simulation_context(c_str(trim(adjustl(sirius_cfg))))
+        ! set up a type of calculation
+        call sirius_set_esm_type(c_str("pseudopotential"))
+     endif
      !
      ! ... electronic self-consistency or band structure calculation
      !
@@ -119,7 +126,7 @@ SUBROUTINE run_pwscf ( exit_status )
      IF ( check_stop_now() .OR. .NOT. conv_elec ) THEN
         IF ( check_stop_now() ) exit_status = 255
         IF ( .NOT. conv_elec )  exit_status =  2
-#ifdef  __XSD
+#if defined(__XSD)
         CALL qexsd_set_status(exit_status)
 #endif
         ! workaround for the case of a single k-point
@@ -152,6 +159,15 @@ SUBROUTINE run_pwscf ( exit_status )
      ! ... stress calculation
      !
      IF ( lstres ) CALL stress ( sigma )
+     
+     if (use_sirius) then
+        call sirius_delete_ground_state()
+        call sirius_delete_kset(kset_id)
+        call sirius_delete_density()
+        call sirius_delete_potential()
+        call sirius_delete_simulation_context()
+     endif
+     
      !
      ! ... send out forces to MM code in QM/MM run
      !
