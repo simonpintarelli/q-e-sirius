@@ -31,6 +31,7 @@ SUBROUTINE stres_us( ik, gk, sigmanlc )
   USE becmod,               ONLY : allocate_bec_type, deallocate_bec_type, &
                                    bec_type, becp, calbec
   USE mp,                   ONLY : mp_sum, mp_get_comm_null, mp_circular_shift_left 
+  USE input_parameters, ONLY : use_sirius
   !
   IMPLICIT NONE
   !
@@ -47,7 +48,12 @@ SUBROUTINE stres_us( ik, gk, sigmanlc )
   !
   IF ( lsda ) current_spin = isk(ik)
   npw = ngk(ik)
-  IF ( nks > 1 ) CALL init_us_2( npw, igk_k(1,ik), xk(1,ik), vkb )
+
+  if (use_sirius) then
+    call init_us_2( npw, igk_k(1,ik), xk(1,ik), vkb )
+  else
+    if ( nks > 1 ) call init_us_2( npw, igk_k(1,ik), xk(1,ik), vkb )
+  endif
   !
   CALL allocate_bec_type ( nkb, nbnd, becp, intra_bgrp_comm ) 
   CALL calbec( npw, vkb, evc, becp )
