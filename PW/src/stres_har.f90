@@ -16,13 +16,15 @@ subroutine stres_har (sigmahar)
   USE ener,      ONLY: ehart
   USE fft_base,  ONLY : dfftp
   USE fft_interfaces,ONLY : fwfft
-  USE gvect,     ONLY: ngm, gstart, nl, g, gg
+  USE gvect,     ONLY: ngm, gstart, nl, g, gg, mill
   USE lsda_mod,  ONLY: nspin
   USE scf,       ONLY: rho
   USE control_flags,        ONLY: gamma_only
   USE wavefunctions_module, ONLY : psic
   USE mp_bands,  ONLY: intra_bgrp_comm
   USE mp,        ONLY: mp_sum
+  USE input_parameters, ONLY : use_sirius
+  use sirius
 
   implicit none
   !
@@ -32,13 +34,19 @@ subroutine stres_har (sigmahar)
 
   sigmahar(:,:) = 0.d0
   psic (:) = (0.d0, 0.d0)
-  nspin0=nspin
-  if (nspin==4) nspin0=1
-  do is = 1, nspin0
-     call daxpy (dfftp%nnr, 1.d0, rho%of_r (1, is), 1, psic, 2)
-  enddo
 
-  CALL fwfft ('Dense', psic, dfftp)
+  if (use_sirius) then
+    call sirius_get_rho_pw(ngm, mill(1, 1), rho%of_g(1, 1))
+    psic(nl(:)) = rho%of_g(:, 1)
+  else
+    nspin0=nspin
+    if (nspin==4) nspin0=1
+    do is = 1, nspin0
+       call daxpy (dfftp%nnr, 1.d0, rho%of_r (1, is), 1, psic, 2)
+    enddo
+
+    CALL fwfft ('Dense', psic, dfftp)
+  endif
   ! psic contains now the charge density in G space
   ! the  G=0 component is not computed
   do ig = gstart, ngm
