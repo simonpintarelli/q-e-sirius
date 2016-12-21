@@ -12,16 +12,11 @@ MODULE fft_types
 !=----------------------------------------------------------------------------=!
 
   USE fft_support, ONLY : good_fft_order, good_fft_dimension
+  USE fft_param
 
   IMPLICIT NONE
   PRIVATE
   SAVE
-
-#if defined(__MPI)
-      INCLUDE 'mpif.h'
-#endif
-
-#include "fft_param.f90"
 
   TYPE fft_type_descriptor
 
@@ -651,10 +646,6 @@ CONTAINS
 !  ----------------------------------------------
 
       IMPLICIT NONE
-
-#if defined(__MPI)
-      INCLUDE 'mpif.h'
-#endif
 
 ! ... declare arguments
       TYPE(fft_type_descriptor), INTENT(IN) :: dfft

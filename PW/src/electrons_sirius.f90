@@ -2,16 +2,16 @@ subroutine electrons_sirius()
   use sirius
   use cell_base,        only : at, alat, bg
   use ions_base,        only : ityp, tau, atm, zv, nsp, nat, amass, zv
-  use uspp_param,       only : upf
+  use uspp_param,       only : upf, nhm, nh
   use gvect,            only : ecutrho, ngm, mill
   use wvfct,            only : nbnd, wg, et
   use gvecw,            only : ecutwfc
-  use klist,            only : nks, nkstot, wk, xk, nelec, lgauss
+  use klist,            only : nks, nkstot, wk, xk, nelec, lgauss, kset_id
   use io_global,        only : stdout, ionode
   use control_flags,    only : tr2, niter, conv_elec, restart, mixing_beta, nmix, ethr, &
                               &lmd, iprint, llondon, lxdm, iverbosity, gamma_only
   use input_parameters, only : conv_thr, sirius_cfg
-  use gvect,            only : ngm_g
+  use gvect,            only : ngm_g,nl,nlm
   use scf,              only : scf_type, rho, create_scf_type, open_mix_file, scf_type_copy, bcast_scf_type,&
                                close_mix_file, destroy_scf_type
   use io_files,         only : iunwfc, iunmix, nwordwfc, output_drho, &
@@ -29,25 +29,29 @@ subroutine electrons_sirius()
   use ener,             only : etot, hwf_energy, eband, deband, ehart, &
                                vtxc, etxc, etxcc, ewld, demet, epaw, &
                                elondon, ef_up, ef_dw, exdm
-  use noncollin_module, only : noncolin, magtot_nc, i_cons,  bfield, lambda, report
+  use noncollin_module, only : noncolin, magtot_nc, i_cons,  bfield, lambda, report, nspin_mag
   use ldau,             only : eth, hubbard_u, hubbard_lmax, &
                                niter_with_fixed_ns, lda_plus_u
-  use uspp,             only : okvan
+  use uspp,             only : okvan, deeq, qq, becsum
   use fft_base,         only : dfftp
   use atom,             only : rgrid
   USE paw_variables,    only : okpaw, total_core_energy
+
   USE force_mod,        ONLY : force
+
+  USE wavefunctions_module, ONLY : psic
+  USE fft_interfaces,       ONLY : fwfft, invfft
 
   !
   implicit none
-  integer iat, ia, i, j, kset_id, num_gvec, num_fft_grid_points, ik, iter, ig, li, lj, ijv, ilast, ir, l, mb, nb
+  integer iat, ia, i, j, num_gvec, num_fft_grid_points, ik, iter, ig, li, lj, ijv, ilast, ir, l, mb, nb, is
   real(8), allocatable :: rho_rg(:), veff_rg(:), vloc(:), dion(:,:), tmp(:)
   real(8), allocatable :: bnd_occ(:,:), band_e(:,:), wk_tmp(:), xk_tmp(:,:)
   real(8) v(3), a1(3), a2(3), a3(3), maxocc, rms
   type (scf_type) :: rhoin ! used to store rho_in of current/next iteration
   real(8) :: dr2
   logical exst
-  integer ierr, rank, use_sirius_mixer, num_ranks_k, dims(3)
+  integer ierr, rank, use_sirius_mixer, num_ranks_k, dims(3), ih, jh, ijh, na
   real(8) vlat(3, 3), vlat_inv(3, 3), v1(3), v2(3), bg_inv(3, 3)
   integer kmesh(3), kshift(3), printout, vt(3)
   integer, external :: global_kpoint_index
@@ -64,12 +68,6 @@ subroutine electrons_sirius()
   else
      printout = 2  ! print etot and energy components at each scf step
   end if
-
-  ! create an object of prameters which describe current simulation
-  !CALL sirius_create_global_parameters()
-
-  ! create context of simulation
-  call sirius_create_simulation_context(c_str(trim(adjustl(sirius_cfg))))
 
   if (get_meta().ne.0.or.get_inlc().ne.0) then
     write(*,*)get_igcx()
@@ -128,9 +126,6 @@ subroutine electrons_sirius()
     end select
   endif
   
-  ! set up a type of calculation
-  call sirius_set_esm_type(c_str("pseudopotential"))
-
   ! set number of first-variational states
   call sirius_set_num_fv_states(nbnd)
 
@@ -176,6 +171,12 @@ subroutine electrons_sirius()
   CALL invert_mtrx(bg, bg_inv)
 
   CALL mpi_comm_rank(inter_pool_comm, rank, ierr)
+  
+  !open(100+rank)
+  !do ik = 1, nks
+  !  write(100+rank,*)"ikloc=",ik,", ik=",global_kpoint_index ( nkstot, ik )
+  !enddo
+  !close(100+rank)
 
   ! initialize atom types
   DO iat = 1, nsp
@@ -308,15 +309,17 @@ subroutine electrons_sirius()
   !CALL sirius_use_internal_mixer(use_sirius_mixer)
   !write(*,*)"use_sirius_mixer=",use_sirius_mixer
 
-  ! get local number of dense fft grid points
-  call sirius_get_num_fft_grid_points(num_fft_grid_points)
-  ! initialize density class
-  allocate(rho_rg(num_fft_grid_points))
-  call sirius_create_density(rho_rg(1))
+  !! get local number of dense fft grid points
+  !call sirius_get_num_fft_grid_points(num_fft_grid_points)
+  !! initialize density class
+  !allocate(rho_rg(num_fft_grid_points))
+  !call sirius_create_density(rho_rg(1))
+  call sirius_create_density()
 
-  ! initialize potential class
-  allocate(veff_rg(num_fft_grid_points))
-  call sirius_create_potential(veff_rg(1))
+  !! initialize potential class
+  !allocate(veff_rg(num_fft_grid_points))
+  !call sirius_create_potential(veff_rg(1))
+  call sirius_create_potential()
   
   !!== i = 1
   !!== if (nosym) i = 0
@@ -461,12 +464,14 @@ subroutine electrons_sirius()
     !== CALL sirius_get_energy_tot(etot)
     CALL sirius_get_energy_ewald(ewld)
     CALL sirius_get_energy_exc(etxc)
-    CALL sirius_get_energy_vha(ehart) ! E_Ha = 0.5 <V_Ha|rho>
+    CALL sirius_get_energy_vxc(vtxc)
+    CALL sirius_get_energy_vha(ehart) ! E_Ha = 0.5 <V_Ha|rho> in Hartree units
     CALL sirius_get_evalsum(eband)
     CALL sirius_get_energy_veff(deband)
     !etot = etot * 2.d0 ! convert to Ry
     ewld = ewld * 2.d0
     etxc = etxc * 2.d0
+    vtxc = vtxc * 2.d0
     eband = eband * 2.d0
     deband = -deband * 2.d0
 
@@ -499,6 +504,17 @@ subroutine electrons_sirius()
        END DO
        et = et * 2.d0
        CALL print_ks_energies()
+
+       allocate(band_e(nbnd, nkstot))
+       ! get band energies
+       do ik = 1, nkstot
+         call sirius_get_band_energies(kset_id, ik, band_e(1, ik))
+       end do
+       do ik = 1, nks
+         ! convert to ry
+         et(:, ik) = 2.d0 * band_e(:, global_kpoint_index ( nkstot, ik ))
+       enddo
+       deallocate(band_e)
        !
     END IF
 
@@ -637,17 +653,54 @@ subroutine electrons_sirius()
   CALL close_mix_file( iunmix, 'delete' )
   call destroy_scf_type ( rhoin )
 
-  deallocate(rho_rg)
-  deallocate(veff_rg)
+  !deallocate(rho_rg)
+  !deallocate(veff_rg)
+
+  do ia = 1, nat
+    call sirius_get_d_mtrx(ia, deeq(1,1,ia,1), nhm)
+    ! convert to Ry
+    deeq(:,:,ia,1) = deeq(:,:,ia,1) * 2
+  enddo
+  do iat = 1, nsp
+    call sirius_get_q_mtrx(iat, qq(1,1,iat), nhm)
+  enddo
+
+  do iat = 1, nsp
+     if ( upf(iat)%tvanp ) then
+        do na = 1, nat
+           if (ityp(na)==iat) then
+              ijh = 0
+              do ih = 1, nh(iat)
+                 do jh = ih, nh(iat)
+                    ijh = ijh + 1
+                    call sirius_get_density_matrix(ih, jh, na, becsum(ijh, na, 1))
+                    ! off-diagonal elements
+                    if (ih.ne.jh) becsum(ijh, na, 1) = becsum(ijh, na, 1) * 2
+                 end do
+              end do
+           endif
+        enddo
+     endif
+  enddo
+
+  ! transform density to real-space  
+  do is = 1, nspin_mag
+     psic(:) = ( 0.d0, 0.d0 )
+     psic(nl(:)) = rho%of_g(:,is)
+     if ( gamma_only ) psic(nlm(:)) = conjg( rho%of_g(:,is) )
+     call invfft ('Dense', psic, dfftp)
+     rho%of_r(:,is) = psic(:)
+     !
+  end do
 
   !CALL sirius_print_timers()
   CALL sirius_write_json_output()
   
-  call sirius_delete_ground_state()
-  call sirius_delete_kset(kset_id)
-  call sirius_delete_density()
-  call sirius_delete_potential()
-  call sirius_delete_simulation_context()
+  !call sirius_delete_ground_state()
+  !call sirius_delete_kset(kset_id)
+  !call sirius_delete_density()
+  !call sirius_delete_potential()
+  !call sirius_delete_simulation_context()
 
   !CALL sirius_clear()
 

@@ -13,9 +13,9 @@ subroutine stres_knl (sigmanlc, sigmakin)
   USE kinds,                ONLY: DP
   USE constants,            ONLY: pi, e2
   USE cell_base,            ONLY: omega, alat, at, bg, tpiba
-  USE gvect,                ONLY: g
+  USE gvect,                ONLY: g,mill
   USE gvecw,                ONLY: qcutz, ecfixed, q2sigma
-  USE klist,                ONLY: nks, xk, ngk, igk_k
+  USE klist,                ONLY: nks, xk, ngk, igk_k, nkstot, kset_id
   USE io_files,             ONLY: iunwfc, nwordwfc
   USE buffers,              ONLY: get_buffer
   USE symme,                ONLY: symmatrix
@@ -26,14 +26,19 @@ subroutine stres_knl (sigmanlc, sigmakin)
   USE mp_pools,             ONLY: inter_pool_comm
   USE mp_bands,             ONLY: intra_bgrp_comm
   USE mp,                   ONLY: mp_sum
+  USE input_parameters, ONLY : use_sirius
+  use sirius
   implicit none
   real(DP) :: sigmanlc (3, 3), sigmakin (3, 3)
   real(DP), allocatable :: gk (:,:), kfac (:)
   real(DP) :: twobysqrtpi, gk2, arg
-  integer :: npw, ik, l, m, i, ibnd, is
+  integer :: npw, ik, l, m, i, ibnd, is, ikglob, rank, ierr
+  integer, allocatable :: gvec_k(:,:)
+  integer, external :: global_kpoint_index
 
   allocate (gk(  3, npwx))    
   allocate (kfac(   npwx))    
+  
 
   sigmanlc(:,:) =0.d0
   sigmakin(:,:) =0.d0
@@ -42,9 +47,18 @@ subroutine stres_knl (sigmanlc, sigmakin)
   kfac(:) = 1.d0
 
   do ik = 1, nks
-     if (nks > 1) &
-        call get_buffer (evc, nwordwfc, iunwfc, ik)
      npw = ngk(ik)
+     if (use_sirius) then
+        allocate(gvec_k(3, npw))
+        do i = 1, npw
+          gvec_k(:, i) = mill(:, igk_k(i,ik) )
+        enddo
+        ikglob = global_kpoint_index ( nkstot, ik )
+        call sirius_get_wave_functions(kset_id, ikglob, npw, gvec_k(1, 1), evc(1, 1), npwx)
+        deallocate(gvec_k)
+     else 
+        if (nks > 1) call get_buffer (evc, nwordwfc, iunwfc, ik)
+     endif
      do i = 1, npw
         gk (1, i) = (xk (1, ik) + g (1, igk_k(i,ik) ) ) * tpiba
         gk (2, i) = (xk (2, ik) + g (2, igk_k(i,ik) ) ) * tpiba
@@ -81,12 +95,16 @@ subroutine stres_knl (sigmanlc, sigmakin)
      !  contribution from the  nonlocal part
      !
      call stres_us (ik, gk, sigmanlc)
-
   enddo
   !
   ! add the US term from augmentation charge derivatives
   !
-  call addusstres (sigmanlc)
+  if (use_sirius) then
+    call mpi_comm_rank(inter_pool_comm, rank, ierr)
+    if (rank.eq.0) call addusstres (sigmanlc)
+  else
+    call addusstres (sigmanlc)
+  endif
   !
   call mp_sum( sigmakin, intra_bgrp_comm )
   call mp_sum( sigmanlc, intra_bgrp_comm )

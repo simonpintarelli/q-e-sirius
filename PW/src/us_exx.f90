@@ -348,8 +348,8 @@ MODULE us_exx
        CALL errore('newdxx_g', 'need gamma tricks for this flag: '//flag, 2 )
     IF ( gamma_only .AND. add_complex ) &
        CALL errore('newdxx_g', 'gamma trick not good for this flag: '//flag, 3 )
-    IF ( ( add_complex .AND. .NOT. PRESENT(becphi_c) ) .OR. &
-         ( add_real    .AND. .NOT. PRESENT(becphi_r) ) .OR. &
+    IF ( ( add_complex  .AND..NOT. PRESENT(becphi_c) ) .OR. &
+         ( add_real     .AND..NOT. PRESENT(becphi_r) ) .OR. &
          ( add_imaginary.AND..NOT. PRESENT(becphi_r) ) )    &
        CALL errore('newdxx_g', 'called with incorrect arguments', 2 )
     !
@@ -433,7 +433,7 @@ MODULE us_exx
                    !
                    deexx(ikb) = deexx(ikb) + fact*zdotc(ngms, aux2, 1, aux1, 1)
                    IF( gamma_only .AND. gstart == 2 ) &
-                        deexx(ikb) =  deexx(ikb) - fact*CONJG (aux2(1))*aux1(1)
+                        deexx(ikb) =  deexx(ikb) - omega*CONJG (aux2(1))*aux1(1)
                 ENDDO
              ENDIF
              !

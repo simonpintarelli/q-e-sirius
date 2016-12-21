@@ -17,7 +17,7 @@ subroutine stres_loc (sigmaloc)
   USE cell_base,            ONLY : omega, tpiba2
   USE fft_base,             ONLY : dfftp
   USE fft_interfaces,       ONLY : fwfft
-  USE gvect,                ONLY : ngm, gstart, nl, g, ngl, gl, igtongl
+  USE gvect,                ONLY : ngm, gstart, nl, g, ngl, gl, igtongl, mill
   USE lsda_mod,             ONLY : nspin
   USE scf,                  ONLY : rho
   USE vlocal,               ONLY : strf, vloc
@@ -27,6 +27,8 @@ subroutine stres_loc (sigmaloc)
   USE noncollin_module,     ONLY : nspin_lsda
   USE mp_bands,             ONLY : intra_bgrp_comm
   USE mp,                   ONLY : mp_sum
+  USE input_parameters, ONLY : use_sirius
+  use sirius
   !
   implicit none
   !
@@ -38,15 +40,20 @@ subroutine stres_loc (sigmaloc)
   ! counter on atomic type
   ! counter on angular momentum
   ! counter on spin components
-
   allocate(dvloc(ngl))
   sigmaloc(:,:) = 0.d0
-  psic(:)=(0.d0,0.d0)
-  do is = 1, nspin_lsda
-     call daxpy (dfftp%nnr, 1.d0, rho%of_r (1, is), 1, psic, 2)
-  enddo
 
-  CALL fwfft ('Dense', psic, dfftp)
+  if (use_sirius) then
+    call sirius_get_rho_pw(ngm, mill(1, 1), rho%of_g(1, 1))
+    psic(nl(:)) = rho%of_g(:, 1)
+  else
+    psic(:)=(0.d0,0.d0)
+    do is = 1, nspin_lsda
+       call daxpy (dfftp%nnr, 1.d0, rho%of_r (1, is), 1, psic, 2)
+    enddo
+
+    CALL fwfft ('Dense', psic, dfftp)
+  endif
   ! psic contains now the charge density in G space
   if (gamma_only) then
      fact = 2.d0
