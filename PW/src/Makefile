@@ -73,6 +73,7 @@ efermig.o \
 efermit.o \
 electrons.o \
 electrons_sirius.o \
+setup_sirius.o \
 eqvect.o \
 esm.o \
 esm_cft.o \
