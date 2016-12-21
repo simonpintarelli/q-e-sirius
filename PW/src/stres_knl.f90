@@ -26,7 +26,8 @@ subroutine stres_knl (sigmanlc, sigmakin)
   USE mp_pools,             ONLY: inter_pool_comm
   USE mp_bands,             ONLY: intra_bgrp_comm
   USE mp,                   ONLY: mp_sum
-  USE input_parameters, ONLY : use_sirius
+  USE input_parameters,     ONLY: use_sirius
+  USE uspp,                 ONLY: nkb, vkb
   use sirius
   implicit none
   real(DP) :: sigmanlc (3, 3), sigmakin (3, 3)
@@ -55,6 +56,7 @@ subroutine stres_knl (sigmanlc, sigmakin)
         enddo
         ikglob = global_kpoint_index ( nkstot, ik )
         call sirius_get_wave_functions(kset_id, ikglob, npw, gvec_k(1, 1), evc(1, 1), npwx)
+        call sirius_get_beta_projectors(kset_id, ikglob, npw, gvec_k(1, 1), vkb(1, 1), npwx, nkb)
         deallocate(gvec_k)
      else 
         if (nks > 1) call get_buffer (evc, nwordwfc, iunwfc, ik)

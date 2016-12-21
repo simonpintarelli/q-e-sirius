@@ -50,7 +50,7 @@ SUBROUTINE stres_us( ik, gk, sigmanlc )
   npw = ngk(ik)
 
   if (use_sirius) then
-    call init_us_2( npw, igk_k(1,ik), xk(1,ik), vkb )
+    !call init_us_2( npw, igk_k(1,ik), xk(1,ik), vkb )
   else
     if ( nks > 1 ) call init_us_2( npw, igk_k(1,ik), xk(1,ik), vkb )
   endif
