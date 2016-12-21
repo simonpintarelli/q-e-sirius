@@ -24,9 +24,21 @@ subroutine electrons_sirius()
   use noncollin_module, only : nspin_mag
   use uspp,             only : okvan, deeq, qq, becsum
   use fft_base,         only : dfftp
-  use paw_variables,    only : okpaw
-  use wavefunctions_module, only : psic
-  use fft_interfaces,       only : fwfft, invfft
+
+!  use atom,             only : rgrid
+  USE paw_variables,    only : okpaw, total_core_energy
+
+  USE force_mod,        ONLY : force
+
+  USE wavefunctions_module, ONLY : psic
+  USE fft_interfaces,       ONLY : fwfft, invfft
+  use input_parameters, only : conv_thr, sirius_cfg
+
+
+!  use paw_variables,    only : okpaw
+!  use wavefunctions_module, only : psic
+!  use fft_interfaces,       only : fwfft, invfft
+
   !
   implicit none
   integer iat, ia, i, j, num_gvec, num_fft_grid_points, ik, iter, ig, li, lj, ijv, ilast, ir, l, mb, nb, is
@@ -47,6 +59,7 @@ subroutine electrons_sirius()
   !---------------
   real(8) :: paw_one_elec_energy
   
+
   use_sirius_mixer = 0
   
   ! create Density class
@@ -56,7 +69,7 @@ subroutine electrons_sirius()
   call sirius_create_potential()
 
   ! initialize ground-state class
-  CALL sirius_create_ground_state(kset_id)
+  CALL sirius_create_ground_state(kset_id )
 
   ! generate initial density from atomic densities rho_at
   call sirius_generate_initial_density()
@@ -81,6 +94,8 @@ subroutine electrons_sirius()
   call open_mix_file( iunmix, 'mix', exst  )
 
   CALL sirius_start_timer(c_str("electrons"))
+
+  conv_elec=.false.
 
   DO iter = 1, niter
     WRITE( stdout, 9010 ) iter, ecutwfc, mixing_beta
@@ -124,7 +139,7 @@ subroutine electrons_sirius()
     CALL weights()
 
     ! compute occupancies
-    ALLOCATE(bnd_occ(nbnd, nkstot))
+    ALLOCATE(bnd_occ(nbnd, nkstot ))
     bnd_occ = 0.d0
     ! define a maximum band occupancy (2 in case of spin-unpolarized, 1 in case of spin-polarized)
     maxocc = 2.d0
@@ -235,7 +250,11 @@ subroutine electrons_sirius()
     ! TODO: this has to be called correcly - there are too many dependencies
     CALL print_energies(printout)
 
-    IF ( conv_elec ) THEN
+    if (dr2 .lt. conv_thr .and. use_sirius_mixer.eq.1) then
+      conv_elec=.true.
+    endif
+
+    IF ( conv_elec  ) THEN
        !
        ! ... if system is charged add a Makov-Payne correction to the energy
        !
@@ -253,10 +272,7 @@ subroutine electrons_sirius()
        !
     END IF
 
-    !if (dr2.lt.conv_thr) then
-    !  conv_elec=.true.
-    !  EXIT
-    !endif
+
 
   ENDDO
   WRITE( stdout, 9101 )
@@ -265,6 +281,18 @@ subroutine electrons_sirius()
 10 continue
 
   CALL sirius_stop_timer(c_str("electrons"))
+
+  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  !probably calculate forces here
+  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  call sirius_calc_forces(force(1,1))
+
+  do ia=1,nat
+    do i=1,3
+      force(i,ia) = 2.0 * force(i,ia)
+    enddo
+  enddo
+
 
   !
   !!IF ( ABS( charge - nelec ) / charge > 1.D-7 ) THEN

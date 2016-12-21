@@ -46,6 +46,7 @@ SUBROUTINE run_pwscf ( exit_status )
 #if defined(__XSD)
   USE qexsd_module,     ONLY:   qexsd_set_status
 #endif
+  USE cellmd,                 ONLY : lmovecell
   !
 
   IMPLICIT NONE
@@ -148,10 +149,14 @@ SUBROUTINE run_pwscf ( exit_status )
      ELSE
         CALL pw2casino( 0 )
      END IF
-     !
-     ! ... force calculation
-     !
-     IF ( lforce ) CALL forces()
+
+     if ( .not. use_sirius .and. lforce ) then
+	     !
+	     ! ... force calculation ъ
+	     !
+         CALL forces() 
+     endif
+
      !
      ! ... stress calculation
      !
@@ -170,8 +175,10 @@ SUBROUTINE run_pwscf ( exit_status )
      !
      IF ( lmd .OR. lbfgs ) THEN
         !
-        if (fix_volume) CALL impose_deviatoric_stress(sigma)
-        if (fix_area)  CALL  impose_deviatoric_stress_2d(sigma)
+        if ( .not. use_sirius ) then
+            if (fix_volume) CALL impose_deviatoric_stress(sigma)
+            if (fix_area)  CALL  impose_deviatoric_stress_2d(sigma)
+        endif
         !
         ! ... save data needed for potential and wavefunction extrapolation
         !
