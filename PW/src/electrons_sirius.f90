@@ -32,6 +32,7 @@ subroutine electrons_sirius()
 
   USE wavefunctions_module, ONLY : psic
   USE fft_interfaces,       ONLY : fwfft, invfft
+  use input_parameters, only : conv_thr, sirius_cfg
 
 
 !  use paw_variables,    only : okpaw
