@@ -8,7 +8,7 @@ subroutine electrons_sirius()
   use klist,            only : kset_id, nelec, nks, nkstot, lgauss, wk
   use io_global,        only : stdout
   use control_flags,    only : conv_elec, ethr, gamma_only, iprint, iverbosity, mixing_beta, niter,&
-                               nmix, llondon, lxdm
+                               nmix, llondon, lxdm, lmd
   use gvect,            only : nl,nlm
   use scf,              only : scf_type, rho, create_scf_type, open_mix_file, scf_type_copy, bcast_scf_type,&
                                close_mix_file, destroy_scf_type
@@ -24,21 +24,12 @@ subroutine electrons_sirius()
   use noncollin_module, only : nspin_mag
   use uspp,             only : okvan, deeq, qq, becsum
   use fft_base,         only : dfftp
-
-!  use atom,             only : rgrid
-  USE paw_variables,    only : okpaw, total_core_energy
-
-  USE force_mod,        ONLY : force
-
-  USE wavefunctions_module, ONLY : psic
-  USE fft_interfaces,       ONLY : fwfft, invfft
+  use paw_variables,    only : okpaw, total_core_energy
+  use force_mod,        only : force
+  use wavefunctions_module, only : psic
+  use fft_interfaces,       only : fwfft, invfft
   use input_parameters, only : conv_thr, sirius_cfg
-
-
-!  use paw_variables,    only : okpaw
-!  use wavefunctions_module, only : psic
-!  use fft_interfaces,       only : fwfft, invfft
-
+  use funct, only : dft_is_hybrid
   !
   implicit none
   integer iat, ia, i, j, num_gvec, num_fft_grid_points, ik, iter, ig, li, lj, ijv, ilast, ir, l, mb, nb, is
@@ -58,7 +49,14 @@ subroutine electrons_sirius()
   ! paw one elec
   !---------------
   real(8) :: paw_one_elec_energy
-  
+
+  if ( dft_is_hybrid() ) then
+    printout = 0  ! do not print etot and energy components at each scf step
+  else if ( lmd ) then
+    printout = 1  ! print etot, not energy components at each scf step
+  else
+    printout = 2  ! print etot and energy components at each scf step
+  end if
 
   use_sirius_mixer = 0
   

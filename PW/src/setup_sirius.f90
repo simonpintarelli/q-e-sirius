@@ -1,6 +1,6 @@
 subroutine setup_sirius()
   use cell_base, only : alat, at, bg
-  use funct, only : dft_is_hybrid, get_iexch, get_icorr, get_inlc, get_meta, get_igcc, get_igcx
+  use funct, only : get_iexch, get_icorr, get_inlc, get_meta, get_igcc, get_igcx
   use ions_base, only : tau, nsp, atm, zv, amass, ityp, nat
   use uspp_param, only : upf
   use atom, only : rgrid
@@ -8,7 +8,7 @@ subroutine setup_sirius()
   use klist, only : kset_id, nks, xk, nkstot, wk
   use gvect, only : ngm_g, ecutrho
   use gvecw, only : ecutwfc
-  use control_flags, only : gamma_only, lmd
+  use control_flags, only : gamma_only
   use mp_pools, only : inter_pool_comm, npool
   use mp_images,        only : nproc_image
   use mp, only : mp_sum, mp_bcast
@@ -18,7 +18,7 @@ subroutine setup_sirius()
   use input_parameters, only : sirius_cfg
   implicit none
   !
-  integer :: printout, dims(3), i, ia, iat, rank, ierr, ijv, ik, li, lj, mb, nb, j, l,&
+  integer :: dims(3), i, ia, iat, rank, ierr, ijv, ik, li, lj, mb, nb, j, l,&
        ilast, ir, num_gvec, num_ranks_k, vt(3)
   real(8) :: a1(3), a2(3), a3(3), vlat(3, 3), vlat_inv(3, 3), v1(3), v2(3), bg_inv(3, 3)
   real(8), allocatable :: dion(:, :), qij(:,:,:), vloc(:), wk_tmp(:), xk_tmp(:,:)
@@ -28,14 +28,6 @@ subroutine setup_sirius()
   call sirius_create_simulation_context(c_str(trim(adjustl(sirius_cfg))))
   ! set up a type of calculation
   call sirius_set_esm_type(c_str("pseudopotential"))
-
-  if ( dft_is_hybrid() ) then
-    printout = 0  ! do not print etot and energy components at each scf step
-  else if ( lmd ) then
-    printout = 1  ! print etot, not energy components at each scf step
-  else
-    printout = 2  ! print etot and energy components at each scf step
-  end if
 
   if (get_meta().ne.0.or.get_inlc().ne.0) then
     write(*,*)get_igcx()
