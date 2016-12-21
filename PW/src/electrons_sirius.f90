@@ -1,43 +1,32 @@
 subroutine electrons_sirius()
   use sirius
-  use cell_base,        only : at, alat, bg
-  use ions_base,        only : ityp, tau, atm, zv, nsp, nat, amass, zv
+  use ions_base,        only : nat, nsp, ityp
   use uspp_param,       only : upf, nhm, nh
-  use gvect,            only : ecutrho, ngm, mill
+  use gvect,            only : mill, ngm
   use wvfct,            only : nbnd, wg, et
   use gvecw,            only : ecutwfc
-  use klist,            only : nks, nkstot, wk, xk, nelec, lgauss, kset_id
-  use io_global,        only : stdout, ionode
-  use control_flags,    only : tr2, niter, conv_elec, restart, mixing_beta, nmix, ethr, &
-                              &lmd, iprint, llondon, lxdm, iverbosity, gamma_only
-  use input_parameters, only : conv_thr, sirius_cfg
-  use gvect,            only : ngm_g,nl,nlm
+  use klist,            only : kset_id, nelec, nks, nkstot, lgauss, wk
+  use io_global,        only : stdout
+  use control_flags,    only : conv_elec, ethr, gamma_only, iprint, iverbosity, mixing_beta, niter,&
+                               nmix, llondon, lxdm
+  use gvect,            only : nl,nlm
   use scf,              only : scf_type, rho, create_scf_type, open_mix_file, scf_type_copy, bcast_scf_type,&
                                close_mix_file, destroy_scf_type
-  use io_files,         only : iunwfc, iunmix, nwordwfc, output_drho, &
-                               iunres, iunefield, seqopn
+  use io_files,         only : iunmix
   use mp_bands,         only : intra_bgrp_comm
   use mp_pools,         only : root_pool, my_pool_id, inter_pool_comm, npool
-  use mp_images,        only : nproc_image
-  use mp,               only : mp_sum, mp_bcast
+  use mp,               only : mp_bcast
   use parallel_include
-  use constants,        only : bohr_radius_angs
-  use ener,             only : ef
   use symm_base,        only : nosym
-  use start_k,          only : nk1, nk2, nk3, k1, k2, k3
-  use funct,            only : dft_is_hybrid, get_iexch, get_icorr, get_inlc, get_meta, get_igcc, get_igcx
   use ener,             only : etot, hwf_energy, eband, deband, ehart, &
                                vtxc, etxc, etxcc, ewld, demet, epaw, &
                                elondon, ef_up, ef_dw, exdm
-  use noncollin_module, only : noncolin, magtot_nc, i_cons,  bfield, lambda, report, nspin_mag
-  use ldau,             only : eth, hubbard_u, hubbard_lmax, &
-                               niter_with_fixed_ns, lda_plus_u
+  use noncollin_module, only : nspin_mag
   use uspp,             only : okvan, deeq, qq, becsum
   use fft_base,         only : dfftp
-  use atom,             only : rgrid
-  USE paw_variables,    only : okpaw, total_core_energy
-  USE wavefunctions_module, ONLY : psic
-  USE fft_interfaces,       ONLY : fwfft, invfft
+  use paw_variables,    only : okpaw
+  use wavefunctions_module, only : psic
+  use fft_interfaces,       only : fwfft, invfft
   !
   implicit none
   integer iat, ia, i, j, num_gvec, num_fft_grid_points, ik, iter, ig, li, lj, ijv, ilast, ir, l, mb, nb, is
@@ -203,13 +192,13 @@ subroutine electrons_sirius()
 
     IF ( conv_elec .OR. MOD( iter, iprint ) == 0 ) THEN
        !
-       IF ( lda_plus_U .AND. iverbosity == 0 ) THEN
-          IF (noncolin) THEN
-             CALL write_ns_nc()
-          ELSE
-             CALL write_ns()
-          ENDIF
-       ENDIF
+       !IF ( lda_plus_U .AND. iverbosity == 0 ) THEN
+       !   IF (noncolin) THEN
+       !      CALL write_ns_nc()
+       !   ELSE
+       !      CALL write_ns()
+       !   ENDIF
+       !ENDIF
 
        ! get band energies
        DO ik = 1, nkstot
