@@ -104,10 +104,7 @@ SUBROUTINE run_pwscf ( exit_status )
   !
   main_loop: DO idone = 1, nstep
      if (use_sirius) then
-        ! create context of simulation
-        call sirius_create_simulation_context(c_str(trim(adjustl(sirius_cfg))))
-        ! set up a type of calculation
-        call sirius_set_esm_type(c_str("pseudopotential"))
+        call setup_sirius
      endif
      !
      ! ... electronic self-consistency or band structure calculation
@@ -248,6 +245,9 @@ SUBROUTINE run_pwscf ( exit_status )
   !
   CALL qmmm_shutdown()
   !
+  if (use_sirius) then
+     call sirius_print_timers()
+  endif
   IF ( .NOT. conv_ions )  exit_status =  3
   RETURN
   !
