@@ -167,16 +167,18 @@ SUBROUTINE run_pwscf ( exit_status )
      END IF
 
      if ( .not. use_sirius .and. lforce ) then
-	     !
-	     ! ... force calculation ъ
-	     !
+         !
+         ! ... force calculation
+         !
          CALL forces() 
      endif
 
      !
      ! ... stress calculation
      !
+     call sirius_start_timer(c_str("stress_tensor"))
      IF ( lstres ) CALL stress ( sigma )
+     call sirius_stop_timer(c_str("stress_tensor"))
      
      if (use_sirius) then
         call sirius_delete_ground_state()
