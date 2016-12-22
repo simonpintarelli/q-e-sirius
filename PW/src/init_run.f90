@@ -93,6 +93,9 @@ SUBROUTINE init_run()
   !
   call plugin_initbase()
   !
+  if (allocated(et)) deallocate(et)
+  if (allocated(wg)) deallocate(wg)
+  if (allocated(btype)) deallocate(btype)
   ALLOCATE( et( nbnd, nkstot ) , wg( nbnd, nkstot ), btype( nbnd, nkstot ) )
   !
   et(:,:) = 0.D0

@@ -41,14 +41,14 @@ SUBROUTINE run_pwscf ( exit_status )
   USE fft_base,         ONLY : dfftp
   USE qmmm,             ONLY : qmmm_initialization, qmmm_shutdown, &
                                qmmm_update_positions, qmmm_update_forces
-  USE input_parameters, ONLY : use_sirius, sirius_cfg
-  USE sirius
-  use gvect, only : ngm, g, ecutrho, mill
-  USE cell_base,  ONLY : tpiba, bg
+  use gvect,            ONLY : ngm, g, ecutrho, mill
+  USE cell_base,        ONLY : tpiba, bg
 #if defined(__XSD)
   USE qexsd_module,     ONLY:   qexsd_set_status
 #endif
-  USE cellmd,                 ONLY : lmovecell
+  !USE cellmd,           ONLY : lmovecell
+  USE input_parameters, ONLY : use_sirius, sirius_cfg
+  USE sirius
   !
 
   IMPLICIT NONE
@@ -87,11 +87,11 @@ SUBROUTINE run_pwscf ( exit_status )
   !
   CALL check_stop_init()
   !
-  CALL setup ()
+  !CALL setup ()
   !
   CALL qmmm_update_positions()
   !
-  CALL init_run()
+  !CALL init_run()
   !
   ! ... dry run: code will stop here if called with exit file present
   ! ... useful for a quick and automated way to check input data
@@ -106,18 +106,19 @@ SUBROUTINE run_pwscf ( exit_status )
   ENDIF
   !
   main_loop: DO idone = 1, nstep
-     !write(*,*)'ecutrho=',ecutrho
-     !do ig = 1, ngm
-     !  vgc(:) = g(:, ig) * tpiba
-     !  v1(:) =  mill(1, ig)*bg(:,1)+mill(2, ig)*bg(:,2)+mill(3, ig)*bg(:,3) 
-     !  if (sum(vgc(:)**2).gt.ecutrho) then
-     !    STOP("Error: G-vector is outside of cutoff")
-     !  endif
-     !  if (sum(abs(g(:, ig) - v1(:))).gt.1d-12) then
-     !    STOP("Error: G-vectors don't match")
-     !  endif
-     !  !write(*,*)'ig=',ig,' mill=',mill(:,ig),' len=',sqrt(sum(vgc(:)**2))
-     !enddo
+    call setup ()
+    call init_run()
+    !do ig = 1, ngm
+    !  vgc(:) = g(:, ig) * tpiba
+    !  v1(:) =  mill(1, ig)*bg(:,1)+mill(2, ig)*bg(:,2)+mill(3, ig)*bg(:,3) 
+    !  if (sum(vgc(:)**2).gt.ecutrho) then
+    !    STOP("Error: G-vector is outside of cutoff")
+    !  endif
+    !  if (sum(abs(g(:, ig) - v1(:))).gt.1d-12) then
+    !    STOP("Error: G-vectors don't match")
+    !  endif
+    !  !write(*,*)'ig=',ig,' mill=',mill(:,ig),' len=',sqrt(sum(vgc(:)**2))
+    !enddo
      if (use_sirius) then
         call setup_sirius
      endif
@@ -249,6 +250,8 @@ SUBROUTINE run_pwscf ( exit_status )
      !
      ethr = 1.0D-6
      !
+     call clean_pw(.false.)
+     call close_files(.false.)
   END DO main_loop
   !
   ! ... save final data file

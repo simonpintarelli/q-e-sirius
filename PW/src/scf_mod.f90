@@ -90,8 +90,12 @@ CONTAINS
    TYPE (scf_type) :: rho
    LOGICAL,INTENT(IN),OPTIONAL :: do_not_allocate_becsum ! PAW hack
    LOGICAL                     :: allocate_becsum        ! PAW hack
+   if (allocated(rho%of_r)) deallocate(rho%of_r)
    allocate ( rho%of_r( dfftp%nnr, nspin) )
+   if (allocated(rho%of_g)) deallocate(rho%of_g)
    allocate ( rho%of_g( ngm, nspin ) )
+   if (allocated(rho%kin_r)) deallocate(rho%kin_r)
+   if (allocated(rho%kin_g)) deallocate(rho%kin_g)
    if (dft_is_meta() .or. lxdm) then
       allocate ( rho%kin_r( dfftp%nnr, nspin) )
       allocate ( rho%kin_g( ngm, nspin ) )
@@ -102,9 +106,12 @@ CONTAINS
 
    lda_plus_u_co = lda_plus_u .and. .not. (nspin == 4 )
    lda_plus_u_nc = lda_plus_u .and.       (nspin == 4 )
+   if (allocated(rho%ns)) deallocate(rho%ns)
+   if (allocated(rho%ns_nc)) deallocate(rho%ns_nc)
    if (lda_plus_u_co) allocate (rho%ns(2*Hubbard_lmax+1,2*Hubbard_lmax+1,nspin,nat))
    if (lda_plus_u_nc) allocate (rho%ns_nc(2*Hubbard_lmax+1,2*Hubbard_lmax+1,nspin,nat))
-
+   
+   if (allocated(rho%bec)) deallocate(rho%bec)
    if (okpaw) then ! See the top of the file for clarification
       if(present(do_not_allocate_becsum)) then
          allocate_becsum = .not. do_not_allocate_becsum
