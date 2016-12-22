@@ -106,8 +106,10 @@ SUBROUTINE run_pwscf ( exit_status )
   ENDIF
   !
   main_loop: DO idone = 1, nstep
+    call sirius_start_timer(c_str("qe|init"))
     call setup ()
     call init_run()
+    call sirius_stop_timer(c_str("qe|init"))
     !do ig = 1, ngm
     !  vgc(:) = g(:, ig) * tpiba
     !  v1(:) =  mill(1, ig)*bg(:,1)+mill(2, ig)*bg(:,2)+mill(3, ig)*bg(:,3) 
@@ -176,9 +178,9 @@ SUBROUTINE run_pwscf ( exit_status )
      !
      ! ... stress calculation
      !
-     call sirius_start_timer(c_str("stress_tensor"))
+     call sirius_start_timer(c_str("qe|stress_tensor"))
      IF ( lstres ) CALL stress ( sigma )
-     call sirius_stop_timer(c_str("stress_tensor"))
+     call sirius_stop_timer(c_str("qe|stress_tensor"))
      
      if (use_sirius) then
         call sirius_delete_ground_state()

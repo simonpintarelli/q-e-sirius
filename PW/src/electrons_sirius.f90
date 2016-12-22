@@ -91,7 +91,7 @@ subroutine electrons_sirius()
   call scf_type_copy(rho, rhoin)
   call open_mix_file( iunmix, 'mix', exst  )
 
-  CALL sirius_start_timer(c_str("electrons"))
+  CALL sirius_start_timer(c_str("qe|electrons"))
 
   conv_elec=.false.
 
@@ -278,7 +278,7 @@ subroutine electrons_sirius()
 
 10 continue
 
-  CALL sirius_stop_timer(c_str("electrons"))
+  CALL sirius_stop_timer(c_str("qe|electrons"))
 
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   !probably calculate forces here
