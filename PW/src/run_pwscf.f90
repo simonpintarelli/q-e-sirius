@@ -122,7 +122,9 @@ SUBROUTINE run_pwscf ( exit_status )
     !  !write(*,*)'ig=',ig,' mill=',mill(:,ig),' len=',sqrt(sum(vgc(:)**2))
     !enddo
      if (use_sirius) then
+        call sirius_start_timer(c_str("qe|setup_sirius"))
         call setup_sirius
+        call sirius_stop_timer(c_str("qe|setup_sirius"))
      endif
      !
      ! ... electronic self-consistency or band structure calculation
