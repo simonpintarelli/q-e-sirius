@@ -106,18 +106,18 @@ SUBROUTINE run_pwscf ( exit_status )
   ENDIF
   !
   main_loop: DO idone = 1, nstep
-     write(*,*)'ecutrho=',ecutrho
-     do ig = 1, ngm
-       vgc(:) = g(:, ig) * tpiba
-       v1(:) =  mill(1, ig)*bg(:,1)+mill(2, ig)*bg(:,2)+mill(3, ig)*bg(:,3) 
-       if (sum(vgc(:)**2).gt.ecutrho) then
-         STOP("Error: G-vector is outside of cutoff")
-       endif
-       if (sum(abs(g(:, ig) - v1(:))).gt.1d-12) then
-         STOP("Error: G-vectors don't match")
-       endif
-       !write(*,*)'ig=',ig,' mill=',mill(:,ig),' len=',sqrt(sum(vgc(:)**2))
-     enddo
+     !write(*,*)'ecutrho=',ecutrho
+     !do ig = 1, ngm
+     !  vgc(:) = g(:, ig) * tpiba
+     !  v1(:) =  mill(1, ig)*bg(:,1)+mill(2, ig)*bg(:,2)+mill(3, ig)*bg(:,3) 
+     !  if (sum(vgc(:)**2).gt.ecutrho) then
+     !    STOP("Error: G-vector is outside of cutoff")
+     !  endif
+     !  if (sum(abs(g(:, ig) - v1(:))).gt.1d-12) then
+     !    STOP("Error: G-vectors don't match")
+     !  endif
+     !  !write(*,*)'ig=',ig,' mill=',mill(:,ig),' len=',sqrt(sum(vgc(:)**2))
+     !enddo
      if (use_sirius) then
         call setup_sirius
      endif
