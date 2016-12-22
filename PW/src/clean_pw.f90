@@ -178,13 +178,13 @@ SUBROUTINE clean_pw( lflag )
   ! up with a different grid if FFT grids are re-initialized later.
   ! The following workaround restores the previous functionality.
   ! TODO: replace clean_pw with more fine-grained cleaning routines.
-  nr1 = dfftp%nr1; nr2 = dfftp%nr2; nr3 = dfftp%nr3
+  !nr1 = dfftp%nr1; nr2 = dfftp%nr2; nr3 = dfftp%nr3
   CALL fft_type_deallocate( dfftp )
-  dfftp%nr1 = nr1; dfftp%nr2 = nr2; dfftp%nr3 = nr3
+  !dfftp%nr1 = nr1; dfftp%nr2 = nr2; dfftp%nr3 = nr3
   !
-  nr1 = dffts%nr1; nr2 = dffts%nr2; nr3 = dffts%nr3
+  !nr1 = dffts%nr1; nr2 = dffts%nr2; nr3 = dffts%nr3
   CALL fft_type_deallocate( dffts )
-  dffts%nr1 = nr1; dffts%nr2 = nr2; dffts%nr3 = nr3
+  !dffts%nr1 = nr1; dffts%nr2 = nr2; dffts%nr3 = nr3
   !
   ! ... stick-owner matrix allocated in sticks_base
   !

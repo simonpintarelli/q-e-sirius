@@ -478,6 +478,10 @@ CONTAINS
     REAL(DP), ALLOCATABLE :: gcut_(:), g_(:,:)
     INTEGER :: np, ig, ngloc, ngpos, ierr, ngm_
     !
+    if (allocated(sendcnt)) deallocate(sendcnt)
+    if (allocated(recvcnt)) deallocate(recvcnt)
+    if (allocated(sdispls)) deallocate(sdispls)
+    if (allocated(rdispls)) deallocate(rdispls)
     ALLOCATE ( sendcnt(nproc_bgrp), recvcnt(nproc_bgrp), &
                sdispls(nproc_bgrp), rdispls(nproc_bgrp) )
     ALLOCATE ( gcut_(nproc_bgrp) )
@@ -575,6 +579,7 @@ CONTAINS
     ngs = 0
     ! shell should be allocated to the number of symmetry shells
     ! since this is unknown, we use the number of all G-vectors
+    if (allocated(shell)) deallocate(shell)
     ALLOCATE ( shell(ngm_) )
     ALLOCATE ( done(ngm_), n(3,ngm_) )
     ALLOCATE ( igsort (ngm_))

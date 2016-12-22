@@ -40,12 +40,20 @@ SUBROUTINE run_pwscf ( exit_status )
   USE fft_base,         ONLY : dfftp
   USE qmmm,             ONLY : qmmm_initialization, qmmm_shutdown, &
                                qmmm_update_positions, qmmm_update_forces
+  use gvect, only : ngm, g, ecutrho, mill
+  USE cell_base,  ONLY : tpiba, bg
+#if defined(__XSD)
   USE qexsd_module,     ONLY:   qexsd_set_status
+#endif
+  USE cellmd,                 ONLY : lmovecell
+  USE recvec_subs,        ONLY : ggen
+  USE cell_base,          ONLY : at
   !
 
   IMPLICIT NONE
   INTEGER, INTENT(OUT) :: exit_status
-  INTEGER :: idone 
+  INTEGER :: idone, ig
+  real(8) vgc(3), v1(3)
   ! counter of electronic + ionic steps done in this run
   !
   !
@@ -73,11 +81,11 @@ SUBROUTINE run_pwscf ( exit_status )
   !
   CALL check_stop_init()
   !
-  CALL setup ()
+  !CALL setup ()
   !
   CALL qmmm_update_positions()
   !
-  CALL init_run()
+  !CALL init_run()
   !
   ! ... dry run: code will stop here if called with exit file present
   ! ... useful for a quick and automated way to check input data
@@ -90,6 +98,22 @@ SUBROUTINE run_pwscf ( exit_status )
   ENDIF
   !
   main_loop: DO idone = 1, nstep
+     !CALL data_structure( gamma_only )
+     !CALL ggen( gamma_only, at, bg )
+    CALL setup ()
+    call init_run()
+    do ig = 1, ngm
+      vgc(:) = g(:, ig) * tpiba
+      v1(:) =  mill(1, ig)*bg(:,1)+mill(2, ig)*bg(:,2)+mill(3, ig)*bg(:,3) 
+      if (sum(vgc(:)**2).gt.ecutrho) then
+        STOP("Error: G-vector is outside of cutoff")
+      endif
+      if (sum(abs(g(:, ig) - v1(:))).gt.1d-12) then
+        STOP("Error: G-vectors don't match")
+      endif
+      !write(*,*)'ig=',ig,' mill=',mill(:,ig),' len=',sqrt(sum(vgc(:)**2))
+    enddo
+  
      !
      ! ... electronic self-consistency or band structure calculation
      !
@@ -193,6 +217,7 @@ SUBROUTINE run_pwscf ( exit_status )
      !
      ethr = 1.0D-6
      !
+     call clean_pw(.false.)
   END DO main_loop
   !
   ! ... save final data file

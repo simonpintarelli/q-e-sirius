@@ -49,6 +49,7 @@ SUBROUTINE allocate_nlpot
   !
   !   g2kin contains the kinetic energy \hbar^2(k+G)^2/2m
   !
+  if (allocated(g2kin)) deallocate(g2kin)
   ALLOCATE (g2kin ( npwx ) )
   !
   ! Note: computation of the number of beta functions for
@@ -56,22 +57,35 @@ SUBROUTINE allocate_nlpot
   ! and the number of beta functions of the solid has been
   ! moved to init_run.f90 : pre_init()
   !
+  if (allocated(indv)) deallocate(indv)
   ALLOCATE (indv( nhm, nsp))
+  if (allocated(nhtol)) deallocate(nhtol)
   ALLOCATE (nhtol(nhm, nsp))
+  if (allocated(nhtolm)) deallocate(nhtolm)
   ALLOCATE (nhtolm(nhm, nsp))
+  if (allocated(nhtoj)) deallocate(nhtoj)
   ALLOCATE (nhtoj(nhm, nsp))
+  if (allocated(ijtoh)) deallocate(ijtoh)
   ALLOCATE (ijtoh(nhm, nhm, nsp))
+  if (allocated(indv_ijkb0)) deallocate(indv_ijkb0)
   ALLOCATE (indv_ijkb0(nat))
+  if (allocated(deeq)) deallocate(deeq)
+  if (allocated(deeq_nc)) deallocate(deeq_nc)
   ALLOCATE (deeq( nhm, nhm, nat, nspin))
   IF (noncolin) THEN
      ALLOCATE (deeq_nc( nhm, nhm, nat, nspin))
   ENDIF
+  if (allocated(qq)) deallocate(qq)
   ALLOCATE (qq(   nhm, nhm, nsp))
   IF (lspinorb) THEN
+    if (allocated(qq_so)) deallocate(qq_so)
     ALLOCATE (qq_so(nhm, nhm, 4, nsp))
+    if (allocated(dvan_so)) deallocate(dvan_so)
     ALLOCATE (dvan_so( nhm, nhm, nspin, nsp))
+    if (allocated(fcoef)) deallocate(fcoef)
     ALLOCATE (fcoef(nhm,nhm,2,2,nsp))
   ELSE
+    if (allocated(dvan)) deallocate(dvan)
     ALLOCATE (dvan( nhm, nhm, nsp))
   ENDIF
   ! GIPAW needs a slighly larger q-space interpolation for quantities calculated
@@ -84,21 +98,27 @@ SUBROUTINE allocate_nlpot
   nqxq = int( ( (sqrt(gcutm) + qnorm) / dq + 4) * cell_factor )
   lmaxq = 2*lmaxkb+1
   !
+  if (allocated(qrad)) deallocate(qrad)
   IF (lmaxq > 0) ALLOCATE (qrad( nqxq, nbetam*(nbetam+1)/2, lmaxq, nsp))
+  if (allocated(vkb)) deallocate(vkb)
   ALLOCATE (vkb( npwx,  nkb))
+  if (allocated(becsum)) deallocate(becsum)
   ALLOCATE (becsum( nhm * (nhm + 1)/2, nat, nspin))
   !
   ! Calculate dimensions for array tab (including a possible factor
   ! coming from cell contraction during variable cell relaxation/MD)
   !
   nqx = int( (sqrt (ecutwfc) / dq + 4) * cell_factor )
-
+  
+  if (allocated(tab)) deallocate(tab)
   ALLOCATE (tab( nqx , nbetam , nsp))
 
   ! d2y is for the cubic splines
+  if (allocated(tab_d2y)) deallocate(tab_d2y)
   IF (spline_ps) ALLOCATE (tab_d2y( nqx , nbetam , nsp))
 
   nwfcm = maxval ( upf(1:nsp)%nwfc )
+  if (allocated(tab_at)) deallocate(tab_at)
   ALLOCATE (tab_at( nqx , nwfcm , nsp))
 
   RETURN
