@@ -95,6 +95,7 @@ CONTAINS
       ngm_max = ngm_g
       ngms_max = ngms_g
    END IF
+   write(*,*)"==> in ggen: ngm_g=",ngm_g,", ngms_g=", ngms_g
    !
    ! save current value of ngm and ngms
    !

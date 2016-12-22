@@ -102,12 +102,19 @@
        !
        !  allocate arrays - only those that are always kept until the end
        !
+       if (allocated(gg)) deallocate(gg)
        ALLOCATE( gg(ngm) )
+       if (allocated(g)) deallocate(g)
        ALLOCATE( g(3, ngm) )
+       if (allocated(mill)) deallocate(mill)
        ALLOCATE( mill(3, ngm) )
+       if (allocated(nl)) deallocate(nl)
        ALLOCATE( nl (ngm) )
+       if (allocated(nlm)) deallocate(nlm)
        ALLOCATE( nlm(ngm) )
+       if (allocated(ig_l2g)) deallocate(ig_l2g)
        ALLOCATE( ig_l2g(ngm) )
+       if (allocated(igtongl)) deallocate(igtongl)
        ALLOCATE( igtongl(ngm) )
        !
        RETURN 
@@ -184,7 +191,9 @@
        !
        !  allocate arrays 
        !
+       if (allocated(nls)) deallocate(nls)
        ALLOCATE( nls (ngms) )
+       if (allocated(nlsm)) deallocate(nlsm)
        ALLOCATE( nlsm(ngms) )
        !
        RETURN 
