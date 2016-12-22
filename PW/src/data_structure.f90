@@ -69,7 +69,6 @@ SUBROUTINE data_structure( gamma_only )
   CALL fft_base_info( ionode, stdout )
   ngs_ = dffts%ngl( dffts%mype + 1 )
   ngm_ = dfftp%ngl( dfftp%mype + 1 )
-  write(*,*)"==> data_structure: ngm_=", ngm_
   IF( gamma_only ) THEN
      ngs_ = (ngs_ + 1)/2
      ngm_ = (ngm_ + 1)/2

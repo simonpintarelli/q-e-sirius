@@ -575,7 +575,6 @@ contains
     ierr = buiol_check_unit (unit)
     IF( ierr > 0 ) THEN
        ierr = buiol_write_record ( unit, nword, nrec, vect )
-       write(*,*)"==> save_buffer: nword=", nword
        if ( ierr > 0 ) &
            CALL errore ('save_buffer', 'cannot write record', unit)
 #if defined(__DEBUG)
