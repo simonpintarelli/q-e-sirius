@@ -34,7 +34,7 @@ subroutine stres_loc (sigmaloc)
   !
   real(DP) :: sigmaloc (3, 3)
   real(DP) , allocatable :: dvloc(:)
-  real(DP) :: evloc, fact
+  real(DP) :: evloc, fact, tmp1
   integer :: ng, nt, l, m, is
 
   call sirius_start_timer(c_str("qe|stress_loc"))
@@ -66,12 +66,17 @@ subroutine stres_loc (sigmaloc)
   end if
   evloc = 0.0d0
   do nt = 1, ntyp
-     if (gstart==2) evloc = evloc + &
-          psic (nl (1) ) * strf (1, nt) * vloc (igtongl (1), nt)
+     if (gstart==2) evloc = evloc + psic (nl (1) ) * strf (1, nt) * vloc (igtongl (1), nt)
+     tmp1=0.d0
+!$omp parallel default(none) shared(psic, nl, strf, gstart, ngm, vloc, igtongl, nt, fact, tmp1)
+!$omp do reduction(+:tmp1)
      do ng = gstart, ngm
-        evloc = evloc +  DBLE (CONJG(psic (nl (ng) ) ) * strf (ng, nt) ) &
+        tmp1 = tmp1 +  DBLE (CONJG(psic (nl (ng) ) ) * strf (ng, nt) ) &
              * vloc (igtongl (ng), nt) * fact
      enddo
+!$omp end do
+!$omp end parallel
+     evloc = evloc + tmp1
   enddo
   !
   !      WRITE( 6,*) ' evloc ', evloc, evloc*omega   ! DEBUG
@@ -100,15 +105,18 @@ subroutine stres_loc (sigmaloc)
         !
      END IF
      ! no G=0 contribution
+!$omp parallel default(none) private(tmp1, l, m) shared(ngm, g, psic, nl, nt, dvloc, igtongl, tpiba2, fact, sigmaloc, strf)
+!$omp do reduction(+:sigmaloc)
      do ng = 1, ngm
+        tmp1 = DBLE(CONJG(psic(nl(ng))) * strf(ng, nt)) * 2.0d0 * dvloc(igtongl(ng)) * tpiba2 * fact
         do l = 1, 3
            do m = 1, l
-              sigmaloc(l, m) = sigmaloc(l, m) +  DBLE( CONJG( psic(nl(ng) ) ) &
-                    * strf (ng, nt) ) * 2.0d0 * dvloc (igtongl (ng) ) &
-                    * tpiba2 * g (l, ng) * g (m, ng) * fact
+              sigmaloc(l, m) = sigmaloc(l, m) + tmp1 * g (l, ng) * g (m, ng)
            enddo
         enddo
      enddo
+!$omp end do
+!$omp end parallel
   enddo
   !
   do l = 1, 3
