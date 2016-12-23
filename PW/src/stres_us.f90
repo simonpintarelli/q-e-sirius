@@ -32,6 +32,7 @@ SUBROUTINE stres_us( ik, gk, sigmanlc )
                                    bec_type, becp, calbec
   USE mp,                   ONLY : mp_sum, mp_get_comm_null, mp_circular_shift_left 
   USE input_parameters, ONLY : use_sirius
+  use sirius
   !
   IMPLICIT NONE
   !
@@ -44,6 +45,8 @@ SUBROUTINE stres_us( ik, gk, sigmanlc )
   INTEGER                :: npw, i
   !
   !
+  call sirius_start_timer(c_str("qe|stress_us"))
+
   IF ( nkb == 0 ) RETURN
   !
   IF ( lsda ) current_spin = isk(ik)
@@ -81,6 +84,7 @@ SUBROUTINE stres_us( ik, gk, sigmanlc )
   DEALLOCATE( qm1 )
   CALL deallocate_bec_type ( becp ) 
   !
+  call sirius_stop_timer(c_str("qe|stress_us"))
   RETURN
   !
   CONTAINS
