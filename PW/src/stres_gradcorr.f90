@@ -18,6 +18,7 @@ subroutine stres_gradcorr( rho, rhog, rho_core, rhog_core, nspin, &
                                dft_is_gradient, get_igcc
   USE mp_bands,         ONLY : intra_bgrp_comm
   USE mp,               ONLY : mp_sum
+  use sirius
   !
   IMPLICIT NONE
   !
@@ -33,6 +34,8 @@ subroutine stres_gradcorr( rho, rhog, rho_core, rhog_core, nspin, &
        zeta, rh, rup, rdw, grhoup, grhodw, grhoud, grup, grdw, &
        sigma_gradcorr (3, 3), rhok
   logical :: igcc_is_lyp
+!
+  call sirius_start_timer(c_str("qe|stress_gradcorr"))
 
   if ( .not. dft_is_gradient() ) return
   if (noncolin) call errore('stres_gradcorr', &
@@ -160,6 +163,8 @@ subroutine stres_gradcorr( rho, rhog, rho_core, rhog_core, nspin, &
   END DO
   !
   deallocate(grho)
+
+  call sirius_stop_timer(c_str("qe|stress_gradcorr"))
   return
 
 end subroutine stres_gradcorr

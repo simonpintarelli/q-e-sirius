@@ -36,12 +36,16 @@ subroutine stres_loc (sigmaloc)
   real(DP) , allocatable :: dvloc(:)
   real(DP) :: evloc, fact
   integer :: ng, nt, l, m, is
+
+  call sirius_start_timer(c_str("qe|stress_loc"))
+
   ! counter on g vectors
   ! counter on atomic type
   ! counter on angular momentum
   ! counter on spin components
   allocate(dvloc(ngl))
   sigmaloc(:,:) = 0.d0
+  
 
   if (use_sirius) then
     call sirius_get_rho_pw(ngm, mill(1, 1), rho%of_g(1, 1))
@@ -117,6 +121,8 @@ subroutine stres_loc (sigmaloc)
   call mp_sum(  sigmaloc, intra_bgrp_comm )
   !
   deallocate(dvloc)
+  
+  call sirius_stop_timer(c_str("qe|stress_loc"))
   return
 end subroutine stres_loc
 

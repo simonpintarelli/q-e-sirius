@@ -36,7 +36,9 @@ subroutine stres_knl (sigmanlc, sigmakin)
   integer :: npw, ik, l, m, i, ibnd, is, ikglob, rank, ierr
   integer, allocatable :: gvec_k(:,:)
   integer, external :: global_kpoint_index
-
+!
+  call sirius_start_timer(c_str("qe|stress_knl"))
+  
   allocate (gk(  3, npwx))    
   allocate (kfac(   npwx))    
   
@@ -134,6 +136,8 @@ subroutine stres_knl (sigmanlc, sigmakin)
 
   deallocate(kfac)
   deallocate(gk)
+
+  call sirius_stop_timer(c_str("qe|stress_knl"))
   return
 end subroutine stres_knl
 
