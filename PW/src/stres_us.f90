@@ -325,14 +325,14 @@ SUBROUTINE stres_us( ik, gk, sigmanlc )
        DATA xyz / 1.0d0, 0.0d0, 0.0d0, 0.0d0, 1.0d0, 0.0d0, 0.0d0, 0.0d0, 1.0d0 /
        !
        !
-       if (noncolin) then
-          ALLOCATE( work2_nc(npwx,npol) )
-          ALLOCATE( deff_nc(nhm,nhm,nat,nspin) )
-       else
-          ALLOCATE( deff(nhm,nhm,nat) )
-       endif
-       !
-       ALLOCATE( work1(npwx), work2(npwx) )
+       !if (noncolin) then
+       !   ALLOCATE( work2_nc(npwx,npol) )
+       !   ALLOCATE( deff_nc(nhm,nhm,nat,nspin) )
+       !else
+       !   ALLOCATE( deff(nhm,nhm,nat) )
+       !endif
+       !!
+       !ALLOCATE( work1(npwx), work2(npwx) )
        !
        evps = 0.D0
        ! ... diagonal contribution
@@ -342,6 +342,14 @@ SUBROUTINE stres_us( ik, gk, sigmanlc )
        ! ... the contribution is calculated only on one processor because
        ! ... partial results are later summed over all processors
        !
+!$omp parallel default(none) private(deff, deff_nc, np, na, ih, ikb, jkb, ijs, is, js, ijkb0, fac) &
+!$omp          &shared(et, ntyp, nat, ityp, nh, noncolin, nhm, nspin, nbnd, becp, upf, npol, newpseudo, evps, wg, ik)
+       if (noncolin) then
+          allocate(deff_nc(nhm,nhm,nat,nspin))
+       else
+          allocate(deff(nhm,nhm,nat))
+       endif
+!$omp do reduction(+:evps)
        DO ibnd = 1, nbnd
           fac = wg(ibnd,ik)
           IF (ABS(fac) < 1.d-9) CYCLE
@@ -403,11 +411,26 @@ SUBROUTINE stres_us( ik, gk, sigmanlc )
              END DO
           END DO
        END DO
+!$omp end do
+       if (noncolin) then
+          deallocate(deff_nc)
+       else
+          deallocate(deff)
+       endif
+!$omp end parallel
        DO l = 1, 3
           sigmanlc(l,l) = sigmanlc(l,l) - evps
        END DO
        !
 100    CONTINUE
+
+       if (noncolin) then
+          ALLOCATE( work2_nc(npwx,npol) )
+          ALLOCATE( deff_nc(nhm,nhm,nat,nspin) )
+       else
+          ALLOCATE( deff(nhm,nhm,nat) )
+       endif
+       ALLOCATE( work1(npwx), work2(npwx) )
        !
        ! ... non diagonal contribution - derivative of the bessel function
        !
