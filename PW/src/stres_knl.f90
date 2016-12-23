@@ -58,7 +58,8 @@ subroutine stres_knl (sigmanlc, sigmakin)
         enddo
         ikglob = global_kpoint_index ( nkstot, ik )
         call sirius_get_wave_functions(kset_id, ikglob, npw, gvec_k(1, 1), evc(1, 1), npwx)
-        call sirius_get_beta_projectors(kset_id, ikglob, npw, gvec_k(1, 1), vkb(1, 1), npwx, nkb)
+        !call init_us_2( npw, igk_k(1,ik), xk(1,ik), vkb )
+        !call sirius_get_beta_projectors(kset_id, ikglob, npw, gvec_k(1, 1), vkb(1, 1), npwx, nkb)
         deallocate(gvec_k)
      else 
         if (nks > 1) call get_buffer (evc, nwordwfc, iunwfc, ik)

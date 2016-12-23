@@ -219,17 +219,6 @@ subroutine electrons_sirius()
        END DO
        et = et * 2.d0
        CALL print_ks_energies()
-
-       allocate(band_e(nbnd, nkstot))
-       ! get band energies
-       do ik = 1, nkstot
-         call sirius_get_band_energies(kset_id, ik, band_e(1, ik))
-       end do
-       do ik = 1, nks
-         ! convert to ry
-         et(:, ik) = 2.d0 * band_e(:, global_kpoint_index ( nkstot, ik ))
-       enddo
-       deallocate(band_e)
        !
     END IF
 
@@ -269,8 +258,6 @@ subroutine electrons_sirius()
        GO TO 10
        !
     END IF
-
-
 
   ENDDO
   WRITE( stdout, 9101 )
@@ -404,6 +391,17 @@ subroutine electrons_sirius()
      rho%of_r(:,is) = psic(:)
      !
   end do
+
+  allocate(band_e(nbnd, nkstot))
+  ! get band energies
+  do ik = 1, nkstot
+    call sirius_get_band_energies(kset_id, ik, band_e(1, ik))
+  end do
+  do ik = 1, nks
+    ! convert to ry
+    et(:, ik) = 2.d0 * band_e(:, global_kpoint_index ( nkstot, ik ))
+  enddo
+  deallocate(band_e)
 
   !CALL sirius_print_timers()
   !CALL sirius_write_json_output()
