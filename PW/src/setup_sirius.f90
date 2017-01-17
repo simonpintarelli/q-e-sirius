@@ -97,13 +97,15 @@ subroutine setup_sirius()
     stop("not a square MPI grid")
   endif
 
-  dims(1) = npool
+  !dims(3) = npool
   if (i.eq.1) then
-    call sirius_set_mpi_grid_dims(1, dims(1))
+    dims(1) = 1
+    dims(2) = 1
+    call sirius_set_mpi_grid_dims(2, dims(1))
   else
+    dims(1) = i
     dims(2) = i
-    dims(3) = i
-    call sirius_set_mpi_grid_dims(3, dims(1))
+    call sirius_set_mpi_grid_dims(2, dims(1))
   endif
 
   ! set |G| cutoff of the dense FFT grid
