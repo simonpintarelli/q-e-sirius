@@ -36,6 +36,7 @@ SUBROUTINE init_run()
   USE hdf5_qe, ONLY : initialize_hdf5
   USE wavefunctions_module,ONLY : evc
 #endif
+  USE input_parameters, ONLY : use_sirius
 
   !
   IMPLICIT NONE
@@ -92,6 +93,9 @@ SUBROUTINE init_run()
   !
   call plugin_initbase()
   !
+  if (allocated(et)) deallocate(et)
+  if (allocated(wg)) deallocate(wg)
+  if (allocated(btype)) deallocate(btype)
   ALLOCATE( et( nbnd, nkstot ) , wg( nbnd, nkstot ), btype( nbnd, nkstot ) )
   !
   et(:,:) = 0.D0
@@ -119,7 +123,7 @@ SUBROUTINE init_run()
 #if defined __HDF5
   CALL initialize_hdf5()
 #endif
-  CALL wfcinit()
+  if (.not.use_sirius) CALL wfcinit()
   !
   IF(use_wannier) CALL wannier_init()
   !

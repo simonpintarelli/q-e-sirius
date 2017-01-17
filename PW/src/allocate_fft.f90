@@ -56,17 +56,24 @@ SUBROUTINE allocate_fft
   CALL create_scf_type(rho)
   CALL create_scf_type(v,    do_not_allocate_becsum = .true.)
   CALL create_scf_type(vnew, do_not_allocate_becsum = .true.)
+  if (allocated(vltot)) deallocate(vltot)
   ALLOCATE (vltot( dfftp%nnr))
+  if (allocated(rho_core)) deallocate(rho_core)
   ALLOCATE (rho_core( dfftp%nnr))
+  if (allocated(kedtau)) deallocate(kedtau)
   IF (dft_is_meta() ) THEN
      ALLOCATE ( kedtau(dffts%nnr,nspin) )
   ELSE
      ALLOCATE ( kedtau(1,nspin) )
   ENDIF
+  if (allocated(rhog_core)) deallocate(rhog_core)
   ALLOCATE( rhog_core( ngm ) )
+  if (allocated(psic)) deallocate(psic)
   ALLOCATE (psic( dfftp%nnr))
+  if (allocated(vrs)) deallocate(vrs)
   ALLOCATE (vrs( dfftp%nnr, nspin))
-
+  
+  if (allocated(psic_nc)) deallocate(psic_nc)
   IF (noncolin) ALLOCATE (psic_nc( dfftp%nnr, npol))
 
   IF ( ( (report.ne.0).or.(i_cons.ne.0) ) .and. (noncolin.and.domag) &
@@ -75,8 +82,11 @@ SUBROUTINE allocate_fft
 ! In order to print out local quantities, integrated around the atoms,
 ! we need the following variables
 !
+     if (allocated(pointlist)) deallocate(pointlist)
      ALLOCATE(pointlist(dfftp%nnr))
+     if (allocated(factlist)) deallocate(factlist)
      ALLOCATE(factlist(dfftp%nnr))
+     if (allocated(r_loc)) deallocate(r_loc)
      ALLOCATE(r_loc(nat))
      CALL make_pointlists ( )
   ENDIF

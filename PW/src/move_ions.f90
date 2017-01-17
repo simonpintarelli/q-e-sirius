@@ -70,9 +70,17 @@ SUBROUTINE move_ions ( idone )
   INTEGER,  ALLOCATABLE :: fixion(:)
   real(dp) :: tr
   LOGICAL               :: conv_fcp
+  integer :: i, ia
   !
   ! ... only one node does the calculation in the parallel case
   !
+
+  do ia=1,nat
+    do i=1,3
+      write(*,*) force(i,ia), " "
+    enddo
+  enddo
+
   IF ( ionode ) THEN
      !
      conv_ions = .FALSE.
@@ -114,6 +122,40 @@ SUBROUTINE move_ions ( idone )
            epsp1 = epsp / ry_kbar
         END IF
         !
+
+        write(*,*) "grad"
+          do ia=1,nat
+            do i=1,3
+              write(*,*) grad(i+3*(ia-1)), " "
+            enddo
+          enddo
+        write(*,*) "pos"
+          do ia=1,nat
+            do i=1,3
+              write(*,*) pos(i+3*(ia-1)), " "
+            enddo
+          enddo
+        write(*,*) "fixion"
+          do ia=1,nat
+            do i=1,3
+              write(*,*) fixion(i+3*(ia-1)), " "
+            enddo
+          enddo
+
+        write(*,*) "h ",h
+        write(*,*) "etot ",etot
+        write(*,*) "fcell ",fcell(1,1)," ",fcell(1,2)," ",fcell(1,3)
+        write(*,*) "epse ",epse
+        write(*,*) "epsf ",epsf
+        write(*,*) "epsp1 ",epsp1
+        write(*,*) "energy_error ",energy_error
+        write(*,*) "gradient_error ",gradient_error
+        write(*,*) "cell_error ",cell_error
+        write(*,*) "lmovecell ",lmovecell
+        write(*,*) "step_accepted ",step_accepted
+        write(*,*) "conv_ions ",conv_ions
+        write(*,*) "istep ",istep
+
         CALL bfgs( pos, h, etot, grad, fcell, fixion, tmp_dir, stdout, epse,&
                    epsf, epsp1,  energy_error, gradient_error, cell_error,  &
                    lmovecell, step_accepted, conv_ions, istep )

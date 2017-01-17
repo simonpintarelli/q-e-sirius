@@ -25,6 +25,9 @@ SUBROUTINE allocate_wfc()
   IMPLICIT NONE
   !
   !
+  if (allocated(evc)) deallocate(evc)
+  if (allocated(swfcatom)) deallocate(swfcatom)
+  if (allocated(wfcU)) deallocate(wfcU)
   ALLOCATE( evc( npwx*npol, nbnd ) )    
   IF ( one_atom_occupations .OR. use_wannier ) &
      ALLOCATE( swfcatom( npwx*npol, natomwfc) )

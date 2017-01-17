@@ -6,10 +6,10 @@ include ../../make.inc
 MODFLAGS= $(MOD_FLAG)../../iotk/src $(MOD_FLAG)../../Modules $(MOD_FLAG)../../FFTXlib $(MOD_FLAG)../../LAXlib
 
 PWOBJS = \
-pwscf.o 
+pwscf.o
 
 MANYPWOBJS = \
-manypw.o 
+manypw.o
 
 PWLIBS = \
 a2fmod.o \
@@ -72,6 +72,8 @@ dynamics_module.o \
 efermig.o \
 efermit.o \
 electrons.o \
+electrons_sirius.o \
+setup_sirius.o \
 eqvect.o \
 esm.o \
 esm_cft.o \
@@ -249,7 +251,7 @@ wannier_check.o \
 wannier_clean.o \
 wannier_occ.o \
 wannier_enrg.o \
-wyckoff.o       
+wyckoff.o
 
 QEMODS=../../Modules/libqemod.a ../../FFTXlib/libqefft.a ../../LAXlib/libqela.a
 
@@ -267,7 +269,7 @@ manypw.x : $(MANYPWOBJS) libpw.a $(LIBOBJS) $(QEMODS)
 	 $(MANYPWOBJS) libpw.a $(QEMODS) $(LIBOBJS) $(LIBS)
 	- ( cd ../../bin; ln -fs ../PW/src/$@ . )
 
-libpw.a : $(PWLIBS) 
+libpw.a : $(PWLIBS)
 	$(AR) $(ARFLAGS) $@ $?
 	$(RANLIB) $@
 

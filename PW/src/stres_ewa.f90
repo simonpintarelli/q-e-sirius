@@ -17,6 +17,7 @@ subroutine stres_ewa (alat, nat, ntyp, ityp, zv, at, bg, tau, &
   USE constants, only : tpi, e2, eps6
   USE mp_bands,  ONLY : intra_bgrp_comm
   USE mp,        ONLY : mp_sum
+  use sirius
 
   implicit none
   !
@@ -76,6 +77,7 @@ subroutine stres_ewa (alat, nat, ntyp, ityp, zv, at, bg, tau, &
   real(DP), external :: qe_erfc
   ! the erfc function
   !
+  call sirius_start_timer(c_str("qe|stress_ewa"))
   tpiba2 = (tpi / alat) **2
   sigmaewa(:,:) = 0.d0
   charge = 0.d0
@@ -173,6 +175,7 @@ subroutine stres_ewa (alat, nat, ntyp, ityp, zv, at, bg, tau, &
      enddo
   enddo
   call mp_sum(  sigmaewa, intra_bgrp_comm )
+  call sirius_stop_timer(c_str("qe|stress_ewa"))
   return
 end subroutine stres_ewa
 

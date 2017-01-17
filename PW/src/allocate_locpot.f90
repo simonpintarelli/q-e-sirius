@@ -20,9 +20,14 @@ subroutine allocate_locpot
   !
   implicit none
   !
+  if (allocated(vloc)) deallocate(vloc)
   allocate (vloc( ngl, ntyp))    
+  if (allocated(strf)) deallocate(strf)
   allocate (strf( ngm, ntyp))    
-
+  
+  if (allocated(eigts1)) deallocate(eigts1)
+  if (allocated(eigts2)) deallocate(eigts2)
+  if (allocated(eigts3)) deallocate(eigts3)
   allocate( eigts1(-dfftp%nr1:dfftp%nr1,nat) )
   allocate( eigts2(-dfftp%nr2:dfftp%nr2,nat) )
   allocate( eigts3(-dfftp%nr3:dfftp%nr3,nat) )
