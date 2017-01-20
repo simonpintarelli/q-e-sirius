@@ -176,22 +176,20 @@ subroutine electrons_sirius()
     ENDIF
     CALL sirius_stop_timer(c_str("qe|mix"))
 
-    !== CALL sirius_get_energy_tot(etot)
+    ! generate effective potential
+    CALL sirius_generate_effective_potential()
+
     CALL sirius_get_energy_ewald(ewld)
     CALL sirius_get_energy_exc(etxc)
     CALL sirius_get_energy_vxc(vtxc)
     CALL sirius_get_energy_vha(ehart) ! E_Ha = 0.5 <V_Ha|rho> in Hartree units
     CALL sirius_get_evalsum(eband)
     CALL sirius_get_energy_veff(deband)
-    !etot = etot * 2.d0 ! convert to Ry
     ewld = ewld * 2.d0
     etxc = etxc * 2.d0
     vtxc = vtxc * 2.d0
     eband = eband * 2.d0
     deband = -deband * 2.d0
-
-    ! generate effective potential
-    CALL sirius_generate_effective_potential()
 
     !!== !
     !!== ! ... the Harris-Weinert-Foulkes energy is computed here using only
@@ -227,11 +225,11 @@ subroutine electrons_sirius()
 
     if ( okpaw ) then
         call sirius_get_paw_total_energy(epaw)
-        call sirius_get_paw_one_elec_energy( paw_one_elec_energy )
+        call sirius_get_paw_one_elec_energy(paw_one_elec_energy)
         epaw = epaw * 2.0;
         paw_one_elec_energy = paw_one_elec_energy * 2.0;
 
-        etot = etot -  paw_one_elec_energy +  epaw
+        etot = etot - paw_one_elec_energy + epaw
     endif
 
     ! TODO: this has to be called correcly - there are too many dependencies
