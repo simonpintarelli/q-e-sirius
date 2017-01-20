@@ -93,12 +93,14 @@ SUBROUTINE setup()
   USE paw_variables,      ONLY : okpaw
   USE fcp_variables,      ONLY : lfcpopt, lfcpdyn
   USE extfield,           ONLY : monopole
+  use sirius
+  use input_parameters, only : use_sirius
   !
   IMPLICIT NONE
   !
-  INTEGER  :: na, is, ierr, ibnd, ik
+  INTEGER  :: na, is, ierr, ibnd, ik, fft_dims(3)
   LOGICAL  :: magnetic_sym, skip_equivalence=.FALSE.
-  REAL(DP) :: iocc, ionic_charge, one
+  REAL(DP) :: iocc, ionic_charge, one, bg_tmp(3,3)
   !
   LOGICAL, EXTERNAL  :: check_para_diag
 !
@@ -458,6 +460,13 @@ SUBROUTINE setup()
      dffts%nr2 = dfftp%nr2
      dffts%nr3 = dfftp%nr3
   END IF
+  if (use_sirius) then
+    bg_tmp = bg * tpiba
+    call sirius_find_fft_grid_size(sqrt(ecutrho), bg_tmp(1, 1), fft_dims(1))
+    dfftp%nr1 = fft_dims(1)
+    dfftp%nr2 = fft_dims(2)
+    dfftp%nr3 = fft_dims(3)
+  endif
   CALL fft_type_allocate ( dfftp, at, bg, gcutm, intra_bgrp_comm )
   CALL fft_type_allocate ( dffts, at, bg, gcutms, intra_bgrp_comm)
   !
