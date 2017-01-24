@@ -341,11 +341,11 @@ SUBROUTINE setup()
      !
      IF ( lgauss .OR. ltetra ) THEN
         !
-        ! ... metallic case: add 20% more bands, with a minimum of 4
+        ! ... metallic case: add 20% more bands, with a minimum of 10
         !
         nbnd = MAX( NINT( 1.2D0 * nelec / degspin ), &
                     NINT( 1.2D0 * nelup), NINT( 1.2d0 * neldw ), &
-                    ( nbnd + 4 ) )
+                    ( nbnd + 10 ) )
         !
      END IF
      !
