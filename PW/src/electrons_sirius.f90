@@ -90,7 +90,7 @@ subroutine electrons_sirius()
     call sirius_density_mixer_initialize()
   endif
 
-  write( stdout, 9002 )
+  write(stdout, 9002)
   !CALL flush_unit( stdout )
 
   call create_scf_type(rhoin)
@@ -267,8 +267,7 @@ subroutine electrons_sirius()
     ewld = ewld * 2.d0
     eband = eband * 2.d0
     deband = -(deband - etmp) * 2.d0
-
-    !!== !
+    
     !!== ! ... the Harris-Weinert-Foulkes energy is computed here using only
     !!== ! ... quantities obtained from the input density
     !!== !
@@ -308,7 +307,7 @@ subroutine electrons_sirius()
         etot = etot - paw_one_elec_energy + epaw
       endif
       if (use_sirius_veff.eq.0) then
-        etot = etot + epaw + sum(ddd_paw(:, :, :) * rho%bec(:, :, :))
+        etot = etot + epaw - sum(ddd_paw(:, :, :) * rho%bec(:, :, :))
       endif
     endif
 
@@ -329,7 +328,7 @@ subroutine electrons_sirius()
        !
        !!IF ( do_comp_esm ) CALL esm_printpot()
        !
-       write( stdout, 9110 ) iter
+       write(stdout, 9110) iter
        !
        ! ... jump to the end
        !
@@ -516,9 +515,9 @@ subroutine electrons_sirius()
        if ( ( conv_elec .or. mod(iter,iprint) == 0 ) .and. printout > 1 ) then
           !
           if ( dr2 > eps8 ) then
-             write( stdout, 9081 ) etot, hwf_energy, dr2
+             write(stdout, 9081) etot, hwf_energy, dr2
           else
-             write( stdout, 9083 ) etot, hwf_energy, dr2
+             write(stdout, 9083) etot, hwf_energy, dr2
           end if
           !!IF ( only_paw ) WRITE( stdout, 9085 ) etot+total_core_energy
           !
