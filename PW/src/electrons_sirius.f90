@@ -10,8 +10,8 @@ subroutine electrons_sirius()
   use control_flags,    only : conv_elec, ethr, gamma_only, iprint, iverbosity, mixing_beta, niter,&
                                nmix, llondon, lxdm, lmd
   use gvect,            only : nl,nlm
-  use scf,              only : scf_type, rho, create_scf_type, open_mix_file, scf_type_copy, bcast_scf_type,&
-                               close_mix_file, destroy_scf_type
+  use scf,              only : scf_type, rho, rho_core, rhog_core, create_scf_type, open_mix_file, scf_type_copy,&
+                               bcast_scf_type, close_mix_file, destroy_scf_type, v, vltot
   use io_files,         only : iunmix
   use mp_bands,         only : intra_bgrp_comm
   use mp_pools,         only : root_pool, my_pool_id, inter_pool_comm, npool
@@ -30,21 +30,27 @@ subroutine electrons_sirius()
   use fft_interfaces,       only : fwfft, invfft
   use input_parameters, only : conv_thr, sirius_cfg
   use funct, only : dft_is_hybrid
+  use ldaU,                 only : eth
+  use extfield,             only : tefield, etotefield
+  use paw_variables,        only : okpaw, ddd_paw, total_core_energy, only_paw
+  use paw_onecenter,        only : PAW_potential
   !
   implicit none
   integer iat, ia, i, j, num_gvec, num_fft_grid_points, ik, iter, ig, li, lj, ijv, ilast, ir, l, mb, nb, is
   real(8), allocatable :: vloc(:), dion(:,:), tmp(:)
   real(8), allocatable :: bnd_occ(:,:), band_e(:,:), wk_tmp(:), xk_tmp(:,:)
-  real(8) v(3), a1(3), a2(3), a3(3), maxocc, rms
+  real(8) a1(3), a2(3), a3(3), maxocc, rms
   type (scf_type) :: rhoin ! used to store rho_in of current/next iteration
-  real(8) :: dr2
+  real(8) :: dr2, etmp
   logical exst
-  integer ierr, rank, use_sirius_mixer, num_ranks_k, dims(3), ih, jh, ijh, na
-  real(8) vlat(3, 3), vlat_inv(3, 3), v1(3), v2(3), bg_inv(3, 3)
+  integer ierr, rank, use_sirius_mixer, use_sirius_veff, num_ranks_k, dims(3), ih, jh, ijh, na
+  real(8) vlat(3, 3), vlat_inv(3, 3), v2(3), bg_inv(3, 3), charge
   integer kmesh(3), kshift(3), printout, vt(3)
   integer, external :: global_kpoint_index
-  real(8), allocatable :: qij(:,:,:)
+  real(8), allocatable :: qij(:,:,:), deeq_tmp(:,:)
+  complex(8), allocatable :: dens_mtrx(:,:)
   integer, allocatable :: nk_loc(:)
+  real(8) :: etot_cmp_paw(nat,2,2)
   !---------------
   ! paw one elec
   !---------------
@@ -59,6 +65,7 @@ subroutine electrons_sirius()
   end if
 
   use_sirius_mixer = 0
+  use_sirius_veff = 0
   
   ! create Density class
   call sirius_create_density()
@@ -67,129 +74,199 @@ subroutine electrons_sirius()
   call sirius_create_potential()
 
   ! initialize ground-state class
-  CALL sirius_create_ground_state(kset_id )
+  call sirius_create_ground_state(kset_id)
 
   ! generate initial density from atomic densities rho_at
   call sirius_generate_initial_density()
 
   ! generate effective potential
-  CALL sirius_generate_effective_potential()
+  call sirius_generate_effective_potential()
 
   ! initialize subspace before calling "sirius_find_eigen_states"
   call sirius_initialize_subspace(kset_id)
 
   ! initialize internal library mixer
   if (use_sirius_mixer.eq.1) then
-    CALL sirius_density_mixer_initialize()
+    call sirius_density_mixer_initialize()
   endif
 
-  WRITE( stdout, 9002 )
+  write( stdout, 9002 )
   !CALL flush_unit( stdout )
 
   call create_scf_type(rhoin)
   call sirius_get_rho_pw(ngm, mill(1, 1), rho%of_g(1, 1))
   call scf_type_copy(rho, rhoin)
-  call open_mix_file( iunmix, 'mix', exst  )
+  call open_mix_file(iunmix, 'mix', exst)
 
-  CALL sirius_start_timer(c_str("qe|electrons"))
+  call sirius_start_timer(c_str("qe|electrons"))
 
-  conv_elec=.false.
+  conv_elec = .false.
 
-  DO iter = 1, niter
-    WRITE( stdout, 9010 ) iter, ecutwfc, mixing_beta
+  allocate(dens_mtrx(nhm, nhm))
+  allocate(deeq_tmp(nhm, nhm))
 
-    IF ( iter > 1 ) THEN
+  do iter = 1, niter
+    write(stdout, 9010)iter, ecutwfc, mixing_beta
+
+    if (iter.gt.1) then
        !
-       IF ( iter == 2 ) THEN
+       if (iter.eq.2) then
           ethr = 1.D-2
-       ELSE
-          ethr = MIN( ethr, 0.1D0*dr2 / MAX( 1.D0, nelec ) )
+       else
+          ethr = min(ethr, 0.1d0 * dr2 / max(1.d0, nelec))
           ! ... do not allow convergence threshold to become too small:
           ! ... iterative diagonalization may become unstable
-          ethr = MAX( ethr, 1.D-13 )
-       ENDIF
+          ethr = max(ethr, 1.d-13)
+       endif
        !
-       CALL sirius_set_iterative_solver_tolerance(ethr)
-    END IF
+       call sirius_set_iterative_solver_tolerance(ethr)
+    end if
 
     ! solve H\spi = E\psi
-    CALL sirius_find_eigen_states(kset_id, precompute=1)
+    call sirius_find_eigen_states(kset_id, precompute=1)
 
 !    ! use sirius to calculate band occupancies
 !     CALL sirius_find_band_occupancies(kset_id)
 !     CALL sirius_get_energy_fermi(kset_id, ef)
 !     ef = ef * 2.d0
 
-    ALLOCATE(band_e(nbnd, nkstot))
+    allocate(band_e(nbnd, nkstot))
     ! get band energies
-    DO ik = 1, nkstot
-      CALL sirius_get_band_energies(kset_id, ik, band_e(1, ik))
-    END DO
+    do ik = 1, nkstot
+      call sirius_get_band_energies(kset_id, ik, band_e(1, ik))
+    end do
 
-    DO ik = 1, nks
+    do ik = 1, nks
       ! convert to Ry
       et(:, ik) = 2.d0 * band_e(:, global_kpoint_index ( nkstot, ik ))
-    ENDDO
+    enddo
 
-    DEALLOCATE(band_e)
+    deallocate(band_e)
 
     ! compute band weights
-    CALL weights()
+    call weights()
 
     ! compute occupancies
-    ALLOCATE(bnd_occ(nbnd, nkstot ))
+    allocate(bnd_occ(nbnd, nkstot ))
     bnd_occ = 0.d0
     ! define a maximum band occupancy (2 in case of spin-unpolarized, 1 in case of spin-polarized)
     maxocc = 2.d0
-    DO ik = 1, nks
+    do ik = 1, nks
       bnd_occ(:, global_kpoint_index ( nkstot, ik )) = maxocc * wg(:, ik) / wk(ik)
-    END DO
-    CALL mpi_allreduce(MPI_IN_PLACE, bnd_occ(1, 1), nbnd * nkstot, MPI_DOUBLE, MPI_SUM, inter_pool_comm, ierr)
+    enddo
+    call mpi_allreduce(MPI_IN_PLACE, bnd_occ(1, 1), nbnd * nkstot, MPI_DOUBLE, MPI_SUM, inter_pool_comm, ierr)
 
     ! set band occupancies
-    DO ik = 1, nkstot
-      CALL sirius_set_band_occupancies(kset_id, ik, bnd_occ(1, ik))
-    END DO
-    DEALLOCATE(bnd_occ)
+    do ik = 1, nkstot
+      call sirius_set_band_occupancies(kset_id, ik, bnd_occ(1, ik))
+    enddo
+    deallocate(bnd_occ)
 
     !  generate valence density
-    CALL sirius_generate_valence_density(kset_id)
+    call sirius_generate_valence_density(kset_id)
 
-    if (.not.nosym) CALL sirius_symmetrize_density()
+    if (.not.nosym) call sirius_symmetrize_density()
     
-    CALL sirius_start_timer(c_str("qe|mix"))
-    IF (use_sirius_mixer.eq.1) THEN
-      CALL sirius_mix_density(rms)
-      CALL sirius_get_density_dr2(dr2)
-    ELSE
-      ! get rho(G)
-      call sirius_get_rho_pw(ngm, mill(1, 1), rho%of_g(1, 1))
+    call sirius_start_timer(c_str("qe|mix"))
+    ! mix density with SIRIUS
+    if (use_sirius_mixer.eq.1) then
+      call sirius_mix_density(rms)
+      call sirius_get_density_dr2(dr2)
+    endif
+    ! get rho(G)
+    call sirius_get_rho_pw(ngm, mill(1, 1), rho%of_g(1, 1))
+    ! get density matrix
+    do iat = 1, nsp
+      do na = 1, nat
+        if (ityp(na).eq.iat) then
+          rho%bec(:, na, :) = 0.d0
+          call sirius_get_density_matrix(na, dens_mtrx(1, 1), nhm)
+          ijh = 0
+          do ih = 1, nh(iat)
+            do jh = ih, nh(iat)
+              ijh = ijh + 1
+              rho%bec(ijh, na, 1) = dens_mtrx(ih, jh)
+              ! off-diagonal elements
+              if (ih.ne.jh) then
+                rho%bec(ijh, na, 1) = rho%bec(ijh, na, 1) * 2.d0
+              endif
+            enddo
+          enddo
+        endif
+      enddo
+    enddo
+    ! mix density with QE
+    if (use_sirius_mixer.eq.0) then
       ! mix density
-      CALL mix_rho(rho, rhoin, mixing_beta, dr2, 0.d0, iter, nmix, &
-                  &iunmix, conv_elec)
+      call mix_rho(rho, rhoin, mixing_beta, dr2, 0.d0, iter, nmix, iunmix, conv_elec)
       ! broadcast
-      CALL bcast_scf_type(rhoin, root_pool, inter_pool_comm)
-      CALL mp_bcast(dr2, root_pool, inter_pool_comm)
-      CALL mp_bcast(conv_elec, root_pool, inter_pool_comm)
+      call bcast_scf_type(rhoin, root_pool, inter_pool_comm)
+      call scf_type_COPY(rhoin, rho)
+      call mp_bcast(dr2,       root_pool, inter_pool_comm)
+      call mp_bcast(conv_elec, root_pool, inter_pool_comm)
       ! set new (mixed) rho(G)
-      CALL sirius_set_rho_pw(ngm, mill(1, 1), rhoin%of_g(1, 1), intra_bgrp_comm)
-    ENDIF
-    CALL sirius_stop_timer(c_str("qe|mix"))
-
+      call sirius_set_rho_pw(ngm, mill(1, 1), rho%of_g(1, 1), intra_bgrp_comm)
+      ! set new (mixed) density matrix
+    endif
+    call sirius_stop_timer(c_str("qe|mix"))
+    
     ! generate effective potential
-    CALL sirius_generate_effective_potential()
+    call sirius_start_timer(c_str("qe|veff"))
+    if (use_sirius_veff.eq.1) then
+      call sirius_generate_effective_potential()
+      call sirius_get_energy_exc(etxc)
+      etxc = etxc * 2.d0
+      call sirius_get_energy_vxc(vtxc)
+      vtxc = vtxc * 2.d0
+      call sirius_get_energy_vha(ehart) ! E_Ha = 0.5 <V_Ha|rho> in Hartree units = <V_Ha|rho> in Ry units
+    else
+      ! transform density to real-space  
+      do is = 1, nspin_mag
+         psic(:) = 0.d0
+         psic(nl(:)) = rho%of_g(:,is)
+         if (gamma_only) psic(nlm(:)) = conjg(rho%of_g(:,is))
+         call invfft('Dense', psic, dfftp)
+         rho%of_r(:,is) = dble(psic(:))
+      end do
+      call v_of_rho(rho, rho_core, rhog_core, ehart, etxc, vtxc, eth, etotefield, charge, v)
+      ! calculate PAW potential
+      if (okpaw) then
+        call PAW_potential(rho%bec, ddd_PAW, epaw, etot_cmp_paw)
+      endif
+      ! transform to PW domain
+      psic(:) = v%of_r(:, 1) + vltot(:)
+      call fwfft('Dense', psic, dfftp)
+      ! convert to Hartree
+      do ig = 1, ngm
+         v%of_g(ig, 1) = psic(nl(ig)) * 0.5d0
+      end do
+      ! set effective potential
+      call sirius_set_veff_pw(ngm, mill(1, 1), v%of_g(1, 1), intra_bgrp_comm)
+      ! update D-operator matrix
+      call sirius_generate_d_operator_matrix()
+      if (okpaw) then
+        ! get D-operator matrix
+        do ia = 1, nat
+          call sirius_get_d_operator_matrix(ia, deeq(1, 1, ia, 1), nhm)
+          ! convert to Ry
+          deeq(:, :, ia, :) = deeq(:, :, ia, :) * 2
+        enddo
+        call add_paw_to_deeq(deeq)
+        do ia = 1, nat
+          deeq_tmp(:, :) = deeq(:, :, ia, 1) / 2.d0 ! convert to Ha
+          call sirius_set_d_operator_matrix(ia, deeq_tmp(1, 1), nhm)
+        enddo
+      endif
+    endif
+    call sirius_stop_timer(c_str("qe|veff"))
 
-    CALL sirius_get_energy_ewald(ewld)
-    CALL sirius_get_energy_exc(etxc)
-    CALL sirius_get_energy_vxc(vtxc)
-    CALL sirius_get_energy_vha(ehart) ! E_Ha = 0.5 <V_Ha|rho> in Hartree units
-    CALL sirius_get_evalsum(eband)
-    CALL sirius_get_energy_veff(deband)
+    call sirius_get_energy_ewald(ewld)
+    call sirius_get_evalsum(eband)
+    call sirius_get_energy_veff(deband)
+    call sirius_get_energy_vloc(etmp)
     ewld = ewld * 2.d0
-    etxc = etxc * 2.d0
-    vtxc = vtxc * 2.d0
     eband = eband * 2.d0
-    deband = -deband * 2.d0
+    deband = -(deband - etmp) * 2.d0
 
     !!== !
     !!== ! ... the Harris-Weinert-Foulkes energy is computed here using only
@@ -199,10 +276,10 @@ subroutine electrons_sirius()
     !!== If ( okpaw ) hwf_energy = hwf_energy + epaw
     !!== IF ( lda_plus_u ) hwf_energy = hwf_energy + eth
 
-    IF ( conv_elec ) WRITE( stdout, 9101 )
+    if (conv_elec) write(stdout, 9101)
 
-    IF ( conv_elec .OR. MOD( iter, iprint ) == 0 ) THEN
-       !
+    if (conv_elec.or.mod(iter, iprint).eq.0) then
+       write(stdout, 9101)
        !IF ( lda_plus_U .AND. iverbosity == 0 ) THEN
        !   IF (noncolin) THEN
        !      CALL write_ns_nc()
@@ -212,34 +289,37 @@ subroutine electrons_sirius()
        !ENDIF
 
        ! get band energies
-       DO ik = 1, nkstot
-         CALL sirius_get_band_energies(kset_id, ik, et(1, ik))
-       END DO
+       do ik = 1, nkstot
+         call sirius_get_band_energies(kset_id, ik, et(1, ik))
+       enddo
        et = et * 2.d0
-       CALL print_ks_energies()
-       !
-    END IF
+       call print_ks_energies()
+    endif
 
     ! total energy
-    etot = eband + ( etxc - etxcc ) + ewld + ehart + deband + demet !+ descf
+    etot = eband + (etxc - etxcc) + ewld + ehart + deband + demet !+ descf
 
-    if ( okpaw ) then
+    if (okpaw) then
+      if (use_sirius_veff.eq.1) then
         call sirius_get_paw_total_energy(epaw)
         call sirius_get_paw_one_elec_energy(paw_one_elec_energy)
         epaw = epaw * 2.0;
         paw_one_elec_energy = paw_one_elec_energy * 2.0;
-
         etot = etot - paw_one_elec_energy + epaw
+      endif
+      if (use_sirius_veff.eq.0) then
+        etot = etot + epaw + sum(ddd_paw(:, :, :) * rho%bec(:, :, :))
+      endif
     endif
 
     ! TODO: this has to be called correcly - there are too many dependencies
-    CALL print_energies(printout)
+    call print_energies(printout)
 
     if (dr2 .lt. conv_thr .and. use_sirius_mixer.eq.1) then
       conv_elec=.true.
     endif
 
-    IF ( conv_elec  ) THEN
+    if (conv_elec) then
        !
        ! ... if system is charged add a Makov-Payne correction to the energy
        !
@@ -249,32 +329,35 @@ subroutine electrons_sirius()
        !
        !!IF ( do_comp_esm ) CALL esm_printpot()
        !
-       WRITE( stdout, 9110 ) iter
+       write( stdout, 9110 ) iter
        !
        ! ... jump to the end
        !
        GO TO 10
        !
-    END IF
+    end if
 
-  ENDDO
-  WRITE( stdout, 9101 )
-  WRITE( stdout, 9120 ) iter
+  enddo
+  write(stdout, 9101)
+  write(stdout, 9120) iter
 
 10 continue
 
-  CALL sirius_stop_timer(c_str("qe|electrons"))
+  call sirius_stop_timer(c_str("qe|electrons"))
 
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   !probably calculate forces here
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   call sirius_calc_forces(force(1,1))
 
-  do ia=1,nat
-    do i=1,3
-      force(i,ia) = 2.0 * force(i,ia)
+  do ia = 1, nat
+    do i = 1, 3
+      force(i, ia) = 2.0 * force(i, ia)
     enddo
   enddo
+
+  deallocate(dens_mtrx)
+  deallocate(deeq_tmp)
 
 
   !
@@ -350,35 +433,35 @@ subroutine electrons_sirius()
   !!   !
   !!END IF
 
-  CALL close_mix_file( iunmix, 'delete' )
-  call destroy_scf_type ( rhoin )
+  call close_mix_file(iunmix, 'delete')
+  call destroy_scf_type(rhoin)
 
   do ia = 1, nat
-    call sirius_get_d_mtrx(ia, deeq(1,1,ia,1), nhm)
+    call sirius_get_d_operator_matrix(ia, deeq(1, 1, ia, 1), nhm)
     ! convert to Ry
-    deeq(:,:,ia,1) = deeq(:,:,ia,1) * 2
+    deeq(:, :, ia, :) = deeq(:, :, ia, :) * 2
   enddo
   do iat = 1, nsp
-    call sirius_get_q_mtrx(iat, qq(1,1,iat), nhm)
+    call sirius_get_q_operator_matrix(iat, qq(1, 1, iat), nhm)
   enddo
 
-  do iat = 1, nsp
-     if ( upf(iat)%tvanp ) then
-        do na = 1, nat
-           if (ityp(na)==iat) then
-              ijh = 0
-              do ih = 1, nh(iat)
-                 do jh = ih, nh(iat)
-                    ijh = ijh + 1
-                    call sirius_get_density_matrix(ih, jh, na, becsum(ijh, na, 1))
-                    ! off-diagonal elements
-                    if (ih.ne.jh) becsum(ijh, na, 1) = becsum(ijh, na, 1) * 2
-                 end do
-              end do
-           endif
-        enddo
-     endif
-  enddo
+  !do iat = 1, nsp
+  !   if ( upf(iat)%tvanp ) then
+  !      do na = 1, nat
+  !         if (ityp(na)==iat) then
+  !            ijh = 0
+  !            do ih = 1, nh(iat)
+  !               do jh = ih, nh(iat)
+  !                  ijh = ijh + 1
+  !                  call sirius_get_density_matrix(ih, jh, na, becsum(ijh, na, 1))
+  !                  ! off-diagonal elements
+  !                  if (ih.ne.jh) becsum(ijh, na, 1) = becsum(ijh, na, 1) * 2
+  !               end do
+  !            end do
+  !         endif
+  !      enddo
+  !   endif
+  !enddo
 
   ! transform density to real-space  
   do is = 1, nspin_mag
@@ -412,49 +495,49 @@ subroutine electrons_sirius()
 
   !CALL sirius_clear()
 
-9000 FORMAT(/'     total cpu time spent up to now is ',F10.1,' secs' )
-9001 FORMAT(/'     per-process dynamical memory: ',f7.1,' Mb' )
-9002 FORMAT(/'     Self-consistent Calculation' )
-9010 FORMAT(/'     iteration #',I3,'     ecut=', F9.2,' Ry',5X,'beta=',F4.2 )
-9050 FORMAT(/'     WARNING: integrated charge=',F15.8,', expected=',F15.8 )
-9101 FORMAT(/'     End of self-consistent calculation' )
-9110 FORMAT(/'     convergence has been achieved in ',i3,' iterations' )
-9120 FORMAT(/'     convergence NOT achieved after ',i3,' iterations: stopping' )
-    CONTAINS
+9000 format(/'     total cpu time spent up to now is ',F10.1,' secs' )
+9001 format(/'     per-process dynamical memory: ',f7.1,' Mb' )
+9002 format(/'     Self-consistent Calculation' )
+9010 format(/'     iteration #',I3,'     ecut=', F9.2,' Ry',5X,'beta=',F4.2 )
+9050 format(/'     WARNING: integrated charge=',F15.8,', expected=',F15.8 )
+9101 format(/'     End of self-consistent calculation' )
+9110 format(/'     convergence has been achieved in ',i3,' iterations' )
+9120 format(/'     convergence NOT achieved after ',i3,' iterations: stopping' )
+    contains
 
      !-----------------------------------------------------------------------
-     SUBROUTINE print_energies ( printout )
+     subroutine print_energies ( printout )
        !-----------------------------------------------------------------------
        !
-       USE constants, ONLY : eps8
-       INTEGER, INTENT (IN) :: printout
+       use constants, only : eps8
+       integer, intent (IN) :: printout
        !
-       IF ( printout == 0 ) RETURN
-       IF ( ( conv_elec .OR. MOD(iter,iprint) == 0 ) .AND. printout > 1 ) THEN
+       if ( printout == 0 ) return
+       if ( ( conv_elec .or. mod(iter,iprint) == 0 ) .and. printout > 1 ) then
           !
-          IF ( dr2 > eps8 ) THEN
-             WRITE( stdout, 9081 ) etot, hwf_energy, dr2
-          ELSE
-             WRITE( stdout, 9083 ) etot, hwf_energy, dr2
-          END IF
+          if ( dr2 > eps8 ) then
+             write( stdout, 9081 ) etot, hwf_energy, dr2
+          else
+             write( stdout, 9083 ) etot, hwf_energy, dr2
+          end if
           !!IF ( only_paw ) WRITE( stdout, 9085 ) etot+total_core_energy
           !
-          WRITE( stdout, 9060 ) &
+          write( stdout, 9060 ) &
                ( eband + deband ), ehart, ( etxc - etxcc ), ewld
           !
-          IF ( llondon ) WRITE ( stdout , 9074 ) elondon
-          IF ( lxdm )    WRITE ( stdout , 9075 ) exdm
+          if ( llondon ) write ( stdout , 9074 ) elondon
+          if ( lxdm )    write ( stdout , 9075 ) exdm
           !!IF ( ts_vdw )  WRITE ( stdout , 9076 ) 2.0d0*EtsvdW
           !!IF ( textfor)  WRITE ( stdout , 9077 ) eext
        !!   IF ( tefield )            WRITE( stdout, 9061 ) etotefield
        !!   IF ( lda_plus_u )         WRITE( stdout, 9065 ) eth
        !!   IF ( ABS (descf) > eps8 ) WRITE( stdout, 9069 ) descf
-          IF ( okpaw )              WRITE( stdout, 9067 ) epaw
+          if ( okpaw )              write( stdout, 9067 ) epaw
        !!   !
        !!   ! ... With Fermi-Dirac population factor, etot is the electronic
        !!   ! ... free energy F = E - TS , demet is the -TS contribution
        !!   !
-          IF ( lgauss ) WRITE( stdout, 9070 ) demet
+          if ( lgauss ) write( stdout, 9070 ) demet
        !!   !
        !!   ! ... With Fictitious charge particle (FCP), etot is the grand
        !!   ! ... potential energy Omega = E - muN, -muN is the potentiostat
@@ -462,24 +545,24 @@ subroutine electrons_sirius()
        !!   !
        !!   IF ( lfcpopt .or. lfcpdyn ) WRITE( stdout, 9072 ) ef*tot_charge
        !!   !
-        ELSE IF ( conv_elec ) THEN
+        else if ( conv_elec ) then
           !
-          IF ( dr2 > eps8 ) THEN
-             WRITE( stdout, 9081 ) etot, hwf_energy, dr2
-          ELSE
-             WRITE( stdout, 9083 ) etot, hwf_energy, dr2
-          END IF
+          if ( dr2 > eps8 ) then
+             write( stdout, 9081 ) etot, hwf_energy, dr2
+          else
+             write( stdout, 9083 ) etot, hwf_energy, dr2
+          end if
           !
-       ELSE
+       else
           !
-          IF ( dr2 > eps8 ) THEN
-             WRITE( stdout, 9080 ) etot, hwf_energy, dr2
-          ELSE
-             WRITE( stdout, 9082 ) etot, hwf_energy, dr2
-          END IF
-       END IF
+          if ( dr2 > eps8 ) then
+             write( stdout, 9080 ) etot, hwf_energy, dr2
+          else
+             write( stdout, 9082 ) etot, hwf_energy, dr2
+          end if
+       end if
        
-       CALL plugin_print_energies()
+       call plugin_print_energies()
        !!!
        !!IF ( lsda ) WRITE( stdout, 9017 ) magtot, absmag
        !!!
@@ -493,46 +576,46 @@ subroutine electrons_sirius()
        !!!
        !CALL flush_unit( stdout )
        !
-       RETURN
+       return
        !
-9017 FORMAT(/'     total magnetization       =', F9.2,' Bohr mag/cell', &
+9017 format(/'     total magnetization       =', F9.2,' Bohr mag/cell', &
             /'     absolute magnetization    =', F9.2,' Bohr mag/cell' )
-9018 FORMAT(/'     total magnetization       =',3F9.2,' Bohr mag/cell' &
+9018 format(/'     total magnetization       =',3F9.2,' Bohr mag/cell' &
        &   ,/'     absolute magnetization    =', F9.2,' Bohr mag/cell' )
-9060 FORMAT(/'     The total energy is the sum of the following terms:',/,&
+9060 format(/'     The total energy is the sum of the following terms:',/,&
             /'     one-electron contribution =',F17.8,' Ry' &
             /'     hartree contribution      =',F17.8,' Ry' &
             /'     xc contribution           =',F17.8,' Ry' &
             /'     ewald contribution        =',F17.8,' Ry' )
-9061 FORMAT( '     electric field correction =',F17.8,' Ry' )
-9065 FORMAT( '     Hubbard energy            =',F17.8,' Ry' )
-9067 FORMAT( '     one-center paw contrib.   =',F17.8,' Ry' )
-9069 FORMAT( '     scf correction            =',F17.8,' Ry' )
-9070 FORMAT( '     smearing contrib. (-TS)   =',F17.8,' Ry' )
-9071 FORMAT( '     Magnetic field            =',3F12.7,' Ry' )
-9072 FORMAT( '     pot.stat. contrib. (-muN) =',F17.8,' Ry' )
-9073 FORMAT( '     lambda                    =',F11.2,' Ry' )
-9074 FORMAT( '     Dispersion Correction     =',F17.8,' Ry' )
-9075 FORMAT( '     Dispersion XDM Correction =',F17.8,' Ry' )
-9076 FORMAT( '     Dispersion T-S Correction =',F17.8,' Ry' )
-9077 FORMAT( '     External forces energy    =',F17.8,' Ry' )
-9080 FORMAT(/'     total energy              =',0PF17.8,' Ry' &
+9061 format( '     electric field correction =',F17.8,' Ry' )
+9065 format( '     Hubbard energy            =',F17.8,' Ry' )
+9067 format( '     one-center paw contrib.   =',F17.8,' Ry' )
+9069 format( '     scf correction            =',F17.8,' Ry' )
+9070 format( '     smearing contrib. (-TS)   =',F17.8,' Ry' )
+9071 format( '     Magnetic field            =',3F12.7,' Ry' )
+9072 format( '     pot.stat. contrib. (-muN) =',F17.8,' Ry' )
+9073 format( '     lambda                    =',F11.2,' Ry' )
+9074 format( '     Dispersion Correction     =',F17.8,' Ry' )
+9075 format( '     Dispersion XDM Correction =',F17.8,' Ry' )
+9076 format( '     Dispersion T-S Correction =',F17.8,' Ry' )
+9077 format( '     External forces energy    =',F17.8,' Ry' )
+9080 format(/'     total energy              =',0PF17.8,' Ry' &
             /'     Harris-Foulkes estimate   =',0PF17.8,' Ry' &
             /'     estimated scf accuracy    <',0PF17.8,' Ry' )
-9081 FORMAT(/'!    total energy              =',0PF17.8,' Ry' &
+9081 format(/'!    total energy              =',0PF17.8,' Ry' &
             /'     Harris-Foulkes estimate   =',0PF17.8,' Ry' &
             /'     estimated scf accuracy    <',0PF17.8,' Ry' )
-9082 FORMAT(/'     total energy              =',0PF17.8,' Ry' &
+9082 format(/'     total energy              =',0PF17.8,' Ry' &
             /'     Harris-Foulkes estimate   =',0PF17.8,' Ry' &
             /'     estimated scf accuracy    <',1PE17.1,' Ry' )
-9083 FORMAT(/'!    total energy              =',0PF17.8,' Ry' &
+9083 format(/'!    total energy              =',0PF17.8,' Ry' &
             /'     Harris-Foulkes estimate   =',0PF17.8,' Ry' &
             /'     estimated scf accuracy    <',1PE17.1,' Ry' )
-9085 FORMAT(/'     total all-electron energy =',0PF17.6,' Ry' )
+9085 format(/'     total all-electron energy =',0PF17.6,' Ry' )
 
-  END SUBROUTINE print_energies
+  end subroutine print_energies
 
-END SUBROUTINE
+end subroutine
 
 subroutine invert_mtrx(vlat, vlat_inv)
   implicit none
