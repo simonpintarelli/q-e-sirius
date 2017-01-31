@@ -178,7 +178,7 @@ subroutine electrons_sirius()
     ! get density matrix
     do iat = 1, nsp
       do na = 1, nat
-        if (ityp(na).eq.iat) then
+        if (ityp(na).eq.iat.and.allocated(rho%bec)) then
           rho%bec(:, na, :) = 0.d0
           call sirius_get_density_matrix(na, dens_mtrx(1, 1), nhm)
           ijh = 0
