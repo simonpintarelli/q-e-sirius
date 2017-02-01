@@ -37,6 +37,9 @@ SUBROUTINE init_run()
   USE wavefunctions_module,ONLY : evc
 #endif
   USE input_parameters, ONLY : use_sirius
+  use scf, only : vxc
+  USE fft_base,             ONLY : dfftp
+  USE lsda_mod,             ONLY : nspin
 
   !
   IMPLICIT NONE
@@ -92,6 +95,9 @@ SUBROUTINE init_run()
   CALL bp_global_map()
   !
   call plugin_initbase()
+  !
+  if (allocated(vxc)) deallocate(vxc)
+  allocate (vxc(dfftp%nnr, nspin))
   !
   if (allocated(et)) deallocate(et)
   if (allocated(wg)) deallocate(wg)

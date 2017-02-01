@@ -71,7 +71,8 @@ MODULE scf
        vltot(:),       &! the local potential in real space
        vrs(:,:),       &! the total pot. in real space (smooth grid)
        rho_core(:),    &! the core charge in real space
-       kedtau(:,:)      ! position dependent kinetic energy enhancement factor
+       kedtau(:,:),    &! position dependent kinetic energy enhancement factor
+       vxc(:,:)
   COMPLEX(DP), ALLOCATABLE :: &
        rhog_core(:)     ! the core charge in reciprocal space
 

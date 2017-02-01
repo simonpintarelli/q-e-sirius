@@ -22,7 +22,7 @@ SUBROUTINE v_of_rho( rho, rho_core, rhog_core, &
   USE ions_base,        ONLY : nat, tau
   USE ldaU,             ONLY : lda_plus_U 
   USE funct,            ONLY : dft_is_meta
-  USE scf,              ONLY : scf_type
+  USE scf,              ONLY : scf_type, vxc
   USE cell_base,        ONLY : alat
   USE control_flags,    ONLY : ts_vdw
   USE tsvdw_module,     ONLY : tsvdw_calculate, UtsvdW
@@ -56,7 +56,8 @@ SUBROUTINE v_of_rho( rho, rho_core, rhog_core, &
   if (dft_is_meta()) then
      call v_xc_meta( rho, rho_core, rhog_core, etxc, vtxc, v%of_r, v%kin_r )
   else
-     CALL v_xc( rho, rho_core, rhog_core, etxc, vtxc, v%of_r )
+     CALL v_xc( rho, rho_core, rhog_core, etxc, vtxc, vxc )
+     v%of_r = vxc
   endif
   !
   ! ... add a magnetic field  (if any)

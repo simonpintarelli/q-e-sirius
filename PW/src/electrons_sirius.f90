@@ -1,39 +1,40 @@
 subroutine electrons_sirius()
   use sirius
-  use ions_base,        only : nat, nsp, ityp
-  use uspp_param,       only : upf, nhm, nh
-  use gvect,            only : mill, ngm
-  use wvfct,            only : nbnd, wg, et
-  use gvecw,            only : ecutwfc
-  use klist,            only : kset_id, nelec, nks, nkstot, lgauss, wk
-  use io_global,        only : stdout
-  use control_flags,    only : conv_elec, ethr, gamma_only, iprint, iverbosity, mixing_beta, niter,&
-                               nmix, llondon, lxdm, lmd
-  use gvect,            only : nl,nlm
-  use scf,              only : scf_type, rho, rho_core, rhog_core, create_scf_type, open_mix_file, scf_type_copy,&
-                               bcast_scf_type, close_mix_file, destroy_scf_type, v, vltot
-  use io_files,         only : iunmix
-  use mp_bands,         only : intra_bgrp_comm
-  use mp_pools,         only : root_pool, my_pool_id, inter_pool_comm, npool
-  use mp,               only : mp_bcast
+  use ions_base,            only : nat, nsp, ityp
+  use uspp_param,           only : upf, nhm, nh
+  use gvect,                only : mill, ngm
+  use wvfct,                only : nbnd, wg, et
+  use gvecw,                only : ecutwfc
+  use klist,                only : kset_id, nelec, nks, nkstot, lgauss, wk
+  use io_global,            only : stdout
+  use control_flags,        only : conv_elec, ethr, gamma_only, iprint, iverbosity, mixing_beta, niter,&
+                                   nmix, llondon, lxdm, lmd
+  use gvect,                only : nl,nlm
+  use scf,                  only : scf_type, rho, rho_core, rhog_core, create_scf_type, open_mix_file, scf_type_copy,&
+                                   bcast_scf_type, close_mix_file, destroy_scf_type, v, vltot, vxc
+  use io_files,             only : iunmix
+  use mp_bands,             only : intra_bgrp_comm
+  use mp_pools,             only : root_pool, my_pool_id, inter_pool_comm, npool
+  use mp,                   only : mp_bcast
   use parallel_include
-  use symm_base,        only : nosym
-  use ener,             only : etot, hwf_energy, eband, deband, ehart, &
-                               vtxc, etxc, etxcc, ewld, demet, epaw, &
-                               elondon, ef_up, ef_dw, exdm
-  use noncollin_module, only : nspin_mag
-  use uspp,             only : okvan, deeq, qq, becsum
-  use fft_base,         only : dfftp
-  use paw_variables,    only : okpaw, total_core_energy
-  use force_mod,        only : force
+  use symm_base,            only : nosym
+  use ener,                 only : etot, hwf_energy, eband, deband, ehart, &
+                                   vtxc, etxc, etxcc, ewld, demet, epaw, &
+                                   elondon, ef_up, ef_dw, exdm
+  use noncollin_module,     only : nspin_mag
+  use uspp,                 only : okvan, deeq, qq, becsum
+  use fft_base,             only : dfftp
+  use paw_variables,        only : okpaw, total_core_energy
+  use force_mod,            only : force
   use wavefunctions_module, only : psic
   use fft_interfaces,       only : fwfft, invfft
-  use input_parameters, only : conv_thr, sirius_cfg
-  use funct, only : dft_is_hybrid
+  use input_parameters,     only : conv_thr, sirius_cfg
+  use funct,                only : dft_is_hybrid
   use ldaU,                 only : eth
   use extfield,             only : tefield, etotefield
   use paw_variables,        only : okpaw, ddd_paw, total_core_energy, only_paw
   use paw_onecenter,        only : PAW_potential
+  use lsda_mod,             only : nspin
   !
   implicit none
   integer iat, ia, i, j, num_gvec, num_fft_grid_points, ik, iter, ig, li, lj, ijv, ilast, ir, l, mb, nb, is
@@ -48,7 +49,7 @@ subroutine electrons_sirius()
   integer kmesh(3), kshift(3), printout, vt(3)
   integer, external :: global_kpoint_index
   real(8), allocatable :: qij(:,:,:), deeq_tmp(:,:)
-  complex(8), allocatable :: dens_mtrx(:,:)
+  complex(8), allocatable :: dens_mtrx(:,:), vxcg(:)
   integer, allocatable :: nk_loc(:)
   real(8) :: etot_cmp_paw(nat,2,2)
   !---------------
@@ -104,6 +105,7 @@ subroutine electrons_sirius()
 
   allocate(dens_mtrx(nhm, nhm))
   allocate(deeq_tmp(nhm, nhm))
+  allocate(vxcg(ngm))
 
   do iter = 1, niter
     write(stdout, 9010)iter, ecutwfc, mixing_beta
@@ -228,20 +230,42 @@ subroutine electrons_sirius()
          call invfft('Dense', psic, dfftp)
          rho%of_r(:,is) = dble(psic(:))
       end do
+
+      ! calculate potential (Vha + Vxc)
       call v_of_rho(rho, rho_core, rhog_core, ehart, etxc, vtxc, eth, etotefield, charge, v)
       ! calculate PAW potential
       if (okpaw) then
         call PAW_potential(rho%bec, ddd_PAW, epaw, etot_cmp_paw)
       endif
-      ! transform to PW domain
+
+      ! add local part of the potential and transform to PW domain
       psic(:) = v%of_r(:, 1) + vltot(:)
       call fwfft('Dense', psic, dfftp)
       ! convert to Hartree
       do ig = 1, ngm
          v%of_g(ig, 1) = psic(nl(ig)) * 0.5d0
-      end do
+      enddo
       ! set effective potential
       call sirius_set_veff_pw(ngm, mill(1, 1), v%of_g(1, 1), intra_bgrp_comm)
+
+      ! convert Vxc to plane-wave domain
+      if (nspin.eq.1.or.nspin.eq.4) then
+         do ir = 1, dfftp%nnr
+            psic(ir) = vxc(ir, 1)
+         enddo
+      else
+         do ir = 1, dfftp%nnr
+            psic(ir) = 0.5d0 * (vxc(ir, 1) + vxc(ir, 2))
+         enddo
+      endif
+      call fwfft('Dense', psic, dfftp)
+      ! convert to Hartree
+      do ig = 1, ngm
+         vxcg(ig) = psic(nl(ig)) * 0.5d0
+      end do
+      ! set XC potential
+      call sirius_set_vxc_pw(ngm, mill(1, 1), vxcg(1), intra_bgrp_comm)
+
       ! update D-operator matrix
       call sirius_generate_d_operator_matrix()
       if (okpaw) then
@@ -357,6 +381,7 @@ subroutine electrons_sirius()
 
   deallocate(dens_mtrx)
   deallocate(deeq_tmp)
+  deallocate(vxcg)
 
 
   !
