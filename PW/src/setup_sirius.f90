@@ -168,7 +168,13 @@ subroutine setup_sirius()
       qij = 0
       ! set radial function of augmentation charge
       if (upf(iat)%q_with_l) then
-        do l = 0, upf(iat)%nqlc-1
+        if (2 * upf(iat)%lmax .ne. upf(iat)%nqlc - 1) then
+          write(*,*)
+          write(*,'("Mismatch between lmax_beta and lmax_qij for atom type", I2)')iat
+          write(*,'("lmax =", I2)')upf(iat)%lmax
+          write(*,'("nqlc =", I2, ", but expecting ", I2)')upf(iat)%nqlc, 2 * upf(iat)%lmax + 1
+        endif
+        do l = 0, 2*upf(iat)%lmax !upf(iat)%nqlc-1
           do nb = 1, upf(iat)%nbeta
             do mb = nb, upf(iat)%nbeta
               ijv = mb*(mb-1)/2 + nb
