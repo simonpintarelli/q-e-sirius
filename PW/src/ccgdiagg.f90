@@ -60,7 +60,7 @@ SUBROUTINE ccgdiagg( npwx, npw, nbnd, npol, psi, e, btype, precondition, &
   !
   CALL start_clock( 'ccgdiagg' )
   !
-  empty_ethr = MAX( ( ethr * 5.D0 ), 1.D-5 )
+  empty_ethr = MAX( ( ethr * 5.D0 ), 1.D-8 )
   !
   IF ( npol == 1 ) THEN
      !

@@ -97,7 +97,7 @@ SUBROUTINE cegterg( npw, npwx, nvec, nvecx, npol, evc, ethr, &
   !
   ! ... threshold for empty bands
   !
-  empty_ethr = MAX( ( ethr * 5.D0 ), 1.D-5 )
+  empty_ethr = MAX( ( ethr * 5.D0 ), 1.D-8 )
   !
   IF ( npol == 1 ) THEN
      !
@@ -584,7 +584,7 @@ SUBROUTINE pcegterg( npw, npwx, nvec, nvecx, npol, evc, ethr, &
   !
   ! ... threshold for empty bands
   !
-  empty_ethr = MAX( ( ethr * 5.D0 ), 1.D-5 )
+  empty_ethr = MAX( ( ethr * 5.D0 ), 1.D-8 )
   !
   IF ( npol == 1 ) THEN
      !

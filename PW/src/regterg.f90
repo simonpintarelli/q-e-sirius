@@ -97,7 +97,7 @@ SUBROUTINE regterg( npw, npwx, nvec, nvecx, evc, ethr, &
   !
   ! ... threshold for empty bands
   !
-  empty_ethr = MAX( ( ethr * 5.D0 ), 1.D-5 )
+  empty_ethr = MAX( ( ethr * 5.D0 ), 1.D-8 )
   !
   ALLOCATE( psi(  npwx, nvecx ), STAT=ierr )
   IF( ierr /= 0 ) &
@@ -580,7 +580,7 @@ SUBROUTINE pregterg( npw, npwx, nvec, nvecx, evc, ethr, &
   !
   ! ... threshold for empty bands
   !
-  empty_ethr = MAX( ( ethr * 5.D0 ), 1.D-5 )
+  empty_ethr = MAX( ( ethr * 5.D0 ), 1.D-8 )
   !
   ALLOCATE( psi(  npwx, nvecx ), STAT=ierr )
   IF( ierr /= 0 ) &

@@ -58,7 +58,7 @@ SUBROUTINE rcgdiagg( npwx, npw, nbnd, psi, e, btype, precondition, &
   !
   CALL start_clock( 'rcgdiagg' )
   !
-  empty_ethr = MAX( ( ethr * 5.D0 ), 1.D-5 )
+  empty_ethr = MAX( ( ethr * 5.D0 ), 1.D-8 )
   !
   npw2 = 2 * npw
   npwx2 = 2 * npwx
