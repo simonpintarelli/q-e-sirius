@@ -207,7 +207,7 @@ subroutine electrons_sirius()
       call mp_bcast(dr2,       root_pool, inter_pool_comm)
       call mp_bcast(conv_elec, root_pool, inter_pool_comm)
       ! set new (mixed) rho(G)
-      call sirius_set_rho_pw(ngm, mill(1, 1), rho%of_g(1, 1), intra_bgrp_comm)
+      call sirius_set_pw_coeffs(c_str("rho"), rho%of_g(1, 1), ngm, mill(1, 1), intra_bgrp_comm)
       ! set new (mixed) density matrix
     endif
     call sirius_stop_timer(c_str("qe|mix"))
@@ -246,7 +246,7 @@ subroutine electrons_sirius()
          v%of_g(ig, 1) = psic(nl(ig)) * 0.5d0
       enddo
       ! set effective potential
-      call sirius_set_veff_pw(ngm, mill(1, 1), v%of_g(1, 1), intra_bgrp_comm)
+      call sirius_set_pw_coeffs(c_str("veff"),v%of_g(1, 1), ngm, mill(1, 1), intra_bgrp_comm)
 
       ! convert Vxc to plane-wave domain
       if (nspin.eq.1.or.nspin.eq.4) then
@@ -264,7 +264,7 @@ subroutine electrons_sirius()
          vxcg(ig) = psic(nl(ig)) * 0.5d0
       end do
       ! set XC potential
-      call sirius_set_vxc_pw(ngm, mill(1, 1), vxcg(1), intra_bgrp_comm)
+      call sirius_set_pw_coeffs(c_str("vxc"), vxcg(1), ngm, mill(1, 1), intra_bgrp_comm)
 
       ! update D-operator matrix
       call sirius_generate_d_operator_matrix()
