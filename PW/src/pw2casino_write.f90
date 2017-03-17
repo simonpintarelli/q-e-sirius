@@ -124,17 +124,17 @@ SUBROUTINE write_casino_wfn(gather,blip,multiplicity,binwrite,single_precision_b
       IF(blip)THEN
          IF(binwrite)THEN
             WRITE (6,'(a)')'Writing file '//trim(prefix)//'.bwfn.data.b1'//trim(postfix)//' for program CASINO.'
-            OPEN( iob, file=trim(tmp_dir)//'/'//trim(prefix)//'.bwfn.data.b1'//trim(postfix), &
+            OPEN( iob, file=trim(tmp_dir)//trim(prefix)//'.bwfn.data.b1'//trim(postfix), &
                   form='unformatted', action='write', access='sequential')
          ELSE
             WRITE (6,'(a)')'Writing file '//trim(prefix)//'.bwfn.data'//trim(postfix)//' for program CASINO.'
-            OPEN( io, file=trim(tmp_dir)//'/'//trim(prefix)//'.bwfn.data'//trim(postfix), &
+            OPEN( io, file=trim(tmp_dir)//trim(prefix)//'.bwfn.data'//trim(postfix), &
                   form='formatted', action='write', access='sequential')
          ENDIF
       ELSE
          IF(gather)THEN
             WRITE (6,'(a)')'Writing file '//trim(prefix)//'.pwfn.data'//trim(postfix)//' for program CASINO.'
-            OPEN( io, file=trim(tmp_dir)//'/'//trim(prefix)//'.pwfn.data'//trim(postfix), & 
+            OPEN( io, file=trim(tmp_dir)//trim(prefix)//'.pwfn.data'//trim(postfix), & 
                   form='formatted', action='write', access='sequential')
          ELSE
             WRITE (6,'(a)')'Writing one file per node '//trim(prefix)//'.pwfn.data'//trim(postfix)//'.XX for program CASINO'
@@ -565,7 +565,7 @@ CONTAINS
       val=0.d0 ; grad(:)=0.d0 ; lap=0.d0
       DO ig=1,ngtot_g
          dot_prod=tpi*sum(dble(g_int(:,ig))*r(:))
-         eigr=evc_g(ig)*cmplx(cos(dot_prod),sin(dot_prod),dp)
+         eigr=evc_g(ig)*cmplx(cos(dot_prod),sin(dot_prod),KIND=dp)
          IF(.not.gamma_only)THEN
             val=val+eigr
             grad(:)=grad(:)+(eigr*iunity)*dble(g_int(:,ig))
@@ -576,14 +576,14 @@ CONTAINS
             grad(:)=grad(:)-aimag(eigr)*dble(g_int(:,ig))
             lap=lap-dble(eigr)*g2(ig)
          ELSEIF(blipreal==2)THEN
-            eigr2=evc_g2(ig)*cmplx(cos(dot_prod),sin(dot_prod),dp)
+            eigr2=evc_g2(ig)*cmplx(cos(dot_prod),sin(dot_prod),KIND=dp)
             IF(all(g_int(:,ig)==0))THEN
                eigr=eigr*0.5d0
                eigr2=eigr2*0.5d0
             ENDIF
-            val=val+cmplx(dble(eigr),dble(eigr2))
-            grad(:)=grad(:)+cmplx(-aimag(eigr),-aimag(eigr2))*dble(g_int(:,ig))
-            lap=lap-cmplx(dble(eigr),dble(eigr2))*g2(ig)
+            val=val+cmplx(dble(eigr),dble(eigr2),KIND=dp)
+            grad(:)=grad(:)+cmplx(-aimag(eigr),-aimag(eigr2),KIND=dp)*dble(g_int(:,ig))
+            lap=lap-cmplx(dble(eigr),dble(eigr2),KIND=dp)*g2(ig)
          ENDIF
       ENDDO ! ig
       IF(gamma_only)THEN

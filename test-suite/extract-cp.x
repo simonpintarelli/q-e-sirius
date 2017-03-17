@@ -1,15 +1,11 @@
-#!/bin/sh
+# Copyright (C) 2001 Quantum ESPRESSO
 #
-# Copyright (C) 2001-2016 Quantum ESPRESSO group
-# 
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
 # as published by the Free Software Foundation; either version 2
 # of the License. See the file `License' in the root directory
 # of the present distribution.
-#
-# Maintainer: Filippo Spiga (filippo.spiga@quantum-espresso.org)
-  
+ 
 fname=$1
 e1=`grep "total energy =" $fname | tail -1 | awk '{printf "%18.6f\n", $4}'`
 s1=`grep -A 3 "Total stress" $fname | tail -3 | tr '\n' ' ' | awk '{ printf "%-18.8f", $1+$2+$3+$4+$5+$6+$7+$8+$9 }'`

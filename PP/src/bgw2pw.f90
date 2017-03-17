@@ -137,8 +137,8 @@ PROGRAM bgw2pw
   CALL openfil_pp ( )
 
   IF ( wfng_flag ) THEN
-    input_file_name = TRIM ( tmp_dir ) // '/' // TRIM ( wfng_file )
-    output_dir_name = TRIM ( tmp_dir ) // '/' // TRIM ( prefix ) // '.save'
+    input_file_name = TRIM ( tmp_dir ) // TRIM ( wfng_file )
+    output_dir_name = TRIM ( tmp_dir ) // TRIM ( prefix ) // '.save'
     IF ( ionode ) WRITE ( 6, '(5x,"call write_evc")' )
     CALL start_clock ( 'write_evc' )
     CALL write_evc ( input_file_name, real_or_complex, wfng_nband, &
@@ -148,8 +148,8 @@ PROGRAM bgw2pw
   ENDIF
 
   IF ( rhog_flag ) THEN
-    input_file_name = TRIM ( tmp_dir ) // '/' // TRIM ( rhog_file )
-    output_dir_name = TRIM ( tmp_dir ) // '/' // TRIM ( prefix ) // '.save'
+    input_file_name = TRIM ( tmp_dir ) // TRIM ( rhog_file )
+    output_dir_name = TRIM ( tmp_dir ) // TRIM ( prefix ) // '.save'
     IF ( ionode ) WRITE ( 6, '(5x,"call write_cd")' )
     CALL start_clock ( 'write_cd' )
     CALL write_cd ( input_file_name, real_or_complex, output_dir_name )
@@ -444,7 +444,7 @@ SUBROUTINE write_evc ( input_file_name, real_or_complex, &
         DO is = 1, ns
           IF ( real_or_complex .EQ. 1 ) THEN
             DO ig = 1, ngk_g ( ik )
-              wfng_buf ( ig, is ) = CMPLX ( wfngr ( ig, is ), 0.0D0 )
+              wfng_buf ( ig, is ) = CMPLX ( wfngr ( ig, is ), 0.0D0, KIND=dp )
             ENDDO
           ELSE
             DO ig = 1, ngk_g ( ik )
@@ -791,7 +791,7 @@ SUBROUTINE write_cd ( input_file_name, real_or_complex, output_dir_name )
     DO is = 1, ns
       IF ( real_or_complex .EQ. 1 ) THEN
         DO ig = 1, ng
-          rhog ( ig, is ) = CMPLX ( rhogr ( ig, is ), 0.0D0 )
+          rhog ( ig, is ) = CMPLX ( rhogr ( ig, is ), 0.0D0, KIND=dp )
         ENDDO
       ELSE
         DO ig = 1, ng
@@ -811,7 +811,7 @@ SUBROUTINE write_cd ( input_file_name, real_or_complex, output_dir_name )
   IF ( ionode ) THEN
     DO is = 1, ns
       DO ig = 1, ng
-        rhog ( ig, is ) = rhog ( ig, is ) / CMPLX ( omega, 0.0D0 )
+        rhog ( ig, is ) = rhog ( ig, is ) / CMPLX ( omega, 0.0D0, KIND=dp )
       ENDDO
     ENDDO
   ENDIF

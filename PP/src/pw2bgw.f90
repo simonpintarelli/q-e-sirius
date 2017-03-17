@@ -291,7 +291,7 @@ PROGRAM pw2bgw
   if ( ionode ) WRITE ( 6, '("")' )
 
   IF ( wfng_flag ) THEN
-    output_file_name = TRIM ( tmp_dir ) // '/' // TRIM ( wfng_file )
+    output_file_name = TRIM ( tmp_dir ) // TRIM ( wfng_file )
     IF ( ionode ) WRITE ( 6, '(5x,"call write_wfng")' )
     CALL start_clock ( 'write_wfng' )
     CALL write_wfng ( output_file_name, real_or_complex, symm_type, &
@@ -302,7 +302,7 @@ PROGRAM pw2bgw
   ENDIF
 
   IF ( vxcg_flag ) THEN
-    output_file_name = TRIM ( tmp_dir ) // '/' // TRIM ( vxcg_file )
+    output_file_name = TRIM ( tmp_dir ) // TRIM ( vxcg_file )
     IF ( ionode ) WRITE ( 6, '(5x,"call write_vxcg")' )
     CALL start_clock ( 'write_vxcg' )
     CALL write_vxcg ( output_file_name, real_or_complex, symm_type, &
@@ -312,7 +312,7 @@ PROGRAM pw2bgw
   ENDIF
 
   IF ( vxc0_flag ) THEN
-    output_file_name = TRIM ( tmp_dir ) // '/' // TRIM ( vxc0_file )
+    output_file_name = TRIM ( tmp_dir ) // TRIM ( vxc0_file )
     IF ( ionode ) WRITE ( 6, '(5x,"call write_vxc0")' )
     CALL start_clock ( 'write_vxc0' )
     CALL write_vxc0 ( output_file_name, vxc_zero_rho_core )
@@ -321,7 +321,7 @@ PROGRAM pw2bgw
   ENDIF
 
   IF ( vxc_flag ) THEN
-    output_file_name = TRIM ( tmp_dir ) // '/' // TRIM ( vxc_file )
+    output_file_name = TRIM ( tmp_dir ) // TRIM ( vxc_file )
     IF ( vxc_integral .EQ. 'r' ) THEN
       IF ( ionode ) WRITE ( 6, '(5x,"call write_vxc_r")' )
       CALL start_clock ( 'write_vxc_r' )
@@ -345,7 +345,7 @@ PROGRAM pw2bgw
   ENDIF
 
   IF ( vscg_flag ) THEN
-    output_file_name = TRIM ( tmp_dir ) // '/' // TRIM ( vscg_file )
+    output_file_name = TRIM ( tmp_dir ) // TRIM ( vscg_file )
     IF ( ionode ) WRITE ( 6, '(5x,"call write_vscg")' )
     CALL start_clock ( 'write_vscg' )
     CALL write_vscg ( output_file_name, real_or_complex, symm_type )
@@ -354,7 +354,7 @@ PROGRAM pw2bgw
   ENDIF
 
   IF ( vkbg_flag ) THEN
-    output_file_name = TRIM ( tmp_dir ) // '/' // TRIM ( vkbg_file )
+    output_file_name = TRIM ( tmp_dir ) // TRIM ( vkbg_file )
     IF ( ionode ) WRITE ( 6, '(5x,"call write_vkbg")' )
     CALL start_clock ( 'write_vkbg' )
     CALL write_vkbg ( output_file_name, symm_type, wfng_kgrid, wfng_nk1, &
@@ -367,7 +367,7 @@ PROGRAM pw2bgw
   ! it must be called after v_xc (called from write_vxcg, write_vxc0,
   ! write_vxc_r, write_vxc_g)
   IF ( rhog_flag ) THEN
-    output_file_name = TRIM ( tmp_dir ) // '/' // TRIM ( rhog_file )
+    output_file_name = TRIM ( tmp_dir ) // TRIM ( rhog_file )
     IF ( ionode ) WRITE ( 6, '(5x,"call write_rhog")' )
     CALL start_clock ( 'write_rhog' )
     CALL write_rhog ( output_file_name, real_or_complex, symm_type, &
@@ -1180,7 +1180,7 @@ SUBROUTINE real_wfng ( ik, ngkdist_l, nb, ns, energy, wfng_dist )
       DO ib = inc, imap ( i, is )
         DO ig = 1, ngkdist_l
           wfng_dist ( ig, ib, is ) = &
-          CMPLX ( psi ( ig, ib - inc + 1 ), 0.0D0 )
+          CMPLX ( psi ( ig, ib - inc + 1 ), 0.0D0, KIND=dp )
         ENDDO
       ENDDO
       inc = imap ( i, is ) + 1
@@ -1373,7 +1373,7 @@ SUBROUTINE write_rhog ( output_file_name, real_or_complex, symm_type, &
 
   DO is = 1, ns
     DO ig = 1, ng_g
-      rhog_g ( ig, is ) = rhog_g ( ig, is ) * CMPLX ( omega, 0.0D0 )
+      rhog_g ( ig, is ) = rhog_g ( ig, is ) * CMPLX ( omega, 0.0D0, KIND=dp )
     ENDDO
   ENDDO
 
@@ -1652,7 +1652,7 @@ SUBROUTINE write_vxcg ( output_file_name, real_or_complex, symm_type, &
   CALL v_xc ( rho, rho_core, rhog_core, etxc, vtxc, vxcr_g )
   DO is = 1, ns
     DO ir = 1, nr
-      psic ( ir ) = CMPLX ( vxcr_g ( ir, is ), 0.0D0 )
+      psic ( ir ) = CMPLX ( vxcr_g ( ir, is ), 0.0D0, KIND=dp )
     ENDDO
     CALL fwfft ( 'Dense', psic, dfftp )
     DO ig = 1, ng_l
@@ -1749,7 +1749,7 @@ SUBROUTINE write_vxc0 ( output_file_name, vxc_zero_rho_core )
   CALL v_xc ( rho, rho_core, rhog_core, etxc, vtxc, vxcr_g )
   DO is = 1, ns
     DO ir = 1, nr
-      psic ( ir ) = CMPLX ( vxcr_g ( ir, is ), 0.0D0 )
+      psic ( ir ) = CMPLX ( vxcr_g ( ir, is ), 0.0D0, KIND=dp )
     ENDDO
     CALL fwfft ( 'Dense', psic, dfftp )
     DO ig = 1, ng_l
@@ -1761,7 +1761,7 @@ SUBROUTINE write_vxc0 ( output_file_name, vxc_zero_rho_core )
   CALL mp_sum ( vxc0_g, intra_pool_comm )
 
   DO is = 1, ns
-    vxc0_g ( is ) = vxc0_g ( is ) * CMPLX ( RYTOEV, 0.0D0 )
+    vxc0_g ( is ) = vxc0_g ( is ) * CMPLX ( RYTOEV, 0.0D0, KIND=dp )
   ENDDO
 
   IF ( ionode ) THEN
@@ -1909,11 +1909,12 @@ SUBROUTINE write_vxc_r (output_file_name, diag_nmin, diag_nmax, &
           CALL invfft ('Dense', psic2, dfftp)
           dummyc = (0.0D0, 0.0D0)
           DO ir = 1, dfftp%nnr
-            dummyc = dummyc + CMPLX (vxcr (ir, isk (ik)), 0.0D0) &
+            dummyc = dummyc + CMPLX (vxcr (ir, isk (ik)), 0.0D0, KIND=dp) &
               * conjg (psic2 (ir)) * psic (ir)
           ENDDO
           dummyc = dummyc &
-            * CMPLX (rytoev / dble (dfftp%nr1x * dfftp%nr2x * dfftp%nr3x), 0.0D0)
+               * CMPLX (rytoev / dble (dfftp%nr1x * dfftp%nr2x * dfftp%nr3x), &
+                        0.0D0, KIND=dp)
           CALL mp_sum (dummyc, intra_pool_comm)
           mtxelo (ib2 - offdiag_nmin + 1, ib - offdiag_nmin &
             + 1, ik) = dummyc
@@ -2089,7 +2090,7 @@ SUBROUTINE write_vxc_g (output_file_name, diag_nmin, diag_nmax, &
         DO ig = 1, npw
           dummy = dummy + conjg (psic (ig)) * hpsi (ig)
         ENDDO
-        dummy = dummy * CMPLX (rytoev, 0.0D0)
+        dummy = dummy * CMPLX (rytoev, 0.0D0, KIND=dp)
         CALL mp_sum (dummy, intra_pool_comm)
         mtxeld (ib - diag_nmin + 1, ik) = dummy
       ENDDO
@@ -2124,7 +2125,7 @@ SUBROUTINE write_vxc_g (output_file_name, diag_nmin, diag_nmax, &
           DO ig = 1, npw
             dummy = dummy + conjg (psic2 (ig)) * hpsi (ig)
           ENDDO
-          dummy = dummy * CMPLX (rytoev, 0.0D0)
+          dummy = dummy * CMPLX (rytoev, 0.0D0, KIND=dp)
           CALL mp_sum (dummy, intra_pool_comm)
           mtxelo (ib2 - offdiag_nmin + 1, ib - offdiag_nmin &
             + 1, ik) = dummy
@@ -2344,7 +2345,7 @@ SUBROUTINE write_vscg ( output_file_name, real_or_complex, symm_type )
   vscr_g ( :, : ) = 0.0D0
   DO is = 1, ns
     DO ir = 1, nr
-      psic ( ir ) = CMPLX ( v%of_r ( ir, is ) + vltot ( ir ), 0.0D0 )
+      psic ( ir ) = CMPLX ( v%of_r ( ir, is ) + vltot ( ir ), 0.0D0, KIND=dp )
     ENDDO
     CALL fwfft ( 'Dense', psic, dfftp )
     DO ig = 1, ng_l

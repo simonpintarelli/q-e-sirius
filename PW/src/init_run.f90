@@ -34,13 +34,11 @@ SUBROUTINE init_run()
   USE wavefunctions_module, ONLY : evc
 #if defined(__HDF5)
   USE hdf5_qe, ONLY : initialize_hdf5
-  USE wavefunctions_module,ONLY : evc
 #endif
   USE input_parameters, ONLY : use_sirius
   use scf, only : vxc
   USE fft_base,             ONLY : dfftp
   USE lsda_mod,             ONLY : nspin
-
   !
   IMPLICIT NONE
   !
@@ -123,9 +121,6 @@ SUBROUTINE init_run()
   CALL initialize_hdf5()
 #endif 
   !
-#if defined __HDF5
-  CALL initialize_hdf5()
-#endif
   if (.not.use_sirius) CALL wfcinit()
   !
   IF(use_wannier) CALL wannier_init()
