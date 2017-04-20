@@ -61,7 +61,7 @@ subroutine stress ( sigma )
   !
   call start_clock ('stress')
   if (use_sirius) then
-    call sirius_calculate_stress(kset_id)
+    call sirius_calculate_stress_tensor(kset_id)
   endif
   !
   !   contribution from local  potential

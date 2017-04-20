@@ -41,8 +41,8 @@ subroutine stres_loc (sigmaloc)
   ! counter on angular momentum
   ! counter on spin components
   if (use_sirius) then
-    call sirius_get_stress_vloc(sigmaloc(1, 1))
-    sigmaloc = sigmaloc * 2 ! convert to Ha
+    call sirius_get_stress_tensor(c_str("vloc"), sigmaloc(1, 1))
+    sigmaloc = -sigmaloc * 2 ! convert to Ha
     return
   endif
 
