@@ -58,14 +58,17 @@ MODULE exx
   COMPLEX(DP), ALLOCATABLE :: exxbuff(:,:,:)
                                          ! temporary buffer for wfc storage
   !
-#if defined(__EXX_ACE)
-  LOGICAL :: use_ace=.true.              !  true: Use Lin Lin's ACE method
-#else
-  LOGICAL :: use_ace=.false.             ! false: Use complete Vx
-#endif
+  LOGICAL :: use_ace=.true.  !  true: Use Lin Lin's ACE method
+                             !  false: do not use ACE, use old algorithm instead
   COMPLEX(DP), ALLOCATABLE :: xi(:,:,:)  ! ACE projectors
   INTEGER :: nbndproj
   LOGICAL :: domat
+  !
+  LOGICAL :: use_scdm=.false. ! if .true. enable Lin Lin's SCDM localization
+                              ! currently implemented only within ACE formalism
+  REAL(DP):: local_thr        ! threshold for Lin Lin's SCDM localized orbitals:
+                              ! discard contribution to V_x if overlap between
+                              ! localized orbitals is smaller than "local_thr"
   !
 #if defined(__USE_INTEL_HBM_DIRECTIVES)
 !DIR$ ATTRIBUTES FASTMEM :: exxbuff
@@ -701,17 +704,16 @@ MODULE exx
   !------------------------------------------------------------------------
   !
   !------------------------------------------------------------------------
-  SUBROUTINE exx_restart(l_exx_was_active)
+  SUBROUTINE exx_restart( set_ace )
      !------------------------------------------------------------------------
      !This SUBROUTINE is called when restarting an exx calculation
      USE funct,                ONLY : get_exx_fraction, start_exx, &
                                       exx_is_active, get_screening_parameter
 
      IMPLICIT NONE
-     LOGICAL, INTENT(in) :: l_exx_was_active
+     LOGICAL, INTENT(in) :: set_ace
      !
-     IF (.not. l_exx_was_active ) RETURN ! nothing had happened yet
-     !
+     use_ace = set_ace
      erfc_scrlen = get_screening_parameter()
      exxdiv = exx_divergence()
      exxalfa = get_exx_fraction()
@@ -876,7 +878,7 @@ MODULE exx
 
     !assign buffer
 !$omp parallel do collapse(3) default(shared) firstprivate(npol,nrxxs,nkqs,ibnd_buff_start,ibnd_buff_end) private(ir,ibnd,ikq,ipol)
-    DO ikq=1,nkqs
+    DO ikq=1,SIZE(exxbuff,3)
        DO ibnd=ibnd_buff_start,ibnd_buff_end
           DO ir=1,nrxxs*npol
              exxbuff(ir,ibnd,ikq)=(0.0_DP,0.0_DP)
@@ -1037,12 +1039,23 @@ MODULE exx
                    ENDDO
 !$omp end parallel do
 #endif
+                   IF (index_sym(ikq) > 0 ) THEN
+                      ! sym. op. without time reversal: normal case
 !$omp parallel do default(shared) private(ir) firstprivate(ibnd,isym,ikq)
-                   DO ir=1,nrxxs
-                      exxbuff(ir,ibnd,ikq)=psic_nc(ir,1)
-                      exxbuff(ir+nrxxs,ibnd,ikq)=psic_nc(ir,2)
-                   ENDDO
+                      DO ir=1,nrxxs
+                         exxbuff(ir,ibnd,ikq)=psic_nc(ir,1)
+                         exxbuff(ir+nrxxs,ibnd,ikq)=psic_nc(ir,2)
+                      ENDDO
 !$omp end parallel do
+                   ELSE
+                      ! sym. op. with time reversal: spin 1->2*, 2->-1*
+!$omp parallel do default(shared) private(ir) firstprivate(ibnd,isym,ikq)
+                      DO ir=1,nrxxs
+                         exxbuff(ir,ibnd,ikq)=CONJG(psic_nc(ir,2))
+                         exxbuff(ir+nrxxs,ibnd,ikq)=-CONJG(psic_nc(ir,1))
+                      ENDDO
+!$omp end parallel do
+                   ENDIF
                 ELSE ! noncolinear
 #if defined(__MPI)
                    CALL gather_grid(exx_fft%dfftt,temppsic,temppsic_all)

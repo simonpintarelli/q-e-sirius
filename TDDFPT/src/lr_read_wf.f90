@@ -71,9 +71,13 @@ SUBROUTINE lr_read_wf()
   IF ( dft_is_hybrid() ) THEN
      !
      CALL open_buffer ( iunwfc, 'wfc', nwordwfc, io_level, exst ) 
+     !
      CALL exx_grid_init()
      CALL exx_div_check()
-     CALL exx_restart(.true.)
+     !
+     ! set_ace=.false. disables Lin Lin's ACE for TD-DFPT 
+     !
+     CALL exx_restart( set_ace=.false.)
      !
      IF (.NOT. no_hxc) THEN
         !

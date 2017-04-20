@@ -135,8 +135,8 @@ SUBROUTINE iosys()
                             exxdiv_treatment_ => exxdiv_treatment, &
                             yukawa_           => yukawa, &
                             ecutvcut_         => ecutvcut, &
-                            ecutfock_         => ecutfock
-  !
+                            ecutfock_         => ecutfock, &
+                            local_thr, use_scdm, use_ace
   !
   USE lsda_mod,      ONLY : nspin_                  => nspin, &
                             starting_magnetization_ => starting_magnetization, &
@@ -239,7 +239,7 @@ SUBROUTINE iosys()
                                x_gamma_extrapolation, nqx1, nqx2, nqx3,     &
                                exxdiv_treatment, yukawa, ecutvcut,          &
                                exx_fraction, screening_parameter, ecutfock, &
-                               gau_parameter,                               &
+                               gau_parameter, localization_thr, scdm, ace,  &
                                edir, emaxpos, eopreg, eamp, noncolin, lambda, &
                                angle1, angle2, constrained_magnetization,     &
                                B_field, fixed_magnetization, report, lspinorb,&
@@ -1269,14 +1269,17 @@ SUBROUTINE iosys()
   END SELECT
   IF ( london ) THEN
      CALL infomsg("iosys","london is obsolete, use ""vdw_corr='grimme-d2'"" instead")
+     vdw_corr='grimme-d2'
      llondon = .TRUE.
   END IF
   IF ( xdm ) THEN
      CALL infomsg("iosys","xdm is obsolete, use ""vdw_corr='xdm'"" instead")
+     vdw_corr='xdm'
      lxdm = .TRUE.
   END IF
   IF ( ts_vdw ) THEN
      CALL infomsg("iosys","ts_vdw is obsolete, use ""vdw_corr='TS'"" instead")
+     vdw_corr='TS'
      ts_vdw_ = .TRUE.
   END IF
   IF ( llondon.AND.lxdm .OR. llondon.AND.ts_vdw_ .OR. lxdm.AND.ts_vdw_ ) &
@@ -1524,6 +1527,13 @@ SUBROUTINE iosys()
   exxdiv_treatment_ = trim(exxdiv_treatment)
   yukawa_   = yukawa
   ecutvcut_ = ecutvcut
+  local_thr = localization_thr
+  use_scdm  = scdm
+  use_ace   = ace
+  IF ( .NOT.scdm .AND. localization_thr > 0.0_dp ) &
+     CALL infomsg ('iosys', 'localization threshold needs SCDM')
+  IF ( scdm .AND..NOT.ace ) &
+     CALL errore  ('iosys', 'SCDM implemented only with ACE',1)
   !
   IF(ecutfock <= 0.0_DP) THEN
      ! default case

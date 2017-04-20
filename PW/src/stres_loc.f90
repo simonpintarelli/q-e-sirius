@@ -17,7 +17,7 @@ subroutine stres_loc (sigmaloc)
   USE cell_base,            ONLY : omega, tpiba2
   USE fft_base,             ONLY : dfftp
   USE fft_interfaces,       ONLY : fwfft
-  USE gvect,                ONLY : ngm, gstart, nl, g, ngl, gl, igtongl, mill
+  USE gvect,                ONLY : ngm, gstart, nl, g, ngl, gl, igtongl
   USE lsda_mod,             ONLY : nspin
   USE scf,                  ONLY : rho
   USE vlocal,               ONLY : strf, vloc
@@ -27,37 +27,33 @@ subroutine stres_loc (sigmaloc)
   USE noncollin_module,     ONLY : nspin_lsda
   USE mp_bands,             ONLY : intra_bgrp_comm
   USE mp,                   ONLY : mp_sum
-  USE input_parameters, ONLY : use_sirius
   use sirius
+  use input_parameters, only : use_sirius
   !
   implicit none
   !
   real(DP) :: sigmaloc (3, 3)
   real(DP) , allocatable :: dvloc(:)
-  real(DP) :: evloc, fact, tmp1
+  real(DP) :: evloc, fact
   integer :: ng, nt, l, m, is
-
-  call sirius_start_timer(c_str("qe|stress_loc"))
-
   ! counter on g vectors
   ! counter on atomic type
   ! counter on angular momentum
   ! counter on spin components
+  if (use_sirius) then
+    call sirius_get_stress_vloc(sigmaloc(1, 1))
+    sigmaloc = sigmaloc * 2 ! convert to Ha
+    return
+  endif
+
   allocate(dvloc(ngl))
   sigmaloc(:,:) = 0.d0
-  
+  psic(:)=(0.d0,0.d0)
+  do is = 1, nspin_lsda
+     call daxpy (dfftp%nnr, 1.d0, rho%of_r (1, is), 1, psic, 2)
+  enddo
 
-  if (use_sirius) then
-    call sirius_get_rho_pw(ngm, mill(1, 1), rho%of_g(1, 1))
-    psic(nl(:)) = rho%of_g(:, 1)
-  else
-    psic(:)=(0.d0,0.d0)
-    do is = 1, nspin_lsda
-       call daxpy (dfftp%nnr, 1.d0, rho%of_r (1, is), 1, psic, 2)
-    enddo
-
-    CALL fwfft ('Dense', psic, dfftp)
-  endif
+  CALL fwfft ('Dense', psic, dfftp)
   ! psic contains now the charge density in G space
   if (gamma_only) then
      fact = 2.d0
@@ -66,17 +62,12 @@ subroutine stres_loc (sigmaloc)
   end if
   evloc = 0.0d0
   do nt = 1, ntyp
-     if (gstart==2) evloc = evloc + psic (nl (1) ) * strf (1, nt) * vloc (igtongl (1), nt)
-     tmp1=0.d0
-!$omp parallel default(none) shared(psic, nl, strf, gstart, ngm, vloc, igtongl, nt, fact, tmp1)
-!$omp do reduction(+:tmp1)
+     if (gstart==2) evloc = evloc + &
+          psic (nl (1) ) * strf (1, nt) * vloc (igtongl (1), nt)
      do ng = gstart, ngm
-        tmp1 = tmp1 +  DBLE (CONJG(psic (nl (ng) ) ) * strf (ng, nt) ) &
+        evloc = evloc +  DBLE (CONJG(psic (nl (ng) ) ) * strf (ng, nt) ) &
              * vloc (igtongl (ng), nt) * fact
      enddo
-!$omp end do
-!$omp end parallel
-     evloc = evloc + tmp1
   enddo
   !
   !      WRITE( 6,*) ' evloc ', evloc, evloc*omega   ! DEBUG
@@ -105,18 +96,15 @@ subroutine stres_loc (sigmaloc)
         !
      END IF
      ! no G=0 contribution
-!$omp parallel default(none) private(tmp1, l, m) shared(ngm, g, psic, nl, nt, dvloc, igtongl, tpiba2, fact, sigmaloc, strf)
-!$omp do reduction(+:sigmaloc)
      do ng = 1, ngm
-        tmp1 = DBLE(CONJG(psic(nl(ng))) * strf(ng, nt)) * 2.0d0 * dvloc(igtongl(ng)) * tpiba2 * fact
         do l = 1, 3
            do m = 1, l
-              sigmaloc(l, m) = sigmaloc(l, m) + tmp1 * g (l, ng) * g (m, ng)
+              sigmaloc(l, m) = sigmaloc(l, m) +  DBLE( CONJG( psic(nl(ng) ) ) &
+                    * strf (ng, nt) ) * 2.0d0 * dvloc (igtongl (ng) ) &
+                    * tpiba2 * g (l, ng) * g (m, ng) * fact
            enddo
         enddo
      enddo
-!$omp end do
-!$omp end parallel
   enddo
   !
   do l = 1, 3
@@ -129,8 +117,6 @@ subroutine stres_loc (sigmaloc)
   call mp_sum(  sigmaloc, intra_bgrp_comm )
   !
   deallocate(dvloc)
-  
-  call sirius_stop_timer(c_str("qe|stress_loc"))
   return
 end subroutine stres_loc
 

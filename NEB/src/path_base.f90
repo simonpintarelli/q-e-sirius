@@ -280,7 +280,7 @@ MODULE path_base
       !
       REAL(DP) :: s
       INTEGER  :: i, j
-      !
+      LOGICAL  :: tooclose
       REAL(DP), ALLOCATABLE :: pos_n(:,:), dr(:,:), image_spacing(:)
       !
       !
@@ -290,13 +290,17 @@ MODULE path_base
          ALLOCATE( dr( dim1, input_images - 1 ) )
          ALLOCATE( image_spacing( input_images - 1 ) )
          !
+         tooclose = .false.
          DO i = 1, input_images - 1
             !
             dr(:,i) = ( pos(:,i+1) - pos(:,i) )
             !
             image_spacing(i) = norm( dr(:,i) )
+            tooclose = tooclose .OR. ( image_spacing(i) < 0.01 )
             !
          END DO
+         IF ( tooclose) CALL errore ('initial_guess', &
+            ' something wrong: images are too close',1) 
          !
          path_length = SUM( image_spacing(:) )
          !

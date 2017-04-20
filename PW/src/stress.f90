@@ -32,6 +32,9 @@ subroutine stress ( sigma )
   USE exx,           ONLY : exx_stress
   USE funct,         ONLY : dft_is_hybrid
   use tsvdw_module,  only : HtsvdW
+  use sirius
+  USE input_parameters, only : use_sirius
+  use klist,            only : kset_id
   !
   IMPLICIT NONE
   !
@@ -57,10 +60,15 @@ subroutine stress ( sigma )
   END IF
   !
   call start_clock ('stress')
+  if (use_sirius) then
+    call sirius_calculate_stress(kset_id)
+  endif
   !
   !   contribution from local  potential
   !
   call stres_loc (sigmaloc)
+  write(*,*)"sigmaloc=",sigmaloc
+  STOP
   !
   !  hartree contribution
   !

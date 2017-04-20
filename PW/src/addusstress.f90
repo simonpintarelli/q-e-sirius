@@ -25,8 +25,6 @@ SUBROUTINE addusstres (sigmanlc)
   USE uspp_param, ONLY : upf, lmaxq, nh, nhm
   USE control_flags, ONLY : gamma_only
   USE fft_interfaces,ONLY : fwfft
-  USE input_parameters, ONLY : use_sirius
-  use sirius
   !
   IMPLICIT NONE
   !
@@ -58,25 +56,19 @@ SUBROUTINE addusstres (sigmanlc)
   ! fourier transform of the total effective potential
   !
   ALLOCATE ( vg(ngm,nspin))
-  if (use_sirius) then
-    call sirius_get_veff_pw(ngm, mill(1, 1), vg(1, 1))
-    ! convert to Ry
-    vg(:,1) = vg(:,1) * 2
-  else 
-    ALLOCATE ( aux(dfftp%nnr) )
-    DO is = 1, nspin
-       IF ( nspin == 4 .and. is /= 1 ) THEN
-          aux(:) = v%of_r(:,is)
-       ELSE
-          aux(:) = vltot(:) + v%of_r(:,is)
-       ENDIF
-       CALL fwfft ('Dense', aux, dfftp)
-       DO ig = 1, ngm
-          vg (ig, is) = aux (nl (ig) )
-       ENDDO
-    ENDDO
-    DEALLOCATE ( aux )
-  endif
+  ALLOCATE ( aux(dfftp%nnr) )
+  DO is = 1, nspin
+     IF ( nspin == 4 .and. is /= 1 ) THEN
+        aux(:) = v%of_r(:,is)
+     ELSE
+        aux(:) = vltot(:) + v%of_r(:,is)
+     ENDIF
+     CALL fwfft ('Dense', aux, dfftp)
+     DO ig = 1, ngm
+        vg (ig, is) = aux (nl (ig) )
+     ENDDO
+  ENDDO
+  DEALLOCATE ( aux )
   !
   ! here we compute the integral Q*V for each atom,
   !       I = sum_G i G_a exp(-iR.G) Q_nm v^*

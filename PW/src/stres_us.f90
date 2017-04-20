@@ -31,8 +31,6 @@ SUBROUTINE stres_us( ik, gk, sigmanlc )
   USE becmod,               ONLY : allocate_bec_type, deallocate_bec_type, &
                                    bec_type, becp, calbec
   USE mp,                   ONLY : mp_sum, mp_get_comm_null, mp_circular_shift_left 
-  USE input_parameters, ONLY : use_sirius
-  use sirius
   !
   IMPLICIT NONE
   !
@@ -45,18 +43,11 @@ SUBROUTINE stres_us( ik, gk, sigmanlc )
   INTEGER                :: npw, i
   !
   !
-  call sirius_start_timer(c_str("qe|stress_us"))
-
   IF ( nkb == 0 ) RETURN
   !
   IF ( lsda ) current_spin = isk(ik)
   npw = ngk(ik)
-
-  if (use_sirius) then
-    call init_us_2( npw, igk_k(1,ik), xk(1,ik), vkb )
-  else
-    if ( nks > 1 ) call init_us_2( npw, igk_k(1,ik), xk(1,ik), vkb )
-  endif
+  IF ( nks > 1 ) CALL init_us_2( npw, igk_k(1,ik), xk(1,ik), vkb )
   !
   CALL allocate_bec_type ( nkb, nbnd, becp, intra_bgrp_comm ) 
   CALL calbec( npw, vkb, evc, becp )
@@ -84,7 +75,6 @@ SUBROUTINE stres_us( ik, gk, sigmanlc )
   DEALLOCATE( qm1 )
   CALL deallocate_bec_type ( becp ) 
   !
-  call sirius_stop_timer(c_str("qe|stress_us"))
   RETURN
   !
   CONTAINS
@@ -325,14 +315,14 @@ SUBROUTINE stres_us( ik, gk, sigmanlc )
        DATA xyz / 1.0d0, 0.0d0, 0.0d0, 0.0d0, 1.0d0, 0.0d0, 0.0d0, 0.0d0, 1.0d0 /
        !
        !
-       !if (noncolin) then
-       !   ALLOCATE( work2_nc(npwx,npol) )
-       !   ALLOCATE( deff_nc(nhm,nhm,nat,nspin) )
-       !else
-       !   ALLOCATE( deff(nhm,nhm,nat) )
-       !endif
-       !!
-       !ALLOCATE( work1(npwx), work2(npwx) )
+       if (noncolin) then
+          ALLOCATE( work2_nc(npwx,npol) )
+          ALLOCATE( deff_nc(nhm,nhm,nat,nspin) )
+       else
+          ALLOCATE( deff(nhm,nhm,nat) )
+       endif
+       !
+       ALLOCATE( work1(npwx), work2(npwx) )
        !
        evps = 0.D0
        ! ... diagonal contribution
@@ -342,14 +332,6 @@ SUBROUTINE stres_us( ik, gk, sigmanlc )
        ! ... the contribution is calculated only on one processor because
        ! ... partial results are later summed over all processors
        !
-!$omp parallel default(none) private(deff, deff_nc, np, na, ih, ikb, jkb, ijs, is, js, ijkb0, fac) &
-!$omp          &shared(et, ntyp, nat, ityp, nh, noncolin, nhm, nspin, nbnd, becp, upf, npol, newpseudo, evps, wg, ik)
-       if (noncolin) then
-          allocate(deff_nc(nhm,nhm,nat,nspin))
-       else
-          allocate(deff(nhm,nhm,nat))
-       endif
-!$omp do reduction(+:evps)
        DO ibnd = 1, nbnd
           fac = wg(ibnd,ik)
           IF (ABS(fac) < 1.d-9) CYCLE
@@ -411,26 +393,11 @@ SUBROUTINE stres_us( ik, gk, sigmanlc )
              END DO
           END DO
        END DO
-!$omp end do
-       if (noncolin) then
-          deallocate(deff_nc)
-       else
-          deallocate(deff)
-       endif
-!$omp end parallel
        DO l = 1, 3
           sigmanlc(l,l) = sigmanlc(l,l) - evps
        END DO
        !
 100    CONTINUE
-
-       if (noncolin) then
-          ALLOCATE( work2_nc(npwx,npol) )
-          ALLOCATE( deff_nc(nhm,nhm,nat,nspin) )
-       else
-          ALLOCATE( deff(nhm,nhm,nat) )
-       endif
-       ALLOCATE( work1(npwx), work2(npwx) )
        !
        ! ... non diagonal contribution - derivative of the bessel function
        !

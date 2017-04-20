@@ -418,8 +418,6 @@ MODULE pwcom
   !
   USE constants, ONLY : e2, rytoev, pi, tpi, fpi
   USE cell_base, ONLY : celldm, at, bg, alat, omega, tpiba, tpiba2, ibrav
-  USE gvect
-  USE gvecs
   USE klist
   USE lsda_mod
   USE vlocal
@@ -429,7 +427,6 @@ MODULE pwcom
   USE relax
   USE cellmd
   USE us
-  USE ldaU
   USE extfield
   USE fixed_occ
   USE spin_orb

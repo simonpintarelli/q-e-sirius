@@ -18,7 +18,7 @@ MODULE pw_restart
   !
   ! ... originally written by Carlo Sbraccia  (2005)
   !
-#if ! defined(__XSD)
+#if defined(__OLDXML)
   !
   USE iotk_module
   !
@@ -64,7 +64,7 @@ MODULE pw_restart
   !
   PRIVATE
   !
-  PUBLIC :: pw_readfile, pw_writefile
+  PUBLIC :: pw_readfile, pw_writefile, pp_check_file
   PUBLIC :: gk_l2gmap, gk_l2gmap_kdip
   !
   INTEGER, PRIVATE :: iunout
@@ -109,7 +109,7 @@ MODULE pw_restart
                                        two_fermi_energies, nelup, neldw, ltetra
       USE start_k,              ONLY : nk1, nk2, nk3, k1, k2, k3, &
                                        nks_start, xk_start, wk_start
-      USE ktetra,               ONLY : ntetra, tetra
+      USE ktetra,               ONLY : ntetra, tetra, tetra_type
       USE klist,                ONLY : ltetra
       USE gvect,                ONLY : ngm, ngm_g, g, mill
       USE fft_base,             ONLY : dfftp
@@ -441,7 +441,7 @@ MODULE pw_restart
          !
          CALL qexml_write_occ( LGAUSS = lgauss, NGAUSS = ngauss, &
                          DEGAUSS = degauss/e2,DEGAUSS_UNITS='Hartree', LTETRA = ltetra, NTETRA = ntetra, &
-                         TETRA = tetra, TFIXED_OCC = tfixed_occ, LSDA = lsda, &
+                         TETRA_TYPE = tetra_type, TETRA = tetra, TFIXED_OCC = tfixed_occ, LSDA = lsda, &
                          NSTATES_UP = nbnd, NSTATES_DW = nbnd, INPUT_OCC = f_inp )
          !
 !-------------------------------------------------------------------------------
@@ -1218,7 +1218,7 @@ MODULE pw_restart
       USE fft_base,         ONLY : dffts
       USE lsda_mod,         ONLY : lsda
       USE noncollin_module, ONLY : noncolin
-      USE ktetra,           ONLY : ntetra
+      USE ktetra,           ONLY : ntetra, tetra_type
       USE klist,            ONLY : nkstot, nelec
       USE wvfct,            ONLY : nbnd, npwx
       USE gvecw,            ONLY : ecutwfc
@@ -1272,7 +1272,7 @@ MODULE pw_restart
          CALL qexml_read_spin( LSDA = lsda, NONCOLIN = noncolin, IERR=ierr )
          IF ( ierr /= 0) GOTO 100
          !
-         CALL qexml_read_occ( NTETRA = ntetra, IERR=ierr )
+         CALL qexml_read_occ( NTETRA = ntetra, TETRA_TYPE = tetra_type, IERR=ierr )
          IF ( ierr /= 0) GOTO 100
          !
          CALL qexml_read_bz( NUM_K_POINTS= nkstot, IERR =  ierr )
@@ -2067,7 +2067,7 @@ MODULE pw_restart
       !
       USE lsda_mod,       ONLY : lsda, nspin
       USE fixed_occ,      ONLY : tfixed_occ, f_inp
-      USE ktetra,         ONLY : ntetra, tetra
+      USE ktetra,         ONLY : ntetra, tetra, tetra_type
       USE klist,          ONLY : ltetra, lgauss, ngauss, degauss, smearing
       !USE klist,          ONLY : lgauss, ngauss, degauss, smearing, ltetra
       USE electrons_base, ONLY : nupdwn 
@@ -2100,7 +2100,7 @@ MODULE pw_restart
          f_inp( :, :) = 0.0d0
          !
          CALL qexml_read_occ( LGAUSS=lgauss, NGAUSS=ngauss, DEGAUSS=degauss, &
-                               LTETRA=ltetra, NTETRA=ntetra, TETRA=tetra, TFIXED_OCC=tfixed_occ, &
+                               LTETRA=ltetra, NTETRA=ntetra, TETRA=tetra, TETRA_TYPE= tetra_type, TFIXED_OCC=tfixed_occ, &
                                NSTATES_UP=nupdwn(1), NSTATES_DW=nupdwn(2), INPUT_OCC=f_inp, IERR=ierr )
          !
       ENDIF
@@ -2166,7 +2166,8 @@ MODULE pw_restart
       IF ( ltetra ) THEN
          !
          CALL mp_bcast( ntetra, ionode_id, intra_image_comm )
-         CALL mp_bcast( tetra,  ionode_id, intra_image_comm )
+         CALL mp_bcast( tetra_type, ionode_id, intra_image_comm )
+         if(tetra_type == 0) CALL mp_bcast( tetra,  ionode_id, intra_image_comm )
          !
       END IF
       !
@@ -2879,6 +2880,94 @@ MODULE pw_restart
       RETURN
       !
     END SUBROUTINE gk_l2gmap_kdip
+    !------------------------------------------------------------------------
+    FUNCTION pp_check_file()
+      !------------------------------------------------------------------------
+      !
+      USE io_global,         ONLY : ionode, ionode_id
+      USE mp_images,         ONLY : intra_image_comm
+      USE control_flags,     ONLY : lkpoint_dir, tqr, tq_smoothing, tbeta_smoothing
+      !
+      IMPLICIT NONE
+      !
+      LOGICAL            :: pp_check_file
+      CHARACTER(LEN=256) :: dirname, filename
+      INTEGER            :: ierr
+      LOGICAL            :: lval, found, back_compat
+      !
+      !
+      dirname  = TRIM( tmp_dir ) // TRIM( prefix ) // '.save'
+      filename = TRIM( dirname ) // '/' // TRIM( xmlpun )
+      !
+      IF ( ionode ) &
+         CALL iotk_open_read( iunpun, FILE = filename, IERR = ierr )
+      !
+      CALL mp_bcast ( ierr, ionode_id, intra_image_comm )
+      !
+      CALL errore( 'pp_check_file', 'file ' // &
+                 & TRIM( dirname ) // ' not found', ierr )
+      !
+      ! set a flag for back compatibility (before fmt v1.4.0)
+      !
+      back_compat = .FALSE.
+      !
+      IF ( TRIM( version_compare( qexml_version, "1.4.0" )) == "older") &
+         back_compat = .TRUE.
+      !
+      IF ( ionode ) THEN
+         !
+         IF ( .NOT. back_compat ) THEN
+             !
+             CALL iotk_scan_begin( iunpun, "CONTROL" ) 
+             !
+         ENDIF
+         !
+         CALL iotk_scan_dat( iunpun, "PP_CHECK_FLAG", lval, FOUND = found)
+         !
+         IF ( .NOT. found ) lval = .FALSE. 
+         !
+         CALL iotk_scan_dat( iunpun, "LKPOINT_DIR", lkpoint_dir, FOUND = found)
+         !
+         IF ( .NOT. found ) lkpoint_dir = .TRUE. 
+         !
+         CALL iotk_scan_dat( iunpun, "Q_REAL_SPACE", tqr, FOUND = found)
+         !
+         IF ( .NOT. found ) tqr = .FALSE. 
+         !
+         CALL iotk_scan_dat( iunpun, "TQ_SMOOTHING", tq_smoothing, FOUND = found)
+         !
+         IF ( .NOT. found ) tq_smoothing = .FALSE. 
+         !
+         CALL iotk_scan_dat( iunpun, "TBETA_SMOOTHING", tbeta_smoothing, FOUND = found)
+         !
+         IF ( .NOT. found ) tbeta_smoothing = .FALSE. 
+         !
+         IF ( .NOT. back_compat ) THEN
+             !
+             CALL iotk_scan_end( iunpun, "CONTROL" ) 
+             !
+         ENDIF
+         !
+         CALL iotk_close_read( iunpun )
+         !
+      END IF
+      !
+      CALL mp_bcast( lval, ionode_id, intra_image_comm )
+      !
+      CALL mp_bcast( lkpoint_dir, ionode_id, intra_image_comm )
+      !
+      CALL mp_bcast( tqr, ionode_id, intra_image_comm )
+      !
+      CALL mp_bcast( tq_smoothing, ionode_id, intra_image_comm )
+      !
+      CALL mp_bcast( tbeta_smoothing, ionode_id, intra_image_comm )
+      !
+      pp_check_file = lval
+      !
+      RETURN
+      !
+    END FUNCTION pp_check_file
+    !
 #endif
     !
 END MODULE pw_restart

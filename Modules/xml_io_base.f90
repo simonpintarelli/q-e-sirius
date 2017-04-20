@@ -18,8 +18,7 @@ MODULE xml_io_base
   USE iotk_module
   !
   USE kinds,     ONLY : DP
-  USE io_files,  ONLY : tmp_dir, prefix, iunpun, xmlpun, &
-                        current_fmt_version => qexml_version
+  USE io_files,  ONLY : tmp_dir, prefix, iunpun, xmlpun
   USE io_global, ONLY : ionode, ionode_id, stdout
   USE mp,        ONLY : mp_bcast
   USE parser,    ONLY : version_compare
@@ -27,24 +26,15 @@ MODULE xml_io_base
   IMPLICIT NONE
   PRIVATE
   !
-  CHARACTER(5),  PARAMETER :: fmt_name = "QEXML"
-  CHARACTER(5),  PARAMETER :: fmt_version = "1.4.0"
-  !
-  LOGICAL,       SAVE      :: rho_binary = .TRUE.
-  !
   CHARACTER(iotk_attlenx)  :: attr
-  !
-  !
-  PUBLIC :: fmt_name, fmt_version
-  PUBLIC :: current_fmt_version
+  LOGICAL,       SAVE      :: rho_binary = .TRUE.
   !
   PUBLIC :: rho_binary
   PUBLIC :: attr
   !
-  !
   PUBLIC :: read_wfc, write_wfc, read_rho_xml, write_rho_xml, &
             save_print_counter, read_print_counter
-  PUBLIC :: create_directory, check_file_exst, pp_check_file, restart_dir
+  PUBLIC :: create_directory, check_file_exst, restart_dir
   !
   CONTAINS
     !
@@ -184,95 +174,6 @@ MODULE xml_io_base
       RETURN
       !
     END FUNCTION check_file_exst
-    !
-    !------------------------------------------------------------------------
-    FUNCTION pp_check_file()
-      !------------------------------------------------------------------------
-      !
-      USE io_global,         ONLY : ionode, ionode_id
-      USE mp_images,         ONLY : intra_image_comm
-      USE control_flags,     ONLY : lkpoint_dir, tqr, tq_smoothing, tbeta_smoothing
-      !
-      IMPLICIT NONE
-      !
-      LOGICAL            :: pp_check_file
-      CHARACTER(LEN=256) :: dirname, filename
-      INTEGER            :: ierr
-      LOGICAL            :: lval, found, back_compat
-      !
-      !
-      dirname  = TRIM( tmp_dir ) // TRIM( prefix ) // '.save'
-      filename = TRIM( dirname ) // '/' // TRIM( xmlpun )
-      !
-      IF ( ionode ) &
-         CALL iotk_open_read( iunpun, FILE = filename, IERR = ierr )
-      !
-      CALL mp_bcast ( ierr, ionode_id, intra_image_comm )
-      !
-      CALL errore( 'pp_check_file', 'file ' // &
-                 & TRIM( dirname ) // ' not found', ierr )
-
-      !
-      ! set a flag for back compatibility (before fmt v1.4.0)
-      !
-      back_compat = .FALSE.
-      !
-      IF ( TRIM( version_compare( current_fmt_version, "1.4.0" )) == "older") &
-         back_compat = .TRUE.
-      !
-      IF ( ionode ) THEN
-         !
-         IF ( .NOT. back_compat ) THEN
-             !
-             CALL iotk_scan_begin( iunpun, "CONTROL" ) 
-             !
-         ENDIF
-         !
-         CALL iotk_scan_dat( iunpun, "PP_CHECK_FLAG", lval, FOUND = found)
-         !
-         IF ( .NOT. found ) lval = .FALSE. 
-         !
-         CALL iotk_scan_dat( iunpun, "LKPOINT_DIR", lkpoint_dir, FOUND = found)
-         !
-         IF ( .NOT. found ) lkpoint_dir = .TRUE. 
-         !
-         CALL iotk_scan_dat( iunpun, "Q_REAL_SPACE", tqr, FOUND = found)
-         !
-         IF ( .NOT. found ) tqr = .FALSE. 
-         !
-         CALL iotk_scan_dat( iunpun, "TQ_SMOOTHING", tq_smoothing, FOUND = found)
-         !
-         IF ( .NOT. found ) tq_smoothing = .FALSE. 
-         !
-         CALL iotk_scan_dat( iunpun, "TBETA_SMOOTHING", tbeta_smoothing, FOUND = found)
-         !
-         IF ( .NOT. found ) tbeta_smoothing = .FALSE. 
-         !
-         IF ( .NOT. back_compat ) THEN
-             !
-             CALL iotk_scan_end( iunpun, "CONTROL" ) 
-             !
-         ENDIF
-         !
-         CALL iotk_close_read( iunpun )
-         !
-      END IF
-      !
-      CALL mp_bcast( lval, ionode_id, intra_image_comm )
-      !
-      CALL mp_bcast( lkpoint_dir, ionode_id, intra_image_comm )
-      !
-      CALL mp_bcast( tqr, ionode_id, intra_image_comm )
-      !
-      CALL mp_bcast( tq_smoothing, ionode_id, intra_image_comm )
-      !
-      CALL mp_bcast( tbeta_smoothing, ionode_id, intra_image_comm )
-      !
-      pp_check_file = lval
-      !
-      RETURN
-      !
-    END FUNCTION pp_check_file
     !
     !
     !------------------------------------------------------------------------
@@ -862,7 +763,6 @@ MODULE xml_io_base
       INTEGER                  :: me_in_group, nproc_in_group, io_in_parent, nproc_in_parent, me_in_parent, my_group, io_group
 #if defined __HDF5
       CHARACTER(LEN=256) :: filename_hdf5
-      INTEGER            :: gammaonly = 0
 #endif
       COMPLEX(DP), ALLOCATABLE :: wtmp(:)
       !
@@ -894,8 +794,7 @@ MODULE xml_io_base
       filename_hdf5=trim(tmp_dir) //"evc.hdf5"
       CALL prepare_for_writing_final(evc_hdf5_write,inter_pool_comm,filename_hdf5,ik)
       CALL add_attributes_hdf5(evc_hdf5_write,ngw,"ngw",ik)
-      IF ( gamma_only ) gammaonly = 1 
-      CALL add_attributes_hdf5(evc_hdf5_write,gammaonly,"gamma_only",ik)
+      CALL add_attributes_hdf5(evc_hdf5_write,gamma_only,"gamma_only",ik)
       CALL add_attributes_hdf5(evc_hdf5_write,igwx,"igwx",ik)
       CALL add_attributes_hdf5(evc_hdf5_write,nbnd,"nbnd",ik)
       CALL add_attributes_hdf5(evc_hdf5_write,ik,"ik",ik)

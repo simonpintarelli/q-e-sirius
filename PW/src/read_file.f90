@@ -5,10 +5,7 @@
 ! in the root directory of the present distribution,
 ! or http://www.gnu.org/copyleft/gpl.txt .
 !
-#if defined(__XSD)
-SUBROUTINE read_file_dummy()
-END SUBROUTINE read_file_dummy
-#else
+#if defined(__OLDXML)
 !----------------------------------------------------------------------------
 ! TB
 ! included allocation of the force field of the monopole, search for 'TB'
@@ -136,10 +133,9 @@ SUBROUTINE read_xml_file_internal(withbs)
   USE vlocal,               ONLY : strf
   USE io_files,             ONLY : tmp_dir, prefix, iunpun, nwordwfc, iunwfc
   USE noncollin_module,     ONLY : noncolin, npol, nspin_lsda, nspin_mag, nspin_gga
-  USE pw_restart,           ONLY : pw_readfile
+  USE pw_restart,           ONLY : pw_readfile, pp_check_file
   USE io_rho_xml,           ONLY : read_rho
   USE read_pseudo_mod,      ONLY : readpp
-  USE xml_io_base,          ONLY : pp_check_file
   USE uspp,                 ONLY : becsum
   USE uspp_param,           ONLY : upf
   USE paw_variables,        ONLY : okpaw, ddd_PAW
@@ -386,4 +382,7 @@ SUBROUTINE read_xml_file_internal(withbs)
     END SUBROUTINE set_dimensions
     !
   END SUBROUTINE read_xml_file_internal
+#else
+SUBROUTINE read_file_dummy()
+END SUBROUTINE read_file_dummy
 #endif
