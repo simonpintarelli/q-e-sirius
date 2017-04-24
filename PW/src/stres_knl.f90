@@ -26,11 +26,22 @@ subroutine stres_knl (sigmanlc, sigmakin)
   USE mp_pools,             ONLY: inter_pool_comm
   USE mp_bands,             ONLY: intra_bgrp_comm
   USE mp,                   ONLY: mp_sum
+  use sirius
+  use input_parameters, only : use_sirius
+
   implicit none
   real(DP) :: sigmanlc (3, 3), sigmakin (3, 3)
   real(DP), allocatable :: gk (:,:), kfac (:)
   real(DP) :: twobysqrtpi, gk2, arg
   integer :: npw, ik, l, m, i, ibnd, is
+
+  if (use_sirius) then
+    call sirius_get_stress_tensor(c_str("kin"), sigmakin(1, 1))
+    sigmakin = -sigmakin * 2 ! convert to Ha
+    call sirius_get_stress_tensor(c_str("nl"), sigmanlc(1, 1))
+    sigmanlc = -sigmanlc * 2 ! convert to Ha
+    return
+  endif
 
   allocate (gk(  3, npwx))    
   allocate (kfac(   npwx))    

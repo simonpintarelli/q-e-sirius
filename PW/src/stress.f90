@@ -67,8 +67,6 @@ subroutine stress ( sigma )
   !   contribution from local  potential
   !
   call stres_loc (sigmaloc)
-  write(*,*)"sigmaloc=",sigmaloc
-  STOP
   !
   !  hartree contribution
   !

@@ -17,6 +17,8 @@ subroutine stres_ewa (alat, nat, ntyp, ityp, zv, at, bg, tau, &
   USE constants, only : tpi, e2, eps6
   USE mp_bands,  ONLY : intra_bgrp_comm
   USE mp,        ONLY : mp_sum
+  use sirius
+  use input_parameters, only : use_sirius
 
   implicit none
   !
@@ -74,6 +76,13 @@ subroutine stres_ewa (alat, nat, ntyp, ityp, zv, at, bg, tau, &
   ! nondiagonal term
   complex(DP) :: rhostar
   real(DP), external :: qe_erfc
+
+  if (use_sirius) then
+    call sirius_get_stress_tensor(c_str("ewald"), sigmaewa(1, 1))
+    sigmaewa = -sigmaewa * 2 ! convert to Ha
+    return
+  endif
+
   ! the erfc function
   !
   tpiba2 = (tpi / alat) **2

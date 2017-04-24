@@ -23,12 +23,20 @@ subroutine stres_har (sigmahar)
   USE wavefunctions_module, ONLY : psic
   USE mp_bands,  ONLY: intra_bgrp_comm
   USE mp,        ONLY: mp_sum
+  use sirius
+  use input_parameters, only : use_sirius
 
   implicit none
   !
   real(DP) :: sigmahar (3, 3), shart, g2
   real(DP), parameter :: eps = 1.d-8
   integer :: is, ig, l, m, nspin0
+
+  if (use_sirius) then
+    call sirius_get_stress_tensor(c_str("har"), sigmahar(1, 1))
+    sigmahar = -sigmahar * 2 ! convert to Ha
+    return
+  endif
 
   sigmahar(:,:) = 0.d0
   psic (:) = (0.d0, 0.d0)
