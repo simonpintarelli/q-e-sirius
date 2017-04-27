@@ -95,7 +95,7 @@ subroutine electrons_sirius()
   !CALL flush_unit( stdout )
 
   call create_scf_type(rhoin)
-  call sirius_get_rho_pw(ngm, mill(1, 1), rho%of_g(1, 1))
+  call sirius_get_pw_coeffs(c_str("rho"), rho%of_g(1, 1), ngm, mill(1, 1), intra_bgrp_comm)
   call scf_type_copy(rho, rhoin)
   call open_mix_file(iunmix, 'mix', exst)
 
@@ -176,7 +176,7 @@ subroutine electrons_sirius()
       call sirius_get_density_dr2(dr2)
     endif
     ! get rho(G)
-    call sirius_get_rho_pw(ngm, mill(1, 1), rho%of_g(1, 1))
+    call sirius_get_pw_coeffs(c_str("rho"), rho%of_g(1, 1), ngm, mill(1, 1), intra_bgrp_comm)
     ! get density matrix
     do iat = 1, nsp
       do na = 1, nat
