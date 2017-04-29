@@ -127,10 +127,12 @@ SUBROUTINE run_pwscf ( exit_status )
   ENDIF
   !
   main_loop: DO idone = 1, nstep
-    call sirius_start_timer(c_str("qe|init"))
+    call sirius_start_timer(c_str("qe|setup"))
     call setup ()
+    call sirius_stop_timer(c_str("qe|setup"))
+    call sirius_start_timer(c_str("qe|init_run"))
     call init_run()
-    call sirius_stop_timer(c_str("qe|init"))
+    call sirius_stop_timer(c_str("qe|init_run"))
     !do ig = 1, ngm
     !  vgc(:) = g(:, ig) * tpiba
     !  v1(:) =  mill(1, ig)*bg(:,1)+mill(2, ig)*bg(:,2)+mill(3, ig)*bg(:,3) 

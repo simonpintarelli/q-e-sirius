@@ -78,6 +78,7 @@ subroutine stress ( sigma )
   do l = 1, 3
      sigmaxc (l, l) = - (etxc - vtxc) / omega
   enddo
+  call sirius_start_timer(c_str("qe|stress_xc"))
   !
   !  xc contribution: add gradient corrections (non diagonal)
   !
@@ -88,6 +89,7 @@ subroutine stress ( sigma )
   ! core correction contribution
   !
   call stres_cc (sigmaxcc)
+  call sirius_stop_timer(c_str("qe|stress_xc"))
   !
   !  ewald contribution
   !
