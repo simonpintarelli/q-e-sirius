@@ -36,6 +36,7 @@ SUBROUTINE init_run()
   USE hdf5_qe, ONLY : initialize_hdf5
 #endif
   USE input_parameters, ONLY : use_sirius
+  use sirius
   use scf, only : vxc
   USE fft_base,             ONLY : dfftp
   USE lsda_mod,             ONLY : nspin
@@ -111,11 +112,17 @@ SUBROUTINE init_run()
   !
   CALL openfil()
   !
+  call sirius_start_timer(c_str("qe|setup|hinit0"))
   CALL hinit0()
+  call sirius_stop_timer(c_str("qe|setup|hinit0"))
   !
+  call sirius_start_timer(c_str("qe|setup|potinit"))
   CALL potinit()
+  call sirius_stop_timer(c_str("qe|setup|potinit"))
   !
+  call sirius_start_timer(c_str("qe|setup|newd"))
   CALL newd()
+  call sirius_stop_timer(c_str("qe|setup|newd"))
 #if defined(__HDF5)
   ! calls h5open_f mandatory in any application using hdf5
   CALL initialize_hdf5()
