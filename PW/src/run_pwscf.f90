@@ -44,27 +44,17 @@ SUBROUTINE run_pwscf ( exit_status )
   USE mp_images,        ONLY : intra_image_comm
   USE extrapolation,    ONLY : update_file, update_pot
   USE scf,              ONLY : rho
-  USE klist,            ONLY : kset_id
   USE lsda_mod,         ONLY : nspin
   USE fft_base,         ONLY : dfftp
   USE qmmm,             ONLY : qmmm_initialization, qmmm_shutdown, &
                                qmmm_update_positions, qmmm_update_forces
-  use gvect,            ONLY : ngm, g, ecutrho, mill
-  USE cell_base,        ONLY : tpiba, bg
-#if defined(__XSD)
   USE qexsd_module,     ONLY:   qexsd_set_status
-#endif
-  !USE cellmd,           ONLY : lmovecell
   USE input_parameters, ONLY : use_sirius, sirius_cfg
   USE sirius
+  USE klist,            ONLY : kset_id
   !
   IMPLICIT NONE
   INTEGER, INTENT(OUT) :: exit_status
-  INTEGER :: ig
-  real(8) vgc(3), v1(3)
-  ! counter of electronic + ionic steps done in this run
-  !
-  !
   !! Gives the exit status at the end
   LOGICAL, external :: matches
   !! checks if first string is contained in the second
@@ -75,7 +65,6 @@ SUBROUTINE run_pwscf ( exit_status )
      ! initialize platform-specific stuff (libraries, environment, etc.)
      CALL sirius_initialize(call_mpi_init=0)
   endif
-
   exit_status = 0
   IF ( ionode ) WRITE( unit = stdout, FMT = 9010 ) ntypx, npk, lmaxx
   !
@@ -108,42 +97,25 @@ SUBROUTINE run_pwscf ( exit_status )
   !
   CALL check_stop_init()
   !
-  !CALL setup ()
-  !
   CALL qmmm_update_positions()
-  !
-  !CALL init_run()
   !
   ! ... dry run: code will stop here if called with exit file present
   ! ... useful for a quick and automated way to check input data
   !
   IF ( check_stop_now() ) THEN
-#if defined(__XSD) 
      CALL qexsd_set_status(255)
-#endif
      CALL punch( 'config' )
      exit_status = 255
      RETURN
   ENDIF
   !
   main_loop: DO idone = 1, nstep
-    call sirius_start_timer(c_str("qe|setup"))
-    call setup ()
-    call sirius_stop_timer(c_str("qe|setup"))
-    call sirius_start_timer(c_str("qe|init_run"))
-    call init_run()
-    call sirius_stop_timer(c_str("qe|init_run"))
-    !do ig = 1, ngm
-    !  vgc(:) = g(:, ig) * tpiba
-    !  v1(:) =  mill(1, ig)*bg(:,1)+mill(2, ig)*bg(:,2)+mill(3, ig)*bg(:,3) 
-    !  if (sum(vgc(:)**2).gt.ecutrho) then
-    !    STOP("Error: G-vector is outside of cutoff")
-    !  endif
-    !  if (sum(abs(g(:, ig) - v1(:))).gt.1d-12) then
-    !    STOP("Error: G-vectors don't match")
-    !  endif
-    !  !write(*,*)'ig=',ig,' mill=',mill(:,ig),' len=',sqrt(sum(vgc(:)**2))
-    !enddo
+     call sirius_start_timer(c_str("qe|setup"))
+     call setup ()
+     call sirius_stop_timer(c_str("qe|setup"))
+     call sirius_start_timer(c_str("qe|init_run"))
+     call init_run()
+     call sirius_stop_timer(c_str("qe|init_run"))
      if (use_sirius) then
         call sirius_start_timer(c_str("qe|setup_sirius"))
         call setup_sirius
@@ -167,9 +139,7 @@ SUBROUTINE run_pwscf ( exit_status )
      IF ( check_stop_now() .OR. .NOT. conv_elec ) THEN
         IF ( check_stop_now() ) exit_status = 255
         IF ( .NOT. conv_elec )  exit_status =  2
-#if defined(__XSD)
         CALL qexsd_set_status(exit_status)
-#endif
         ! workaround for the case of a single k-point
         twfcollect = .FALSE.
         CALL punch( 'config' )
@@ -192,21 +162,19 @@ SUBROUTINE run_pwscf ( exit_status )
      ELSE
         CALL pw2casino( 0 )
      END IF
-
+     !
+     ! ... force calculation
+     !
      if ( .not. use_sirius .and. lforce ) then
-         !
-         ! ... force calculation
-         !
-         CALL forces() 
+        CALL forces()
      endif
-
      !
      ! ... stress calculation
      !
-     call sirius_start_timer(c_str("qe|stress_tensor"))
+     call sirius_start_timer(c_str("qe|stress"))
      IF ( lstres ) CALL stress ( sigma )
-     call sirius_stop_timer(c_str("qe|stress_tensor"))
-     
+     call sirius_stop_timer(c_str("qe|stress"))
+
      if (use_sirius) then
         call sirius_delete_ground_state()
         call sirius_delete_kset(kset_id)
@@ -214,16 +182,13 @@ SUBROUTINE run_pwscf ( exit_status )
         call sirius_delete_potential()
         call sirius_delete_simulation_context()
      endif
-     
      !
      ! ... send out forces to MM code in QM/MM run
      !
      IF ( lmd .OR. lbfgs ) THEN
         !
-        if ( .not. use_sirius ) then
-            if (fix_volume) CALL impose_deviatoric_stress(sigma)
-            if (fix_area)  CALL  impose_deviatoric_stress_2d(sigma)
-        endif
+        if (fix_volume) CALL impose_deviatoric_stress(sigma)
+        if (fix_area)  CALL  impose_deviatoric_stress_2d(sigma)
         !
         ! ... save data needed for potential and wavefunction extrapolation
         !
@@ -236,9 +201,7 @@ SUBROUTINE run_pwscf ( exit_status )
         ! ... then we save restart information for the new configuration
         !
         IF ( idone <= nstep .AND. .NOT. conv_ions ) THEN 
-#if defined(__XSD) 
             CALL qexsd_set_status(255)
-#endif
             CALL punch( 'config' )
         END IF
         !
@@ -265,9 +228,7 @@ SUBROUTINE run_pwscf ( exit_status )
         ! ... update_pot initializes structure factor array as well
         !
         CALL update_pot()
-#if defined(__XSD)
         CALL add_qexsd_step(idone)
-#endif         
         !
         ! ... re-initialize atomic position-dependent quantities
         !
@@ -278,23 +239,21 @@ SUBROUTINE run_pwscf ( exit_status )
      ! ... the first scf iteration of each ionic step (after the first)
      !
      ethr = 1.0D-6
-     !
      call clean_pw(.false.)
      call close_files(.false.)
+     !
   END DO main_loop
   !
   ! ... save final data file
   !
-#if defined(__XSD)
   CALL qexsd_set_status(exit_status)
-#endif
-  CALL punch('all')
+  !CALL punch('all')
   !
   CALL qmmm_shutdown()
-  !
   if (use_sirius) then
      call sirius_print_timers()
   endif
+  !
   IF ( .NOT. conv_ions )  exit_status =  3
   RETURN
   !

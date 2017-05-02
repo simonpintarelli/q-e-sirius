@@ -199,6 +199,7 @@ SUBROUTINE setup()
   !
   ! ... magnetism-related quantities
   !
+  if (allocated(m_loc)) deallocate(m_loc)
   ALLOCATE( m_loc( 3, nat ) )
   ! time reversal operation is set up to 0 by default
   t_rev = 0
