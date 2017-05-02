@@ -61,6 +61,7 @@ SUBROUTINE run_pwscf ( exit_status )
   INTEGER :: idone 
   ! counter of electronic + ionic steps done in this run
   !
+  call sirius_start_timer(c_str("qe|run_pwscf"))
   if (use_sirius) then
      ! initialize platform-specific stuff (libraries, environment, etc.)
      CALL sirius_initialize(call_mpi_init=0)
@@ -258,6 +259,7 @@ SUBROUTINE run_pwscf ( exit_status )
   !CALL punch('all')
   !
   CALL qmmm_shutdown()
+  call sirius_stop_timer(c_str("qe|run_pwscf"))
   if (use_sirius) then
      call sirius_print_timers()
   endif

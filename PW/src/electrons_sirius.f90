@@ -57,6 +57,8 @@ subroutine electrons_sirius()
   !---------------
   real(8) :: paw_one_elec_energy
 
+  call sirius_start_timer(c_str("qe|electrons|init"))
+
   if ( dft_is_hybrid() ) then
     printout = 0  ! do not print etot and energy components at each scf step
   else if ( lmd ) then
@@ -98,6 +100,8 @@ subroutine electrons_sirius()
   call sirius_get_pw_coeffs(c_str("rho"), rho%of_g(1, 1), ngm, mill(1, 1), intra_bgrp_comm)
   call scf_type_copy(rho, rhoin)
   call open_mix_file(iunmix, 'mix', exst)
+
+  call sirius_stop_timer(c_str("qe|electrons|init"))
 
   call sirius_start_timer(c_str("qe|electrons"))
 
