@@ -26,6 +26,7 @@ subroutine stres_cc (sigmaxcc)
   USE wavefunctions_module, ONLY : psic
   USE mp_bands,             ONLY : intra_bgrp_comm
   USE mp,                   ONLY : mp_sum
+  USE sirius
   !
   implicit none
   ! output
@@ -71,8 +72,12 @@ subroutine stres_cc (sigmaxcc)
   end if
   do nt = 1, ntyp
      if ( upf(nt)%nlcc ) then
+        call sirius_start_timer(c_str("qe|stres_cc|drhoc"))
         call drhoc (ngl, gl, omega, tpiba2, rgrid(nt)%mesh, rgrid(nt)%r, &
               rgrid(nt)%rab, upf(nt)%rho_atc, rhocg)
+        call sirius_stop_timer(c_str("qe|stres_cc|drhoc"))
+        
+        call sirius_start_timer(c_str("qe|stres_cc|sum_diag"))
         ! diagonal term
         if (gstart==2) sigmadiag = sigmadiag + &
              CONJG(psic (nl(1) ) ) * strf (1,nt) * rhocg (igtongl (1) )
@@ -80,9 +85,14 @@ subroutine stres_cc (sigmaxcc)
            sigmadiag = sigmadiag + CONJG(psic (nl (ng) ) ) * &
                 strf (ng,nt) * rhocg (igtongl (ng) ) * fact
         enddo
+        call sirius_stop_timer(c_str("qe|stres_cc|sum_diag"))
 
+        call sirius_start_timer(c_str("qe|stres_cc|deriv_drhoc"))
         call deriv_drhoc (ngl, gl, omega, tpiba2, rgrid(nt)%mesh, &
              rgrid(nt)%r, rgrid(nt)%rab, upf(nt)%rho_atc, rhocg)
+        call sirius_stop_timer(c_str("qe|stres_cc|deriv_drhoc"))
+
+        call sirius_start_timer(c_str("qe|stres_cc|sum"))
         ! non diagonal term (g=0 contribution missing)
         do ng = gstart, ngm
            do l = 1, 3
@@ -93,6 +103,7 @@ subroutine stres_cc (sigmaxcc)
               enddo
            enddo
         enddo
+        call sirius_stop_timer(c_str("qe|stres_cc|sum"))
      endif
   enddo
 
