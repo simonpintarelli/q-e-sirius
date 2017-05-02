@@ -18,6 +18,9 @@ subroutine force_lc (nat, tau, ityp, alat, omega, ngm, ngl, &
   USE fft_base,  ONLY : dfftp
   USE fft_interfaces, ONLY : fwfft
   USE esm,       ONLY : esm_force_lc, do_comp_esm, esm_bc
+  use sirius
+  USE input_parameters, only : use_sirius
+
   implicit none
   !
   !   first the dummy variables
@@ -58,6 +61,13 @@ subroutine force_lc (nat, tau, ityp, alat, omega, ngm, ngl, &
   ! contribution to the force from the local part of the bare potential
   ! F_loc = Omega \Sum_G n*(G) d V_loc(G)/d R_i
   !
+
+  if (use_sirius) then
+    call sirius_get_forces(c_str("vloc"), forcelc(1,1))
+    forcelc = forcelc * 2 ! convert to Ha
+    return
+  endif
+
   allocate (aux(dfftp%nnr))
   if ( nspin == 2) then
       aux(:) = CMPLX( rho(:,1)+rho(:,2), 0.0_dp, kind=dp )

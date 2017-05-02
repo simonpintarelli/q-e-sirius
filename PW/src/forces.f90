@@ -53,6 +53,9 @@ SUBROUTINE forces()
   USE tsvdw_module,  ONLY : FtsvdW
   USE esm,           ONLY : do_comp_esm, esm_bc, esm_force_ew
   USE qmmm,          ONLY : qmmm_mode
+  use sirius
+  USE input_parameters, only : use_sirius
+  use klist,            only : kset_id
   !
   IMPLICIT NONE
   !
@@ -88,6 +91,11 @@ SUBROUTINE forces()
   forcescc(:,:) = 0.D0
   forceh(:,:)   = 0.D0
   force (:,:)   = 0.D0
+
+  if (use_sirius) then
+    call sirius_calc_forces(kset_id)
+  endif
+
   !
   ! ... The nonlocal contribution is computed here
   !
@@ -111,11 +119,13 @@ SUBROUTINE forces()
   ! ... The Hubbard contribution
   !     (included by force_us if using beta as local projectors)
   !
-  IF ( lda_plus_u .AND. U_projection.NE.'pseudo' ) CALL force_hub( forceh )
+  IF ( lda_plus_u .AND. U_projection.NE.'pseudo' .and. .not. use_sirius) CALL force_hub( forceh )
   !
   ! ... The ionic contribution is computed here
   !
-  IF( do_comp_esm ) THEN
+
+
+  IF( do_comp_esm  .and. .not. use_sirius ) THEN
      CALL esm_force_ew( forceion )
   ELSE
      CALL force_ew( alat, nat, ntyp, ityp, zv, at, bg, tau, omega, g, &
@@ -124,14 +134,15 @@ SUBROUTINE forces()
   !
   ! ... the semi-empirical dispersion correction
   !
-  IF ( llondon ) THEN
+  IF ( llondon .and. .not. use_sirius) THEN
     !
     ALLOCATE ( force_disp ( 3 , nat ) )
     force_disp ( : , : ) = 0.0_DP
     force_disp = force_london( alat , nat , ityp , at , bg , tau )
     !
   END IF
-  IF (lxdm) THEN
+
+  IF (lxdm .and. .not. use_sirius) THEN
      ALLOCATE (force_disp_xdm(3,nat))
      force_disp_xdm = 0._dp
      force_disp_xdm = force_xdm(nat)
@@ -140,9 +151,12 @@ SUBROUTINE forces()
   !
   ! ... The SCF contribution
   !
-  CALL force_corr( forcescc )
+  IF (.not. use_sirius) THEN
+    CALL force_corr( forcescc )
+  endif
+
   !
-  IF (do_comp_mt) THEN
+  IF (do_comp_mt .and. .not. use_sirius ) THEN
     !
     ALLOCATE ( force_mt ( 3 , nat ) )
     CALL wg_corr_force( .true.,omega, nat, ntyp, ityp, ngm, g, tau, zv, strf, &
@@ -155,7 +169,7 @@ SUBROUTINE forces()
   !
   ! Berry's phase electric field terms
   !
-  if(lelfield) then
+  if(lelfield .and. .not. use_sirius ) then
      ALLOCATE ( forces_bp_efield (3,nat) )
      forces_bp_efield(:,:)=0.d0
      if(.not.l3dstring) then

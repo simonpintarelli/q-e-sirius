@@ -191,7 +191,7 @@ SUBROUTINE run_pwscf ( exit_status )
         CALL pw2casino( 0 )
      END IF
 
-     if ( .not. use_sirius .and. lforce ) then
+     if ( lforce ) then
          !
          ! ... force calculation
          !
