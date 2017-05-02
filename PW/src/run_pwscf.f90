@@ -207,7 +207,7 @@ SUBROUTINE run_pwscf ( exit_status )
         END IF
         !
      END IF
-     call sirius_start_timer(c_str("qe|md"))
+     call sirius_stop_timer(c_str("qe|md"))
      !
      CALL stop_clock( 'ions' )
      !
