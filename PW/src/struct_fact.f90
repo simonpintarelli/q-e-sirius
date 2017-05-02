@@ -60,6 +60,7 @@ subroutine struc_fact (nat, tau, ntyp, ityp, ngm, g, bg, nr1, nr2, &
   ! scalar product of bg and tau
 
   strf(:,:) = (0.d0,0.d0)
+!$OMP PARALLEL DO SCHEDULE(STATIC)
   do nt = 1, ntyp
      do na = 1, nat
         if (ityp (na) .eq.nt) then
@@ -71,6 +72,7 @@ subroutine struc_fact (nat, tau, ntyp, ityp, ngm, g, bg, nr1, nr2, &
         endif
      enddo
   enddo
+!$OMP END PARALLEL DO
 
   do na = 1, nat
      do ipol = 1, 3

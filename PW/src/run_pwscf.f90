@@ -227,7 +227,11 @@ SUBROUTINE run_pwscf ( exit_status )
         ! ... update the wavefunctions, charge density, potential
         ! ... update_pot initializes structure factor array as well
         !
-        CALL update_pot()
+        call sirius_start_timer(c_str("qe|update_pot"))
+        if (.not.use_sirius) then
+          CALL update_pot()
+        endif
+        call sirius_stop_timer(c_str("qe|update_pot"))
         CALL add_qexsd_step(idone)
         !
         ! ... re-initialize atomic position-dependent quantities

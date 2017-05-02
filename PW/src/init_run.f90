@@ -117,7 +117,9 @@ SUBROUTINE init_run()
   call sirius_stop_timer(c_str("qe|init_run|hinit0"))
   !
   call sirius_start_timer(c_str("qe|init_run|potinit"))
-  CALL potinit()
+  if (.not.use_sirius) then
+    CALL potinit()
+  endif
   call sirius_stop_timer(c_str("qe|init_run|potinit"))
   !
   call sirius_start_timer(c_str("qe|init_run|newd"))
