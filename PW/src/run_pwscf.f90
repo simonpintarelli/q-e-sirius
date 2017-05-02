@@ -185,6 +185,7 @@ SUBROUTINE run_pwscf ( exit_status )
      !
      ! ... send out forces to MM code in QM/MM run
      !
+     call sirius_start_timer(c_str("qe|md"))
      IF ( lmd .OR. lbfgs ) THEN
         !
         if (fix_volume) CALL impose_deviatoric_stress(sigma)
@@ -206,6 +207,7 @@ SUBROUTINE run_pwscf ( exit_status )
         END IF
         !
      END IF
+     call sirius_start_timer(c_str("qe|md"))
      !
      CALL stop_clock( 'ions' )
      !
@@ -236,7 +238,9 @@ SUBROUTINE run_pwscf ( exit_status )
         !
         ! ... re-initialize atomic position-dependent quantities
         !
+        call sirius_start_timer(c_str("qe|hinit1"))
         CALL hinit1()
+        call sirius_stop_timer(c_str("qe|hinit1"))
         !
      END IF
      ! ... Reset convergence threshold of iterative diagonalization for
