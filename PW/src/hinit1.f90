@@ -30,6 +30,8 @@ SUBROUTINE hinit1()
   USE paw_onecenter, ONLY : paw_potential
   USE paw_symmetry,  ONLY : paw_symmetrize_ddd
   USE dfunct,        ONLY : newd
+  USE input_parameters, ONLY : use_sirius
+  USE sirius
   !
   IMPLICIT NONE
   !
@@ -56,13 +58,15 @@ SUBROUTINE hinit1()
   !
   ! ... update the D matrix and the PAW coefficients
   !
-  IF (okpaw) THEN
-     CALL compute_becsum(1)
-     CALL PAW_potential(rho%bec, ddd_paw)
-     CALL PAW_symmetrize_ddd(ddd_paw)
-  ENDIF
-  ! 
-  CALL newd()
+  if (.not.use_sirius) then
+    IF (okpaw) THEN
+       CALL compute_becsum(1)
+       CALL PAW_potential(rho%bec, ddd_paw)
+       CALL PAW_symmetrize_ddd(ddd_paw)
+    ENDIF
+    ! 
+    CALL newd()
+  endif
   !
   ! ... and recalculate the products of the S with the atomic wfcs used 
   ! ... in LDA+U calculations
