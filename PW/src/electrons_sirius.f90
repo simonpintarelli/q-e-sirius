@@ -107,6 +107,8 @@ subroutine electrons_sirius()
   allocate(deeq_tmp(nhm, nhm))
   allocate(vxcg(ngm))
 
+  call set_rhoc_sirius
+
   do iter = 1, niter
     write(stdout, 9010)iter, ecutwfc, mixing_beta
 

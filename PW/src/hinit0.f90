@@ -107,7 +107,9 @@ SUBROUTINE hinit0()
   ! ... calculate the core charge (if any) for the nonlinear core correction
   !
   call sirius_start_timer(c_str("qe|init_run|hinit0|set_rhoc"))
-  CALL set_rhoc()
+  if (.not.use_sirius) then
+    CALL set_rhoc()
+  endif
   call sirius_stop_timer(c_str("qe|init_run|hinit0|set_rhoc"))
   !
   IF ( tqr ) CALL generate_qpointlist()
