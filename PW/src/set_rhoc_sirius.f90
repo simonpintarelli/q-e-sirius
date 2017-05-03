@@ -29,3 +29,25 @@ subroutine set_rhoc_sirius
 
 end subroutine set_rhoc_sirius
 
+!subroutine set_vloc_sirius
+!use sirius
+!use gvect, only : ngm, mill, igtongl, ngl
+!use vlocal, only : vloc
+!use mp_bands, only : intra_bgrp_comm
+!use ions_base, only : atm
+!integer nt,i
+!real(8), allocatable :: tmp(:)
+!
+!allocate(tmp(ngm))
+!vloc(:,:) = 0.d0
+!do nt = 1, ntyp
+!  call sirius_get_pw_coeffs_real(c_str(atm(nt)), c_str("vloc"), tmp(1), ngm, mill(1, 1), intra_bgrp_comm)
+!  do i = 1, ngm
+!    vloc(igtongl(i), nt) = tmp(i) * 2 ! convert to Ry
+!  enddo
+!enddo
+!
+!deallocate(tmp, tmp1)
+!
+!end subroutine
+

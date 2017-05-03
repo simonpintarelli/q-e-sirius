@@ -2,7 +2,7 @@ subroutine electrons_sirius()
   use sirius
   use ions_base,            only : nat, nsp, ityp
   use uspp_param,           only : upf, nhm, nh
-  use gvect,                only : mill, ngm
+  use gvect,                only : mill, ngm, gg
   use wvfct,                only : nbnd, wg, et
   use gvecw,                only : ecutwfc
   use klist,                only : kset_id, nelec, nks, nkstot, lgauss, wk
@@ -11,11 +11,11 @@ subroutine electrons_sirius()
                                    nmix, llondon, lxdm, lmd
   use gvect,                only : nl,nlm
   use scf,                  only : scf_type, rho, rho_core, rhog_core, create_scf_type, open_mix_file, scf_type_copy,&
-                                   bcast_scf_type, close_mix_file, destroy_scf_type, v, vltot, vxc
+                                   bcast_scf_type, close_mix_file, destroy_scf_type, v, vltot, vxc, v_of_0
   use io_files,             only : iunmix
   use mp_bands,             only : intra_bgrp_comm
   use mp_pools,             only : root_pool, my_pool_id, inter_pool_comm, npool
-  use mp,                   only : mp_bcast
+  use mp,                   only : mp_bcast, mp_sum
   use parallel_include
   use symm_base,            only : nosym
   use ener,                 only : etot, hwf_energy, eband, deband, ehart, &
@@ -35,6 +35,7 @@ subroutine electrons_sirius()
   use paw_variables,        only : okpaw, ddd_paw, total_core_energy, only_paw
   use paw_onecenter,        only : PAW_potential
   use lsda_mod,             only : nspin
+  use constants, only : eps8
   !
   implicit none
   integer iat, ia, i, j, num_gvec, num_fft_grid_points, ik, iter, ig, li, lj, ijv, ilast, ir, l, mb, nb, is
@@ -112,6 +113,19 @@ subroutine electrons_sirius()
   allocate(vxcg(ngm))
 
   call set_rhoc_sirius
+  !call set_vloc_sirius
+  !CALL setlocal()
+  call sirius_get_pw_coeffs(c_str("vloc"), vxcg(1), ngm, mill(1, 1), intra_bgrp_comm)
+  psic(:) = 0.d0
+  psic(nl(:)) = vxcg(:)
+  if (gamma_only) psic(nlm(:)) = conjg(vxcg(:))
+  call invfft('Dense', psic, dfftp)
+  vltot(:) = dble(psic(:)) * 2 ! convert to Ry
+  v_of_0=0.d0
+  IF (gg(1) < eps8) v_of_0 = dble(vxcg(1))
+  !
+  CALL mp_sum( v_of_0, intra_bgrp_comm )
+
 
   do iter = 1, niter
     write(stdout, 9010)iter, ecutwfc, mixing_beta
