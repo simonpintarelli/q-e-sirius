@@ -111,20 +111,21 @@ SUBROUTINE run_pwscf ( exit_status )
   ENDIF
   !
   main_loop: DO idone = 1, nstep
-     call sirius_start_timer(c_str("qe|setup"))
+     call sirius_start_timer(c_str("qe|run_pwscf|setup"))
      call setup ()
-     call sirius_stop_timer(c_str("qe|setup"))
-     call sirius_start_timer(c_str("qe|init_run"))
+     call sirius_stop_timer(c_str("qe|run_pwscf|setup"))
+     call sirius_start_timer(c_str("qe|run_pwscf|init_run"))
      call init_run()
-     call sirius_stop_timer(c_str("qe|init_run"))
+     call sirius_stop_timer(c_str("qe|run_pwscf|init_run"))
      if (use_sirius) then
-        call sirius_start_timer(c_str("qe|setup_sirius"))
+        call sirius_start_timer(c_str("qe|run_pwscf|setup_sirius"))
         call setup_sirius
-        call sirius_stop_timer(c_str("qe|setup_sirius"))
+        call sirius_stop_timer(c_str("qe|run_pwscf|setup_sirius"))
      endif
      !
      ! ... electronic self-consistency or band structure calculation
      !
+     call sirius_start_timer(c_str("qe|run_pwscf|electrons"))
      IF ( .NOT. lscf) THEN
         CALL non_scf ()
      ELSE
@@ -134,6 +135,7 @@ SUBROUTINE run_pwscf ( exit_status )
           CALL electrons() 
         endif
      END IF
+     call sirius_stop_timer(c_str("qe|run_pwscf|electrons"))
      !
      ! ... code stopped by user or not converged
      !
@@ -172,9 +174,9 @@ SUBROUTINE run_pwscf ( exit_status )
      !
      ! ... stress calculation
      !
-     call sirius_start_timer(c_str("qe|stress"))
+     call sirius_start_timer(c_str("qe|run_pwscf|stress"))
      IF ( lstres ) CALL stress ( sigma )
-     call sirius_stop_timer(c_str("qe|stress"))
+     call sirius_stop_timer(c_str("qe|run_pwscf|stress"))
 
      if (use_sirius) then
         call sirius_delete_ground_state()
@@ -186,7 +188,7 @@ SUBROUTINE run_pwscf ( exit_status )
      !
      ! ... send out forces to MM code in QM/MM run
      !
-     call sirius_start_timer(c_str("qe|md"))
+     call sirius_start_timer(c_str("qe|run_pwscf|ions"))
      IF ( lmd .OR. lbfgs ) THEN
         !
         if (fix_volume) CALL impose_deviatoric_stress(sigma)
@@ -208,7 +210,7 @@ SUBROUTINE run_pwscf ( exit_status )
         END IF
         !
      END IF
-     call sirius_stop_timer(c_str("qe|md"))
+     call sirius_stop_timer(c_str("qe|run_pwscf|ions"))
      !
      CALL stop_clock( 'ions' )
      !
@@ -230,18 +232,16 @@ SUBROUTINE run_pwscf ( exit_status )
         ! ... update the wavefunctions, charge density, potential
         ! ... update_pot initializes structure factor array as well
         !
-        call sirius_start_timer(c_str("qe|update_pot"))
         if (.not.use_sirius) then
           CALL update_pot()
         endif
-        call sirius_stop_timer(c_str("qe|update_pot"))
         CALL add_qexsd_step(idone)
         !
         ! ... re-initialize atomic position-dependent quantities
         !
-        call sirius_start_timer(c_str("qe|hinit1"))
+        call sirius_start_timer(c_str("qe|run_pwscf|hinit1"))
         CALL hinit1()
-        call sirius_stop_timer(c_str("qe|hinit1"))
+        call sirius_stop_timer(c_str("qe|run_pwscf|hinit1"))
         !
      END IF
      ! ... Reset convergence threshold of iterative diagonalization for

@@ -58,6 +58,7 @@ subroutine electrons_sirius()
   !---------------
   real(8) :: paw_one_elec_energy
 
+  call sirius_start_timer(c_str("qe|electrons"))
   call sirius_start_timer(c_str("qe|electrons|init"))
 
   if ( dft_is_hybrid() ) then
@@ -104,8 +105,6 @@ subroutine electrons_sirius()
 
   call sirius_stop_timer(c_str("qe|electrons|init"))
 
-  call sirius_start_timer(c_str("qe|electrons"))
-
   conv_elec = .false.
 
   allocate(dens_mtrx(nhm, nhm))
@@ -125,7 +124,8 @@ subroutine electrons_sirius()
   IF (gg(1) < eps8) v_of_0 = dble(vxcg(1))
   !
   CALL mp_sum( v_of_0, intra_bgrp_comm )
-
+  
+  call sirius_start_timer(c_str("qe|electrons|scf"))
 
   do iter = 1, niter
     write(stdout, 9010)iter, ecutwfc, mixing_beta
@@ -386,7 +386,7 @@ subroutine electrons_sirius()
 
 10 continue
 
-  call sirius_stop_timer(c_str("qe|electrons"))
+  call sirius_stop_timer(c_str("qe|electrons|scf"))
 
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   !probably calculate forces here
@@ -527,6 +527,8 @@ subroutine electrons_sirius()
     et(:, ik) = 2.d0 * band_e(:, global_kpoint_index ( nkstot, ik ))
   enddo
   deallocate(band_e)
+
+  call sirius_stop_timer(c_str("qe|electrons"))
 
   !CALL sirius_print_timers()
   !CALL sirius_write_json_output()
