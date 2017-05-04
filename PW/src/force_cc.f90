@@ -53,11 +53,11 @@ subroutine force_cc (forcecc)
   !
   forcecc(:,:) = 0.d0
 
-  if (use_sirius) then
-    call sirius_get_forces(c_str("nlcc"), forcecc(1,1))
-    forcecc = forcecc * 2 ! convert to Ha
-    return
-  endif
+  !if (use_sirius) then
+  !  call sirius_get_forces(c_str("nlcc"), forcecc(1,1))
+  !  forcecc = forcecc * 2 ! convert to Ha
+  !  return
+  !endif
 
 
   if ( ANY ( upf(1:ntyp)%nlcc ) ) go to 15

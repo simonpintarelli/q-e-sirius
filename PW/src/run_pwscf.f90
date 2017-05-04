@@ -166,14 +166,13 @@ SUBROUTINE run_pwscf ( exit_status )
         CALL pw2casino( 0 )
      END IF
 
+     !
+     ! ... force calculation
+     !
+     call sirius_start_timer(c_str("qe|run_pwscf|forces"))
+     if ( lforce ) CALL forces()
+     call sirius_stop_timer(c_str("qe|run_pwscf|forces"))
 
-     if ( lforce ) then
-         !
-         ! ... force calculation
-         !
-         CALL forces()
-
-     endif
      !
      ! ... stress calculation
      !
