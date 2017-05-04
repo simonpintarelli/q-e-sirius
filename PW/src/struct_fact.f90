@@ -61,15 +61,18 @@ subroutine struc_fact (nat, tau, ntyp, ityp, ngm, g, bg, nr1, nr2, &
 
   strf(:,:) = (0.d0,0.d0)
   do nt = 1, ntyp
-     do na = 1, nat
-        if (ityp (na) .eq.nt) then
-           do ng = 1, ngm
+!$OMP PARALLEL DO SCHEDULE(STATIC) DEFAULT(NONE) &
+!$OMP PRIVATE(arg, na) SHARED(g, tau, strf, ngm, nat, ityp, nt)
+     do ng = 1, ngm
+        do na = 1, nat
+           if (ityp (na) .eq.nt) then
               arg = (g (1, ng) * tau (1, na) + g (2, ng) * tau (2, na) &
                    + g (3, ng) * tau (3, na) ) * tpi
               strf (ng, nt) = strf (ng, nt) + CMPLX(cos (arg), -sin (arg),kind=DP)
-           enddo
-        endif
+           endif
+        enddo
      enddo
+!$OMP END PARALLEL DO
   enddo
 
   do na = 1, nat

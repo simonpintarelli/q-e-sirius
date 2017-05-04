@@ -28,6 +28,8 @@ SUBROUTINE hinit0()
   use ldaU,         ONLY : lda_plus_U, U_projection
   USE control_flags,ONLY : tqr, tq_smoothing, tbeta_smoothing
   USE io_global,    ONLY : stdout
+  USE input_parameters, ONLY : use_sirius
+  use sirius
   !
   IMPLICIT NONE
   !
@@ -36,17 +38,34 @@ SUBROUTINE hinit0()
   !
   ! ... calculate the Fourier coefficients of the local part of the PP
   !
-  CALL init_vloc()
+  call sirius_start_timer(c_str("qe|init_run|hinit0|init_vloc"))
+  if (.not.use_sirius) then
+    CALL init_vloc()
+  endif
+  call sirius_stop_timer(c_str("qe|init_run|hinit0|init_vloc"))
   !
   ! ... k-point independent parameters of non-local pseudopotentials
   !
   if (tbeta_smoothing) CALL init_us_b0()
   if (tq_smoothing) CALL init_us_0()
-  CALL init_us_1()
+
+  call sirius_start_timer(c_str("qe|init_run|hinit0|init_us_1"))
+  if (.not.use_sirius) then
+    CALL init_us_1()
+  endif
+  call sirius_stop_timer(c_str("qe|init_run|hinit0|init_us_1"))
+
   IF ( lda_plus_U .AND. ( U_projection == 'pseudo' ) ) CALL init_q_aeps()
-  CALL init_at_1()
+
+  call sirius_start_timer(c_str("qe|init_run|hinit0|init_at_1"))
+  if (.not.use_sirius) then
+    CALL init_at_1()
+  endif
+  call sirius_stop_timer(c_str("qe|init_run|hinit0|init_at_1"))
   !
+  call sirius_start_timer(c_str("qe|init_run|hinit0|init_igk"))
   CALL init_igk ( npwx, ngm, g, gcutw )
+  call sirius_stop_timer(c_str("qe|init_run|hinit0|init_igk"))
   !
   IF ( lmovecell .AND. startingconfig == 'file' ) THEN
      !
@@ -70,8 +89,10 @@ SUBROUTINE hinit0()
   !
   ! ... initialize the structure factor
   !
+  call sirius_start_timer(c_str("qe|init_run|hinit0|struc_fact"))
   CALL struc_fact( nat, tau, nsp, ityp, ngm, g, bg, &
                    dfftp%nr1, dfftp%nr2, dfftp%nr3, strf, eigts1, eigts2, eigts3 )
+  call sirius_stop_timer(c_str("qe|init_run|hinit0|struc_fact"))
   !
   ! these routines can be used to patch quantities that are dependent
   ! on the ions and cell parameters
@@ -81,11 +102,19 @@ SUBROUTINE hinit0()
   !
   ! ... calculate the total local potential
   !
-  CALL setlocal()
+  call sirius_start_timer(c_str("qe|init_run|hinit0|setlocal"))
+  if (.not.use_sirius) then
+    CALL setlocal()
+  endif
+  call sirius_stop_timer(c_str("qe|init_run|hinit0|setlocal"))
   !
   ! ... calculate the core charge (if any) for the nonlinear core correction
   !
-  CALL set_rhoc()
+  call sirius_start_timer(c_str("qe|init_run|hinit0|set_rhoc"))
+  if (.not.use_sirius) then
+    CALL set_rhoc()
+  endif
+  call sirius_stop_timer(c_str("qe|init_run|hinit0|set_rhoc"))
   !
   IF ( tqr ) CALL generate_qpointlist()
   IF (real_space ) then
