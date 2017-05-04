@@ -36,6 +36,7 @@ subroutine electrons_sirius()
   use paw_onecenter,        only : PAW_potential
   use lsda_mod,             only : nspin
   use constants, only : eps8
+  use paw_init,             only : paw_atomic_becsum
   !
   implicit none
   integer iat, ia, i, j, num_gvec, num_fft_grid_points, ik, iter, ig, li, lj, ijv, ilast, ir, l, mb, nb, is
@@ -100,6 +101,7 @@ subroutine electrons_sirius()
 
   call create_scf_type(rhoin)
   call sirius_get_pw_coeffs(c_str("rho"), rho%of_g(1, 1), ngm, mill(1, 1), intra_bgrp_comm)
+  IF ( okpaw ) CALL PAW_atomic_becsum()
   call scf_type_copy(rho, rhoin)
   call open_mix_file(iunmix, 'mix', exst)
 
