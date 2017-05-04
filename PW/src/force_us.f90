@@ -33,6 +33,8 @@ SUBROUTINE force_us( forcenl )
   USE mp_pools,             ONLY : inter_pool_comm
   USE mp_bands,             ONLY : intra_bgrp_comm
   USE mp,                   ONLY : mp_sum, mp_get_comm_null
+  use sirius
+  USE input_parameters, only : use_sirius
   !
   IMPLICIT NONE
   !
@@ -45,6 +47,13 @@ SUBROUTINE force_us( forcenl )
   INTEGER    :: npw, ik, ipol, ig, jkb
   !
   forcenl(:,:) = 0.D0
+
+  if (use_sirius) then
+    call sirius_get_forces(c_str("usnl"), forcenl(1,1))
+    forcenl = forcenl * 2 ! convert to Ha
+    return
+  endif
+
   !
   CALL allocate_bec_type ( nkb, nbnd, becp, intra_bgrp_comm )   
   CALL allocate_bec_type ( nkb, nbnd, dbecp, intra_bgrp_comm )   

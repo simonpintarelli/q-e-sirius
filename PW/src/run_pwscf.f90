@@ -6,16 +6,16 @@
 ! or http://www.gnu.org/copyleft/gpl.txt .
 !
 !----------------------------------------------------------------------------
-SUBROUTINE run_pwscf ( exit_status ) 
+SUBROUTINE run_pwscf ( exit_status )
   !----------------------------------------------------------------------------
   !
   !! author: Paolo Giannozzi
-  !! license: GNU 
+  !! license: GNU
   !! summary: Run an instance of the Plane Wave Self-Consistent Field code
   !!
-  !! Run an instance of the Plane Wave Self-Consistent Field code 
-  !! MPI initialization and input data reading is performed in the 
-  !! calling code - returns in exit_status the exit code for pw.x, 
+  !! Run an instance of the Plane Wave Self-Consistent Field code
+  !! MPI initialization and input data reading is performed in the
+  !! calling code - returns in exit_status the exit code for pw.x,
   !! returned in the shell. Values are:
   !! * 0: completed successfully
   !! * 1: an error has occurred (value returned by the errore() routine)
@@ -58,7 +58,7 @@ SUBROUTINE run_pwscf ( exit_status )
   !! Gives the exit status at the end
   LOGICAL, external :: matches
   !! checks if first string is contained in the second
-  INTEGER :: idone 
+  INTEGER :: idone
   ! counter of electronic + ionic steps done in this run
   !
   call sirius_start_timer(c_str("qe|run_pwscf"))
@@ -74,7 +74,7 @@ SUBROUTINE run_pwscf ( exit_status )
   !
   ! ... needs to come before iosys() so some input flags can be
   !     overridden without needing to write PWscf specific code.
-  ! 
+  !
   CALL qmmm_initialization()
   !
   ! ... convert to internal variables
@@ -132,7 +132,7 @@ SUBROUTINE run_pwscf ( exit_status )
         if (use_sirius) then
           CALL electrons_sirius()
         else
-          CALL electrons() 
+          CALL electrons()
         endif
      END IF
      call sirius_stop_timer(c_str("qe|run_pwscf|electrons"))
@@ -165,11 +165,14 @@ SUBROUTINE run_pwscf ( exit_status )
      ELSE
         CALL pw2casino( 0 )
      END IF
-     !
-     ! ... force calculation
-     !
-     if ( .not. use_sirius .and. lforce ) then
-        CALL forces()
+
+
+     if ( lforce ) then
+         !
+         ! ... force calculation
+         !
+         CALL forces()
+
      endif
      !
      ! ... stress calculation
@@ -204,7 +207,7 @@ SUBROUTINE run_pwscf ( exit_status )
         !
         ! ... then we save restart information for the new configuration
         !
-        IF ( idone <= nstep .AND. .NOT. conv_ions ) THEN 
+        IF ( idone <= nstep .AND. .NOT. conv_ions ) THEN
             CALL qexsd_set_status(255)
             CALL punch( 'config' )
         END IF

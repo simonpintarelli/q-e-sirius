@@ -18,6 +18,9 @@ subroutine force_ew (alat, nat, ntyp, ityp, zv, at, bg, tau, &
   USE constants, ONLY : tpi, e2
   USE mp_bands,  ONLY : intra_bgrp_comm
   USE mp,        ONLY : mp_sum
+  use sirius
+  USE input_parameters, only : use_sirius
+
   implicit none
   !
   !   First the dummy variables
@@ -80,6 +83,13 @@ subroutine force_ew (alat, nat, ntyp, ityp, zv, at, bg, tau, &
   real(DP), external :: qe_erfc
   !
   forceion(:,:) = 0.d0
+
+  if (use_sirius) then
+    call sirius_get_forces(c_str("ewald"), forceion(1,1))
+    forceion = forceion * 2 ! convert to Ha
+    return
+  endif
+
   tpiba2 = (tpi / alat) **2
   charge = 0.d0
   do na = 1, nat
