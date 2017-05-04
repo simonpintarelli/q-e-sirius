@@ -43,6 +43,7 @@ subroutine init_us_1
   USE paw_variables,ONLY : okpaw
   USE mp_bands,     ONLY : intra_bgrp_comm
   USE mp,           ONLY : mp_sum
+  USE input_parameters, ONLY : use_sirius
   !
   implicit none
   !
@@ -246,6 +247,9 @@ subroutine init_us_1
   !  compute Clebsch-Gordan coefficients
   !
   if (okvan .or. okpaw) call aainit (lmaxkb + 1)
+
+  if (use_sirius) goto 200
+
   !
   !   here for the US types we compute the Fourier transform of the
   !   Q functions.
@@ -403,6 +407,8 @@ subroutine init_us_1
      enddo
      deallocate(xdata)
   endif
+
+200 continue
 
   deallocate (ylmk0)
   deallocate (qtot)

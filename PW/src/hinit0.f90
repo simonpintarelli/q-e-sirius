@@ -50,9 +50,9 @@ SUBROUTINE hinit0()
   if (tq_smoothing) CALL init_us_0()
 
   call sirius_start_timer(c_str("qe|init_run|hinit0|init_us_1"))
-  if (.not.use_sirius) then
+  !if (.not.use_sirius) then
     CALL init_us_1()
-  endif
+  !endif
   call sirius_stop_timer(c_str("qe|init_run|hinit0|init_us_1"))
 
   IF ( lda_plus_U .AND. ( U_projection == 'pseudo' ) ) CALL init_q_aeps()
