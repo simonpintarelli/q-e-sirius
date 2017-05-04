@@ -390,17 +390,6 @@ subroutine electrons_sirius()
 
   call sirius_stop_timer(c_str("qe|electrons|scf"))
 
-  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-  !probably calculate forces here
-  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!  call sirius_calc_forces(force(1,1))
-!
-!  do ia = 1, nat
-!    do i = 1, 3
-!      force(i, ia) = 2.0 * force(i, ia)
-!    enddo
-!  enddo
-
   deallocate(dens_mtrx)
   deallocate(deeq_tmp)
   deallocate(vxcg)
