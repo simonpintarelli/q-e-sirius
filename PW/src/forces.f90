@@ -114,7 +114,9 @@ SUBROUTINE forces()
   !
   ! ... The NLCC contribution
   !
+  call sirius_start_timer(c_str("qe|force_cc"))
   CALL force_cc( forcecc )
+  call sirius_stop_timer(c_str("qe|force_cc"))
   !
   ! ... The Hubbard contribution
   !     (included by force_us if using beta as local projectors)
