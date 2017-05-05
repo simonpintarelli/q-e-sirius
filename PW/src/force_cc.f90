@@ -47,6 +47,7 @@ subroutine force_cc (forcecc)
 
 
   real(DP), allocatable :: vxc (:,:), rhocg (:), rho_core_g(:)
+  complex(DP), allocatable :: vxc_g(:)
   ! exchange-correlation potential
   ! radial fourier trasform of rho core
   real(DP)  ::  arg, fact
@@ -92,6 +93,18 @@ subroutine force_cc (forcecc)
   !
   ! psic contains now Vxc(G)
   !
+  if (use_sirius) then
+    allocate(vxc_g(ngm))
+    do ig = 1, ngm
+       vxc_g(ig) = psic(nl(ig)) * 0.5d0 ! convert to Ha
+    enddo
+    ! set XC potential
+    call sirius_set_pw_coeffs(c_str("vxc"),vxc_g(1), ngm, mill(1, 1), intra_bgrp_comm)
+    deallocate(vxc_g)
+    call sirius_get_forces(c_str("nlcc"), forcecc(1,1))
+    forcecc = forcecc * 2 ! convert to Ha
+    return
+  endif
   allocate ( rhocg(ngl) )
   allocate(rho_core_g(ngm))
   !
