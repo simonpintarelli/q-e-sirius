@@ -59,6 +59,9 @@ SUBROUTINE forces()
   use ions_base, only : atm
   USE mp_bands,             ONLY : intra_bgrp_comm
   USE wavefunctions_module, ONLY : psic
+  USE ener,                 ONLY : etxc, vtxc
+  USE scf,                  ONLY : rho, rho_core, rhog_core
+  USE fft_interfaces,       ONLY : fwfft
   !
   IMPLICIT NONE
   !
@@ -78,10 +81,11 @@ SUBROUTINE forces()
 ! now defined in real space
 !
   COMPLEX(DP), ALLOCATABLE :: auxg(:), auxr(:), vxc_g(:)
+  real(8), allocatable :: vxc(:, :)
 !
   REAL(DP) :: sumscf, sum_mm
   REAL(DP), PARAMETER :: eps = 1.e-12_dp
-  INTEGER  :: ipol, na, ig
+  INTEGER  :: ipol, na, ig, ir
     ! counter on polarization
     ! counter on atoms
   !
@@ -96,6 +100,27 @@ SUBROUTINE forces()
   force (:,:)   = 0.D0
 
   if (use_sirius) then
+    ! recalculate the exchange-correlation potential
+    !
+    allocate ( vxc(dfftp%nnr,nspin) )
+    !
+    call v_xc (rho, rho_core, rhog_core, etxc, vtxc, vxc)
+    !
+    psic=(0.0_DP,0.0_DP)
+    if (nspin == 1 .or. nspin == 4) then
+       do ir = 1, dfftp%nnr
+          psic (ir) = vxc (ir, 1)
+       enddo
+    else
+       do ir = 1, dfftp%nnr
+          psic (ir) = 0.5d0 * (vxc (ir, 1) + vxc (ir, 2) )
+       enddo
+    endif
+    deallocate (vxc)
+    CALL fwfft ('Dense', psic, dfftp)
+    !
+    ! psic contains now Vxc(G)
+    !
     allocate(vxc_g(ngm))
     do ig = 1, ngm
        vxc_g(ig) = psic(nl(ig)) * 0.5d0 ! convert to Ha
