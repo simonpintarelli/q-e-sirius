@@ -32,7 +32,7 @@ SUBROUTINE forces()
   USE cell_base,     ONLY : at, bg, alat, omega  
   USE ions_base,     ONLY : nat, ntyp => nsp, ityp, tau, zv, amass, extfor
   USE fft_base,      ONLY : dfftp
-  USE gvect,         ONLY : ngm, gstart, ngl, nl, igtongl, g, gg, gcutm
+  USE gvect,         ONLY : ngm, gstart, ngl, nl, igtongl, g, gg, gcutm, mill
   USE lsda_mod,      ONLY : nspin
   USE symme,         ONLY : symvector
   USE vlocal,        ONLY : strf, vloc
@@ -56,6 +56,9 @@ SUBROUTINE forces()
   use sirius
   USE input_parameters, only : use_sirius
   use klist,            only : kset_id
+  use ions_base, only : atm
+  USE mp_bands,             ONLY : intra_bgrp_comm
+  USE wavefunctions_module, ONLY : psic
   !
   IMPLICIT NONE
   !
@@ -74,11 +77,11 @@ SUBROUTINE forces()
 ! aux is used to store a possible additional density
 ! now defined in real space
 !
-  COMPLEX(DP), ALLOCATABLE :: auxg(:), auxr(:)
+  COMPLEX(DP), ALLOCATABLE :: auxg(:), auxr(:), vxc_g(:)
 !
   REAL(DP) :: sumscf, sum_mm
   REAL(DP), PARAMETER :: eps = 1.e-12_dp
-  INTEGER  :: ipol, na
+  INTEGER  :: ipol, na, ig
     ! counter on polarization
     ! counter on atoms
   !
@@ -93,6 +96,13 @@ SUBROUTINE forces()
   force (:,:)   = 0.D0
 
   if (use_sirius) then
+    allocate(vxc_g(ngm))
+    do ig = 1, ngm
+       vxc_g(ig) = psic(nl(ig)) * 0.5d0 ! convert to Ha
+    enddo
+    ! set XC potential
+    call sirius_set_pw_coeffs(c_str("vxc"),vxc_g(1), ngm, mill(1, 1), intra_bgrp_comm)
+    deallocate(vxc_g)
     call sirius_calc_forces(kset_id)
   endif
 
