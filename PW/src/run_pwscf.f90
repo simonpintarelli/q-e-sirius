@@ -61,11 +61,11 @@ SUBROUTINE run_pwscf ( exit_status )
   INTEGER :: idone
   ! counter of electronic + ionic steps done in this run
   !
-  call sirius_start_timer(c_str("qe|run_pwscf"))
   if (use_sirius) then
      ! initialize platform-specific stuff (libraries, environment, etc.)
      CALL sirius_initialize(call_mpi_init=0)
   endif
+  call sirius_start_timer(c_str("qe|run_pwscf"))
   exit_status = 0
   IF ( ionode ) WRITE( unit = stdout, FMT = 9010 ) ntypx, npk, lmaxx
   !
@@ -264,6 +264,7 @@ SUBROUTINE run_pwscf ( exit_status )
   call sirius_stop_timer(c_str("qe|run_pwscf"))
   if (use_sirius) then
      call sirius_print_timers()
+     call sirius_finalize(0)
   endif
   !
   IF ( .NOT. conv_ions )  exit_status =  3
