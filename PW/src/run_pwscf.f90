@@ -86,7 +86,7 @@ SUBROUTINE run_pwscf ( exit_status )
   !
   IF ( matches('dist.x',command_line) ) THEN
      IF (ionode) CALL run_dist ( exit_status )
-     RETURN
+     goto 100
   END IF
   !
   IF ( gamma_only ) WRITE( UNIT = stdout, &
@@ -107,7 +107,7 @@ SUBROUTINE run_pwscf ( exit_status )
      CALL qexsd_set_status(255)
      CALL punch( 'config' )
      exit_status = 255
-     RETURN
+     goto 100
   ENDIF
   !
   main_loop: DO idone = 1, nstep
@@ -146,7 +146,7 @@ SUBROUTINE run_pwscf ( exit_status )
         ! workaround for the case of a single k-point
         twfcollect = .FALSE.
         CALL punch( 'config' )
-        RETURN
+        goto 100
      ENDIF
      !
      ! ... ionic section starts here
@@ -257,17 +257,21 @@ SUBROUTINE run_pwscf ( exit_status )
   !
   ! ... save final data file
   !
+  CALL punch('all')
+  IF ( .NOT. conv_ions )  exit_status =  3
+
+100 continue
+
   CALL qexsd_set_status(exit_status)
-  !CALL punch('all')
   !
   CALL qmmm_shutdown()
   call sirius_stop_timer(c_str("qe|run_pwscf"))
   if (use_sirius) then
      call sirius_print_timers()
+     call sirius_clear()
      call sirius_finalize(0)
   endif
   !
-  IF ( .NOT. conv_ions )  exit_status =  3
   RETURN
   !
 9010 FORMAT( /,5X,'Current dimensions of program PWSCF are:', &
