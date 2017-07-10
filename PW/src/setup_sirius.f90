@@ -16,6 +16,8 @@ subroutine setup_sirius()
   use parallel_include
   use sirius
   use input_parameters, only : sirius_cfg
+  use noncollin_module, only : noncolin, npol, m_loc
+  use lsda_mod, only : lsda, nspin
   implicit none
   !
   integer :: dims(3), i, ia, iat, rank, ierr, ijv, ik, li, lj, mb, nb, j, l,&
@@ -115,8 +117,16 @@ subroutine setup_sirius()
   ! set |G+k| cutoff for the wave-functions
   ! convert from |G+k|^2/2 Rydbergs to |G+k| in [a.u.^-1]
   call sirius_set_gk_cutoff(sqrt(ecutwfc))
-
-  call sirius_set_num_mag_dims(0)
+  
+  if (lsda) then
+    if (noncolin) then
+      call sirius_set_num_mag_dims(3)
+    else 
+      call sirius_set_num_mag_dims(1)
+    endif
+  else
+    call sirius_set_num_mag_dims(0)
+  endif
 
   ! set lattice vectors of the unit cell (length is in [a.u.])
   a1(:) = at(:, 1) * alat
@@ -244,7 +254,13 @@ subroutine setup_sirius()
     v1(:) = matmul(vlat_inv, v1)
     ! reduce coordinates to [0, 1) interval
     call sirius_reduce_coordinates(v1(1), v2(1), vt(1))
-    call sirius_add_atom(c_str(atm(ityp(ia))), v2(1))
+    if (noncolin) then
+      v1 = 0
+      v1(3) = m_loc(1, ia)
+    else 
+      v1(:) = m_loc(:, ia)
+    endif
+    call sirius_add_atom(c_str(atm(ityp(ia))), v2(1), v1(1))
   enddo
 
   ! initialize global variables/indices/arrays/etc. of the simulation
