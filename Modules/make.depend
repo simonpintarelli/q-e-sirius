@@ -74,6 +74,7 @@ environment.o : mp_bands.o
 environment.o : mp_images.o
 environment.o : mp_pools.o
 environment.o : mp_world.o
+environment.o : qeh5_module.o
 environment.o : version.o
 erf.o : kind.o
 error_handler.o : io_files.o
@@ -102,6 +103,11 @@ fft_custom.o : io_global.o
 fft_custom.o : kind.o
 fft_custom.o : mp.o
 fft_custom.o : parallel_include.o
+fft_rho.o : ../FFTXlib/fft_interfaces.o
+fft_rho.o : control_flags.o
+fft_rho.o : fft_base.o
+fft_rho.o : kind.o
+fft_rho.o : recvec.o
 funct.o : io_global.o
 funct.o : kind.o
 funct.o : xc_rVV10.o
@@ -134,13 +140,10 @@ input_parameters.o : kind.o
 input_parameters.o : parameters.o
 input_parameters.o : wannier_new.o
 invmat.o : kind.o
-io_base.o : ../iotk/src/iotk_module.o
-io_base.o : hdf5_qe.o
-io_base.o : io_files.o
-io_base.o : io_global.o
 io_base.o : kind.o
 io_base.o : mp.o
 io_base.o : mp_wave.o
+io_base.o : qeh5_module.o
 io_files.o : io_global.o
 io_files.o : kind.o
 io_files.o : parameters.o
@@ -154,12 +157,14 @@ kernel_table.o : constants.o
 kernel_table.o : io_files.o
 kernel_table.o : kind.o
 kernel_table.o : wrappers.o
+latgen.o : constants.o
 latgen.o : kind.o
 libxc.o : libxc_funcs.o
 linpack.o : kind.o
 lsda_functionals.o : constants.o
 lsda_functionals.o : kind.o
 metagga.o : constants.o
+metagga.o : funct.o
 metagga.o : kind.o
 metagga.o : libxc.o
 mm_dispersion.o : cell_base.o
@@ -229,6 +234,7 @@ pw_dot.o : kind.o
 pw_dot.o : mp.o
 pw_dot.o : mp_global.o
 pw_dot.o : recvec.o
+qeh5_module.o : kind.o
 qes_libs.o : ../iotk/src/iotk_module.o
 qes_libs.o : qes_types.o
 qes_module.o : ../iotk/src/iotk_module.o
@@ -451,6 +457,8 @@ write_upf_v2.o : pseudo_types.o
 write_upf_v2.o : radial_grids.o
 ws_base.o : invmat.o
 ws_base.o : kind.o
+wyckoff.o : kind.o
+wyckoff.o : space_group.o
 wypos.o : kind.o
 xc_rVV10.o : ../FFTXlib/fft_interfaces.o
 xc_rVV10.o : cell_base.o
@@ -484,6 +492,7 @@ xml_input.o : version.o
 xml_input.o : xml_io_base.o
 xml_io_base.o : ../iotk/src/iotk_module.o
 xml_io_base.o : control_flags.o
+xml_io_base.o : fft_base.o
 xml_io_base.o : hdf5_qe.o
 xml_io_base.o : io_files.o
 xml_io_base.o : io_global.o

@@ -98,13 +98,12 @@
 !     e_v = sum_i,ij rho_i,ij d^ion_is,ji
 !
       USE kinds,              ONLY: DP
-      USE control_flags,      ONLY: iprint, iverbosity, thdyn, tpre, trhor
+      USE control_flags,      ONLY: iprint, iverbosity, thdyn, tpre, trhor, ndr
       USE ions_base,          ONLY: nat
-      USE gvect,              ONLY: ngm,  nl, nlm
+      USE gvect,              ONLY: ngm,  nl, nlm, gstart, ig_l2g
       USE gvecs,              ONLY: ngms, nls, nlsm
-      USE smallbox_gvec,              ONLY: ngb
+      USE smallbox_gvec,      ONLY: ngb
       USE gvecw,              ONLY: ngw
-      USE gvect,              ONLY: gstart
       USE uspp,               ONLY: nkb
       USE uspp_param,         ONLY: nh, nhm
       USE cell_base,          ONLY: omega
@@ -112,7 +111,8 @@
       USE constants,          ONLY: pi, fpi
       USE mp,                 ONLY: mp_sum
       USE io_global,          ONLY: stdout, ionode
-      USE mp_global,          ONLY: intra_bgrp_comm, nbgrp, inter_bgrp_comm, me_bgrp, nproc_bgrp
+      USE mp_global,          ONLY: intra_bgrp_comm, nbgrp, inter_bgrp_comm, &
+           me_bgrp, nproc_bgrp, root_bgrp
       USE funct,              ONLY: dft_is_meta
       USE cg_module,          ONLY: tcg
       USE cp_interfaces,      ONLY: stress_kin, enkin
@@ -123,7 +123,14 @@
       USE wannier_base,       ONLY: iwf
       USE exx_module,         ONLY: rhopr 
       USE input_parameters,   ONLY: tcpbo ! BS
-!
+#if defined (__OLDXML)
+      USE xml_io_base,        ONLY: read_rho, restart_dir
+#else
+      USE fft_rho,            ONLY: rho_g2r
+      USE io_base,            ONLY: read_rhog
+#endif      
+      USE io_files,           ONLY: tmp_dir, prefix
+      !
       IMPLICIT NONE
       INTEGER nfi
       REAL(DP) bec_bgrp(:,:)
@@ -155,6 +162,7 @@
 #endif
       COMPLEX(DP), ALLOCATABLE :: psi(:), psis(:)
       REAL(DP), ALLOCATABLE :: drhovan(:,:,:,:,:)
+      CHARACTER(LEN=256) :: dirname
 
       LOGICAL, SAVE :: first = .TRUE.
       LOGICAL :: ttstress
@@ -231,8 +239,21 @@
          !
          ! Lingzhu Kong
          !
+         ! FIXME: in non-scf calculations, the charge density must be read at
+         ! FIXME: the beginning, the potential computed and no longer updated.
+         !
          IF( first ) THEN
-            CALL read_rho( nspin, rhor )
+#if defined (__OLDXML)
+            dirname = restart_dir( tmp_dir, ndr )
+            CALL read_rho( dirname, rhor, nspin )
+#else
+            CALL errore('rhoofr','option trhor unverified, please report',1)
+            WRITE(dirname,'(A,A,"_",I2,".save/")') &
+                 TRIM(tmp_dir), TRIM(prefix), ndr
+            CALL read_rhog ( dirname, root_bgrp, intra_bgrp_comm, &
+                 ig_l2g, nspin, rhog )
+            CALL rho_g2r ( rhog, rhor )
+#endif
             rhopr = rhor
             first = .FALSE.
          ELSE
@@ -413,7 +434,8 @@
 !
       IF( PRESENT( ndwwf ) ) THEN
          !
-         CALL old_write_rho( ndwwf, nspin, rhor )
+         !CALL old_write_rho( ndwwf, nspin, rhor )
+         CALL errore('cp_rhoofr','old_write_rho no longer implemented',1)
          !
       END IF
 !
@@ -1477,144 +1499,3 @@ SUBROUTINE rhov(irb,eigrb,rhovan,rhog,rhor)
 !
       RETURN
 END SUBROUTINE rhov
-!
-!
-!
-!----------------------------------------------------------------------
-    SUBROUTINE read_rho( nspin, rhor )
-!----------------------------------------------------------------------
-      !
-      ! read rhor(nnr,nspin) from file
-      !
-      use kinds,           ONLY: DP
-      USE fft_base,        ONLY: dfftp
-      use xml_io_base,     ONLY: read_rho_xml, restart_dir
-      use control_flags,   ONLY: ndr
-      USE io_files,        ONLY: tmp_dir
-      USE io_global,       ONLY: ionode
-      USE mp_global,       ONLY: intra_bgrp_comm, inter_bgrp_comm
-      !
-      implicit none
-      !
-      integer  :: nspin
-      real(DP) :: rhor( dfftp%nnr, nspin )
-      !
-      integer            :: is
-      CHARACTER(LEN=256) :: filename, dirname
-      !
-      dirname = restart_dir( tmp_dir, ndr )
-      !
-      filename = TRIM(dirname) // '/' // 'charge-density'
-      !
-      CALL read_rho_xml( filename, dfftp%nr1, dfftp%nr2, dfftp%nr3, &
-                         dfftp%nr1x, dfftp%nr2x, dfftp%ipp, dfftp%npp, &
-                         rhor(:,1) )
-      !
-      IF( nspin == 2 ) THEN
-         !
-         filename = TRIM(dirname) // '/' // 'spin-polarization'
-         !
-         CALL read_rho_xml( filename, dfftp%nr1, dfftp%nr2, dfftp%nr3, &
-                            dfftp%nr1x, dfftp%nr2x, dfftp%ipp, dfftp%npp, &
-                            rhor(:,2) )
-         !
-         !  Convert rho_tot, spin_pol back to rho_up, rho_down
-         !
-         rhor(:,2) = 0.5d0 * ( rhor(:,1) - rhor(:,2) )
-         rhor(:,1) = rhor(:,1) - rhor(:,2)
-         !
-      END IF
-
-      RETURN
-    END SUBROUTINE read_rho
-!
-!----------------------------------------------------------------------
-      subroutine old_write_rho( rhounit, nspin, rhor )
-!----------------------------------------------------------------------
-!
-! collect rhor(nnr,nspin) on first node and write to file
-!
-      use kinds,           ONLY: DP
-      use parallel_include
-      use gvecw ,          only : ngw
-      USE mp_global,       ONLY : nproc_bgrp, intra_bgrp_comm
-      USE io_global,       ONLY : ionode, ionode_id
-      USE fft_base,        ONLY : dfftp
-      USE mp,              ONLY : mp_barrier, mp_gather
-      USE constants,       ONLY : bohr_radius_angs
-      USE cell_base,       ONLY : at, alat
-      !
-      implicit none
-      !
-      integer,       INTENT(IN) :: rhounit, nspin
-      real(kind=DP), INTENT(IN) :: rhor( dfftp%nnr, nspin )
-      !
-      integer :: ir, is
-
-      integer :: proc, ierr
-      integer, allocatable:: displs(:), recvcount(:)
-      real(kind=DP), allocatable:: rhodist(:)
-      !     
-      IF ( ionode ) THEN
-         ! 
-         OPEN( unit = rhounit, form = 'UNFORMATTED', status = 'UNKNOWN' )
-         !
-         WRITE( rhounit, '("3  2")' )
-         ! 
-         WRITE( rhounit, '(3(2X,I3))' ) dfftp%nr1x, dfftp%nr2x, dfftp%nr3x
-         !  
-         WRITE( rhounit, '(3(2X,"0",2X,F16.10))' ) &
-             ( DBLE(dfftp%nr1x-1) / DBLE(dfftp%nr1x) ) * at(1,1)*alat * bohr_radius_angs, &
-             ( DBLE(dfftp%nr2x-1) / DBLE(dfftp%nr2x) ) * at(2,2)*alat * bohr_radius_angs, &
-             ( DBLE(dfftp%nr3x-1) / DBLE(dfftp%nr3x) ) * at(3,3)*alat * bohr_radius_angs
-         !  
-      END IF
-      !
-      COLLECT_CHARGE: IF( nproc_bgrp > 1 ) THEN
-         !
-         ALLOCATE( displs( nproc_bgrp ), recvcount( nproc_bgrp ) )
-         !
-         if (ionode) allocate(rhodist(dfftp%nr1x*dfftp%nr2x*dfftp%nr3x))
-         !
-         do proc=1,nproc_bgrp
-            recvcount(proc) =  dfftp%nnp  * ( dfftp%npp(proc) )
-            if (proc.eq.1) then
-               displs(proc)=0
-            else
-               displs(proc)=displs(proc-1) + recvcount(proc-1)
-            end if
-         end do
-         !
-         do is=1,nspin
-            !
-            ! gather the charge density on the first node
-            !
-            call mp_barrier( intra_bgrp_comm )
-            call mp_gather( rhor(:,is), rhodist, recvcount, displs, ionode_id, intra_bgrp_comm )
-            !
-            ! write the charge density to unit "rhounit" from first node only
-            !
-            if ( ionode ) &
-               write( rhounit, '(F12.7)' ) (rhodist(ir),ir=1,dfftp%nr1x*dfftp%nr2x*dfftp%nr3x)
-            !
-         end do
-      
-         DEALLOCATE( displs, recvcount )
-         if (ionode) deallocate(rhodist)
-
-      ELSE
-
-         IF ( ionode ) THEN
-            WRITE( rhounit, '(F12.7)' ) ( ( rhor(ir,is), ir = 1, dfftp%nnr ), is = 1, nspin )
-         END IF
-
-      END IF COLLECT_CHARGE
-
-      IF ( ionode ) THEN
-         CLOSE( unit = rhounit )
-      END IF
-      !
-      return
-      end subroutine old_write_rho
-
-

@@ -273,6 +273,7 @@ produce_wannier_gamma.o : ../../Modules/mp_world.o
 produce_wannier_gamma.o : ../../Modules/recvec.o
 produce_wannier_gamma.o : ../../Modules/wannier_gw.o
 produce_wannier_gamma.o : ../../Modules/wavefunctions.o
+produce_wannier_gamma.o : ../../PW/src/extfield.o
 produce_wannier_gamma.o : ../../PW/src/exx.o
 produce_wannier_gamma.o : ../../PW/src/ldaU.o
 produce_wannier_gamma.o : ../../PW/src/pwcom.o
@@ -281,6 +282,7 @@ produce_wannier_gamma.o : exchange_custom.o
 produce_wannier_gamma.o : fake_conduction.o
 produce_wannier_gamma.o : fft_custom.o
 pw4gww.o : ../../Modules/becmod.o
+pw4gww.o : ../../Modules/cell_base.o
 pw4gww.o : ../../Modules/constants.o
 pw4gww.o : ../../Modules/control_flags.o
 pw4gww.o : ../../Modules/fft_base.o

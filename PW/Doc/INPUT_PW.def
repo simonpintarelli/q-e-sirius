@@ -11,9 +11,13 @@ input_description -distribution {Quantum Espresso} -package PWscf -program pw.x 
         
         @b BEWARE: TABS, DOS <CR><LF> CHARACTERS ARE POTENTIAL SOURCES OF TROUBLE 
 
+        Namelists must appear in the order given below.
         Comment lines in @i namelists can be introduced by a "!", exactly as in 
         fortran code. Comments lines in @i cards can be introduced by 
         either a "!" or a "#" character in the first position of a line.
+        Do not start any line in @i cards with a "/" character.
+        Leave a space between card names and card options, e.g.
+        ATOMIC_POSITIONS (bohr), not ATOMIC_POSITIONS(bohr)
         Do not start any line in @i cards with a "/" character.
 
         
@@ -151,17 +155,19 @@ input_description -distribution {Quantum Espresso} -package PWscf -program pw.x 
         }
         
         var wf_collect -type LOGICAL { 
-            default { .FALSE. }
+            default { .TRUE. }
             info {
                 This flag controls the way wavefunctions are stored to disk :
 
                 .TRUE.  collect wavefunctions from all processors, store them
-                        into the output data directory "outdir"/"prefix".save,
-                        ...
+                        into the output data directory "outdir"/"prefix".save
+                        The resulting format is portable to a different number
+                        of processor, or different kind of parallelization
 
-                        .FALSE. do not collect wavefunctions, leave them in temporary
-                                local files (one per processor). The resulting format
-                                ...
+                .FALSE. do not collect wavefunctions, leave them in temporary
+                        local files (one per processor). The resulting format
+                        is readable only on the same number of processors and
+                        with the same knd of paralleliztio used to write it.
 
                 Note that this flag has no effect on reading, only on writing.
             }
@@ -760,7 +766,7 @@ input_description -distribution {Quantum Espresso} -package PWscf -program pw.x 
         var nosym -type LOGICAL { 
             default { .FALSE. }
             info {
-                if (.TRUE.) symmetry is not used, which means that:
+                if (.TRUE.) symmetry is not used. Consequences:
                 
                 - if a list of k points is provided in input, it is used
                   "as is": symmetry-inequivalent k-points are not generated,
@@ -772,7 +778,8 @@ input_description -distribution {Quantum Espresso} -package PWscf -program pw.x 
                   Time reversal symmetry is assumed so k and -k are considered
                   as equivalent unless @ref noinv=.true. is specified.
 
-                A careful usage of this option can be advantageous:
+                Do not use this option unless you know exactly what you want
+                and what you get. May be useful in the following cases:
                 - in low-symmetry large cells, if you cannot afford a k-point
                   grid with the correct symmetry
                 - in MD simulations

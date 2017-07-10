@@ -128,6 +128,8 @@
   !! Counter for WS loop
   INTEGER :: nrws
   !! Number of real-space Wigner-Seitz
+  INTEGER :: valueRSS(2)
+  !! Return virtual and resisdent memory from system
   INTEGER, PARAMETER :: nrwsx=200
   !! Maximum number of real-space Wigner-Seitz
   !  
@@ -279,14 +281,15 @@
   CALL wigner_seitz2 &
        ( nk1, nk2, nk3, nq1, nq2, nq3, nrr_k, nrr_q, irvec, wslen, ndegen_k, ndegen_q )
   !
+#ifndef __MPI  
+  ! Open like this only in sequential. Otherwize open with MPI-open
   IF ((.NOT. etf_mem) .AND. (ionode)) THEN
     ! open the .epmatwe file with the proper record length
     lrepmatw   = 2 * nbndsub * nbndsub * nrr_k * nmodes
-    filint    = trim(prefix)//'.epmatwe'
-    CALL diropn (iunepmatwe, 'epmatwe', lrepmatw, exst)  
     filint    = trim(prefix)//'.epmatwp'
     CALL diropn (iunepmatwp, 'epmatwp', lrepmatw, exst)
   ENDIF
+#endif
   ! 
   ! At this point, we will interpolate the Wannier rep to the Bloch rep 
   !
@@ -298,6 +301,12 @@
      CALL epw_read
      !
   ELSE !if not epwread (i.e. need to calculate fmt file)
+     ! 
+     IF ((.NOT. etf_mem) .AND. (ionode)) THEN
+       lrepmatw   = 2 * nbndsub * nbndsub * nrr_k * nmodes
+       filint    = trim(prefix)//'.epmatwe'
+       CALL diropn (iunepmatwe, 'epmatwe', lrepmatw, exst)
+     ENDIF          
      !
      !
      xxq = 0.d0 
@@ -415,6 +424,16 @@
   IF ( ALLOCATED (cuq) )     DEALLOCATE (cuq)
   IF ( ALLOCATED (lwin) )    DEALLOCATE (lwin)
   IF ( ALLOCATED (lwinq) )   DEALLOCATE (lwinq)
+  ! 
+  ! Check Memory usage
+  CALL system_mem_usage(valueRSS)
+  ! 
+  WRITE(stdout, '(a)' )             '     ==================================================================='
+  WRITE(stdout, '(a,i10,a)' ) '     Memory usage:  VmHWM =',valueRSS(2)/1024,'Mb'
+  WRITE(stdout, '(a,i10,a)' ) '                   VmPeak =',valueRSS(1)/1024,'Mb'
+  WRITE(stdout, '(a)' )             '     ==================================================================='
+  WRITE(stdout, '(a)' )             '     '
+  ! 
   !
   ! at this point, we will interpolate the Wannier rep to the Bloch rep 
   ! for electrons, phonons and the ep-matrix
@@ -564,10 +583,10 @@
   IF( efermi_read ) THEN
      !
      ef = fermi_energy
-     WRITE(6,'(/5x,a)') repeat('=',67)
-     WRITE(6, '(/5x,a,f10.6,a)') &
+     WRITE(stdout,'(/5x,a)') repeat('=',67)
+     WRITE(stdout, '(/5x,a,f10.6,a)') &
          'Fermi energy is read from the input file: Ef = ', ef * ryd2ev, ' eV'
-     WRITE(6,'(/5x,a)') repeat('=',67)
+     WRITE(stdout,'(/5x,a)') repeat('=',67)
      ! SP: even when reading from input the number of electron needs to be correct
      already_skipped = .false.
      IF ( nbndskip .gt. 0 ) THEN
@@ -585,9 +604,9 @@
      !
   ELSEIF( band_plot ) THEN 
      !
-     WRITE(6,'(/5x,a)') repeat('=',67)
+     WRITE(stdout,'(/5x,a)') repeat('=',67)
      WRITE(stdout, '(/5x,"Fermi energy corresponds to the coarse k-mesh")')
-     WRITE(6,'(/5x,a)') repeat('=',67) 
+     WRITE(stdout,'(/5x,a)') repeat('=',67) 
      !
   ELSE 
      ! here we take into account that we may skip bands when we wannierize
@@ -602,8 +621,8 @@
               nelec = nelec - two * nbndskip
            ENDIF
            already_skipped = .true.
-           WRITE(6,'(/5x,"Skipping the first ",i4," bands:")') nbndskip
-           WRITE(6,'(/5x,"The Fermi level will be determined with ",f9.5," electrons")') nelec
+           WRITE(stdout,'(/5x,"Skipping the first ",i4," bands:")') nbndskip
+           WRITE(stdout,'(/5x,"The Fermi level will be determined with ",f9.5," electrons")') nelec
         ENDIF
      ENDIF
      !
@@ -622,14 +641,14 @@
      CALL mp_bcast (etf_k, ionode_id, inter_pool_comm)
      ENDIF
      !
-     WRITE(6, '(/5x,a,f10.6,a)') &
+     WRITE(stdout, '(/5x,a,f10.6,a)') &
          'Fermi energy is calculated from the fine k-mesh: Ef = ', efnew * ryd2ev, ' eV'
      !
      ! if 'fine' Fermi level differs by more than 250 meV, there is probably something wrong
      ! with the wannier functions, or 'coarse' Fermi level is inaccurate
      IF (abs(efnew - ef) * ryd2eV .gt. 0.250d0 .and. (.not.eig_read) ) &
-        WRITE(6,'(/5x,a)') 'Warning: check if difference with Fermi level fine grid makes sense'
-     WRITE(6,'(/5x,a)') repeat('=',67)
+        WRITE(stdout,'(/5x,a)') 'Warning: check if difference with Fermi level fine grid makes sense'
+     WRITE(stdout,'(/5x,a)') repeat('=',67)
      !
      ef=efnew
      !
@@ -1228,10 +1247,10 @@
   USE io_global, ONLY : ionode_id
   !
   implicit none
+  ! 
   LOGICAL             :: exst
   INTEGER             :: ibnd, jbnd, jmode, imode, irk, irq, ipol, i, lrepmatw
-  character (len=256) :: filint
-  complex(kind=DP)    :: aux ( nbndsub*nbndsub*nrr_k*nmodes*nrr_q ) 
+  CHARACTER (len=256) :: filint
   !
   WRITE(6,'(/5x,"Writing Hamiltonian, Dynamical matrix and EP vertex in Wann rep to file"/)')
   !
@@ -1280,7 +1299,7 @@
     ENDDO
     !
     IF (etf_mem) THEN
-      ! SP: The call to aux is now inside the loop
+      ! SP: The call to epmatwp is now inside the loop
       !     This is important as otherwise the lrepmatw integer 
       !     could become too large for integer(kind=4).
       !     Note that in Fortran the record length has to be a integer
@@ -1289,18 +1308,7 @@
       filint    = trim(prefix)//'.epmatwp'
       CALL diropn (iunepmatwp, 'epmatwp', lrepmatw, exst)
       DO irq = 1, nrr_q
-        i = 0      
-        DO imode = 1, nmodes
-          DO irk = 1, nrr_k
-            DO jbnd = 1, nbndsub
-              DO ibnd = 1, nbndsub
-                i = i + 1
-                aux (i) = epmatwp(ibnd,jbnd,irk,imode,irq)
-              ENDDO
-            ENDDO
-          ENDDO
-        ENDDO
-        CALL davcio ( aux, lrepmatw, iunepmatwp, irq, +1 )
+        CALL davcio ( epmatwp(:,:,:,:,irq), lrepmatw, iunepmatwp, irq, +1 )
       ENDDO
       ! 
       CLOSE(iunepmatwp)
@@ -1343,10 +1351,9 @@
   implicit none
   !
   LOGICAL             :: exst
-  character (len=256) :: filint
+  CHARACTER (len=256) :: filint
   INTEGER             :: ibnd, jbnd, jmode, imode, irk, irq, &
                          ipol, ios, i, lrepmatw
-  complex(kind=DP)    :: aux ( nbndsub*nbndsub*nrr_k*nmodes*nrr_q )
   !
   WRITE(stdout,'(/5x,"Reading Hamiltonian, Dynamical matrix and EP vertex in Wann rep from file"/)')
   call flush(6)
@@ -1388,7 +1395,6 @@
   CALL mp_bcast (epsi, ionode_id, inter_pool_comm)
   CALL mp_bcast (epsi, root_pool, intra_pool_comm)
   !
-  IF (.not. ALLOCATED(epmatwp)) ALLOCATE ( epmatwp ( nbndsub, nbndsub, nrr_k, nmodes, nrr_q) )
   IF (.not. ALLOCATED(chw)    ) ALLOCATE ( chw ( nbndsub, nbndsub, nrr_k )            )
   IF (.not. ALLOCATED(chw_ks) ) ALLOCATE ( chw_ks ( nbndsub, nbndsub, nrr_k )         )
   IF (.not. ALLOCATED(rdw)    ) ALLOCATE ( rdw ( nmodes,  nmodes,  nrr_q )            )
@@ -1440,9 +1446,10 @@
   IF (lifc) CALL read_ifc
   !
   IF (etf_mem) then
+    IF (.not. ALLOCATED(epmatwp)) ALLOCATE ( epmatwp ( nbndsub, nbndsub, nrr_k, nmodes, nrr_q) )
     epmatwp = czero
     IF (mpime.eq.ionode_id) THEN
-      ! SP: The call to aux is now inside the loop
+      ! SP: The call to epmatwp is now inside the loop
       !     This is important as otherwise the lrepmatw integer 
       !     could become too large for integer(kind=4).
       !     Note that in Fortran the record length has to be a integer
@@ -1451,18 +1458,7 @@
       filint    = trim(prefix)//'.epmatwp'
       CALL diropn (iunepmatwp, 'epmatwp', lrepmatw, exst)
       DO irq = 1, nrr_q
-        i = 0     
-        CALL davcio ( aux, lrepmatw, iunepmatwp, irq, -1 )
-        DO imode = 1, nmodes
-          DO irk = 1, nrr_k
-            DO jbnd = 1, nbndsub
-              DO ibnd = 1, nbndsub
-                i = i + 1
-                epmatwp(ibnd,jbnd,irk,imode,irq) = aux(i)
-              ENDDO
-            ENDDO
-          ENDDO
-        ENDDO
+        CALL davcio ( epmatwp(:,:,:,:,irq), lrepmatw, iunepmatwp, irq, -1 )
       ENDDO
     ENDIF
     !

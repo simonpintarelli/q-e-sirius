@@ -24,8 +24,8 @@ SUBROUTINE add_monofield(vpoten,etotmonofield,linear,quadratic)
   USE kinds,         ONLY : DP
   USE constants,     ONLY : fpi, eps8, e2, au_debye, tpi
   USE ions_base,     ONLY : nat, ityp, zv, tau
-  USE cell_base,     ONLY : alat, at, omega, bg, mopopla
-  USE extfield,      ONLY : zmon, monopole, dipfield, forcemono,&
+  USE cell_base,     ONLY : alat, at, omega, bg
+  USE extfield,      ONLY : zmon, monopole, dipfield, forcemono, mopopla, &
                             relaxz, block, block_height, block_1, block_2, eopreg
   USE klist,         ONLY : nelec
   USE force_mod,     ONLY : lforce
@@ -202,14 +202,19 @@ SUBROUTINE add_monofield(vpoten,etotmonofield,linear,quadratic)
   DO ir = 1, dfftp%nr1x*dfftp%nr2x*dfftp%npl
      !
      ! ... three dimensional indexes
+     !     only need k, but compute j and i to check the physical range
      !
      idx = idx0 + ir - 1
      k   = idx / (dfftp%nr1x*dfftp%nr2x)
+     idx = idx - (dfftp%nr1x*dfftp%nr2x)*k
+     j   = idx / dfftp%nr1x
+     idx = idx - dfftp%nr1x*j
+     i   = idx
 
      ! ... do not include points outside the physical range
 
-     IF ( k >= dfftp%nr3 ) CYCLE
- 
+     IF ( i >= dfftp%nr1 .OR. j >= dfftp%nr2 .OR. k >= dfftp%nr3 ) CYCLE
+
      monoarg = DBLE(k)/DBLE(dfftp%nr3)
 
      ! PRB 89, 245406 (2014)

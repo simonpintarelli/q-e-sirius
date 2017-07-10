@@ -43,14 +43,14 @@ SUBROUTINE read_file()
   IMPLICIT NONE 
   INTEGER :: ierr
   LOGICAL :: exst
-  CHARACTER( 256 )  :: dirname
+  CHARACTER( LEN=256 )  :: dirname
   !
   !
   ierr = 0 
   !
   ! ... Read the contents of the xml data file
   !
-  dirname = TRIM( tmp_dir ) // TRIM( prefix ) // '.save'
+  dirname = TRIM( tmp_dir ) // TRIM( prefix ) // '.save/'
   IF ( ionode ) WRITE( stdout, '(/,5x,A,/,5x,A)') &
      'Reading data from directory:', TRIM( dirname )
   !
@@ -113,7 +113,7 @@ SUBROUTINE read_xml_file ( )
   ! ... starting from scratch should be initialized here when restarting
   !
   USE kinds,                ONLY : DP
-  USE ions_base,            ONLY : nat, nsp, ityp, tau, if_pos, extfor
+  USE ions_base,            ONLY : nat, nsp, ityp, tau, extfor
   USE cell_base,            ONLY : tpiba2, alat,omega, at, bg, ibrav
   USE force_mod,            ONLY : force
   USE klist,                ONLY : nkstot, nks, xk, wk
@@ -139,7 +139,8 @@ SUBROUTINE read_xml_file ( )
   USE pw_restart_new,       ONLY :  pw_readschema_file, init_vars_from_schema 
   USE qes_types_module,     ONLY :  output_type, parallel_info_type, general_info_type
   USE qes_libs_module,      ONLY :  qes_reset_output, qes_reset_input, qes_reset_general_info, qes_reset_parallel_info 
-  USE io_rho_xml,           ONLY : read_rho
+  USE io_rho_xml,           ONLY : read_scf
+  USE fft_rho,              ONLY : rho_g2r
   USE read_pseudo_mod,      ONLY : readpp
   USE uspp,                 ONLY : becsum
   USE uspp_param,           ONLY : upf
@@ -182,7 +183,6 @@ SUBROUTINE read_xml_file ( )
   !
   ALLOCATE( ityp( nat ) )
   ALLOCATE( tau(    3, nat ) )
-  ALLOCATE( if_pos( 3, nat ) )
   ALLOCATE( force(  3, nat ) )
   ALLOCATE( extfor(  3, nat ) )
   !
@@ -303,7 +303,12 @@ SUBROUTINE read_xml_file ( )
   !
   ! ... read the charge density
   !
-  CALL read_rho( rho, nspin )
+  CALL read_scf( rho, nspin )
+#if ! defined (__OLDXML)
+  ! FIXME: for compatibility. rho was previously read and written in real space
+  ! FIXME: now it is in G space - to be removed together with old format
+  CALL rho_g2r ( rho%of_g, rho%of_r )
+#endif
   !
   ! ... re-calculate the local part of the pseudopotential vltot
   ! ... and the core correction charge (if any) - This is done here
