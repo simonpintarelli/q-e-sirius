@@ -404,33 +404,18 @@ subroutine electrons_sirius()
     call sirius_get_q_operator_matrix(iat, qq(1, 1, iat), nhm)
   enddo
 
-  !do iat = 1, nsp
-  !   if ( upf(iat)%tvanp ) then
-  !      do na = 1, nat
-  !         if (ityp(na)==iat) then
-  !            ijh = 0
-  !            do ih = 1, nh(iat)
-  !               do jh = ih, nh(iat)
-  !                  ijh = ijh + 1
-  !                  call sirius_get_density_matrix(ih, jh, na, becsum(ijh, na, 1))
-  !                  ! off-diagonal elements
-  !                  if (ih.ne.jh) becsum(ijh, na, 1) = becsum(ijh, na, 1) * 2
-  !               end do
-  !            end do
-  !         endif
-  !      enddo
-  !   endif
-  !enddo
-
-  ! transform density to real-space  
-  do is = 1, nspin_mag
-     psic(:) = ( 0.d0, 0.d0 )
-     psic(nl(:)) = rho%of_g(:,is)
-     if ( gamma_only ) psic(nlm(:)) = conjg( rho%of_g(:,is) )
-     call invfft ('Dense', psic, dfftp)
-     rho%of_r(:,is) = psic(:)
-     !
-  end do
+  ! TODO: not clear is rho(r) is needed
+  if (use_sirius_veff.eq.1) then
+    ! transform density to real-space  
+    do is = 1, nspin_mag
+       psic(:) = ( 0.d0, 0.d0 )
+       psic(nl(:)) = rho%of_g(:,is)
+       if ( gamma_only ) psic(nlm(:)) = conjg( rho%of_g(:,is) )
+       call invfft ('Dense', psic, dfftp)
+       rho%of_r(:,is) = psic(:)
+       !
+    end do
+  endif
   
   call get_band_energies_from_sirius
 
