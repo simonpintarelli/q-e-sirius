@@ -16,8 +16,8 @@ subroutine setup_sirius()
   use parallel_include
   use sirius
   use input_parameters, only : sirius_cfg
-  use noncollin_module, only : noncolin, npol, m_loc
-  use lsda_mod, only : lsda, nspin
+  use noncollin_module, only : noncolin, npol, angle1, angle2
+  use lsda_mod, only : lsda, nspin, starting_magnetization
   implicit none
   !
   integer :: dims(3), i, ia, iat, rank, ierr, ijv, ik, li, lj, mb, nb, j, l,&
@@ -87,9 +87,13 @@ subroutine setup_sirius()
       stop("interface for this gradient correlation functional is not implemented")
     end select
   endif
-
+  
   ! set number of first-variational states
-  call sirius_set_num_fv_states(nbnd)
+  if (noncolin) then
+    call sirius_set_num_fv_states(nbnd / 2)
+  else
+    call sirius_set_num_fv_states(nbnd)
+  endif
 
   call sirius_set_gamma_point(gamma_only)
 
@@ -118,6 +122,7 @@ subroutine setup_sirius()
   ! convert from |G+k|^2/2 Rydbergs to |G+k| in [a.u.^-1]
   call sirius_set_gk_cutoff(sqrt(ecutwfc))
   
+  ! TODO: check if this is the correct way to setup magnetism
   if (lsda) then
     if (noncolin) then
       call sirius_set_num_mag_dims(3)
@@ -248,6 +253,7 @@ subroutine setup_sirius()
   ! WARNING: sirius accepts only fractional coordinates;
   !          if QE stores coordinates in a different way, the conversion must be made here
   do ia = 1, nat
+    iat = ityp(ia)
     ! Cartesian coordinates
     v1(:) = tau(:, ia) * alat
     ! fractional coordinates
@@ -255,12 +261,14 @@ subroutine setup_sirius()
     ! reduce coordinates to [0, 1) interval
     call sirius_reduce_coordinates(v1(1), v2(1), vt(1))
     if (noncolin) then
+      v1(1) = starting_magnetization(iat) * sin(angle1(iat)) * cos(angle2(iat))
+      v1(2) = starting_magnetization(iat) * sin(angle1(iat)) * sin(angle2(iat))
+      v1(3) = starting_magnetization(iat) * cos(angle1(iat))
+    else
       v1 = 0
-      v1(3) = m_loc(1, ia)
-    else 
-      v1(:) = m_loc(:, ia)
+      v1(3) = starting_magnetization(iat)
     endif
-    call sirius_add_atom(c_str(atm(ityp(ia))), v2(1), v1(1))
+    call sirius_add_atom(c_str(atm(iat)), v2(1), v1(1))
   enddo
 
   ! initialize global variables/indices/arrays/etc. of the simulation
@@ -295,7 +303,11 @@ subroutine setup_sirius()
   ! WARNING: if QE has different weights for non-magnetic and magnectic cases,
   !          this has to be fixed here
   do i = 1, nkstot
-    wk_tmp(i) = wk(i) / 2.d0
+    if (nspin.eq.1) then
+      wk_tmp(i) = wk(i) / 2.d0
+    else
+      wk_tmp(i) = wk(i)
+    endif
     xk_tmp(:,i) = xk(:,i)
   end do
 
@@ -311,10 +323,17 @@ subroutine setup_sirius()
   nk_loc = 0
   nk_loc(rank) = nks
   call mp_sum(nk_loc, inter_pool_comm)
+  if (nspin.eq.2) then
+    nk_loc(:) = nk_loc(:) / 2
+  endif
 
   ! create a set of k-points
   ! WARNING: k-points must be provided in fractional coordinates of the reciprocal lattice
-  call sirius_create_kset(nkstot, xk_tmp(1, 1), wk_tmp(1), 1, kset_id, nk_loc(0))
+  if (nspin.eq.2) then
+    call sirius_create_kset(nkstot / 2, xk_tmp(1, 1), wk_tmp(1), 1, kset_id, nk_loc(0))
+  else
+    call sirius_create_kset(nkstot, xk_tmp(1, 1), wk_tmp(1), 1, kset_id, nk_loc(0))
+  endif
   deallocate(wk_tmp)
   deallocate(xk_tmp)
   deallocate(nk_loc)
