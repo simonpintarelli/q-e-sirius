@@ -122,15 +122,14 @@ subroutine setup_sirius()
   ! convert from |G+k|^2/2 Rydbergs to |G+k| in [a.u.^-1]
   call sirius_set_gk_cutoff(sqrt(ecutwfc))
   
-  ! TODO: check if this is the correct way to setup magnetism
-  if (lsda) then
-    if (noncolin) then
-      call sirius_set_num_mag_dims(3)
-    else 
-      call sirius_set_num_mag_dims(1)
-    endif
+  if (noncolin) then
+    call sirius_set_num_mag_dims(3)
   else
-    call sirius_set_num_mag_dims(0)
+    if (nspin.eq.2) then
+      call sirius_set_num_mag_dims(1)
+    else
+      call sirius_set_num_mag_dims(0)
+    endif
   endif
 
   ! set lattice vectors of the unit cell (length is in [a.u.])
