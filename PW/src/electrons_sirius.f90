@@ -23,11 +23,11 @@ subroutine electrons_sirius()
                                    elondon, ef_up, ef_dw, exdm
   use noncollin_module,     only : nspin_mag
   use uspp,                 only : okvan, deeq, qq, becsum
-  use fft_base,             only : dfftp
   use paw_variables,        only : okpaw, total_core_energy
   use force_mod,            only : force
   use wavefunctions_module, only : psic
   use fft_interfaces,       only : fwfft, invfft
+  use fft_base,             only : dfftp
   use input_parameters,     only : conv_thr, sirius_cfg
   use funct,                only : dft_is_hybrid
   use ldaU,                 only : eth
@@ -39,7 +39,7 @@ subroutine electrons_sirius()
   use paw_init,             only : paw_atomic_becsum
   !
   implicit none
-  integer iat, ia, i, j, num_gvec, num_fft_grid_points, ik, iter, ig, li, lj, ijv, ilast, ir, l, mb, nb, is
+  integer iat, ia, i, j, num_gvec, num_fft_grid_points, ik, iter, ig, li, lj, ijv, ilast, ir, l, mb, nb, is, nk1
   real(8), allocatable :: vloc(:), dion(:,:), tmp(:)
   real(8), allocatable :: bnd_occ(:,:), band_e(:,:), wk_tmp(:), xk_tmp(:,:)
   real(8) a1(3), a2(3), a3(3), maxocc, rms
@@ -54,6 +54,7 @@ subroutine electrons_sirius()
   complex(8), allocatable :: dens_mtrx(:,:), vxcg(:)
   integer, allocatable :: nk_loc(:)
   real(8) :: etot_cmp_paw(nat,2,2)
+  complex(8) :: z1,z2
   !---------------
   ! paw one elec
   !---------------
@@ -100,8 +101,10 @@ subroutine electrons_sirius()
   !CALL flush_unit( stdout )
 
   call create_scf_type(rhoin)
-  call sirius_get_pw_coeffs(c_str("rho"), rho%of_g(1, 1), ngm, mill(1, 1), intra_bgrp_comm)
-  IF ( okpaw ) CALL PAW_atomic_becsum()
+  call get_density_from_sirius
+  if (okpaw) then
+    call PAW_atomic_becsum()
+  endif
   call scf_type_copy(rho, rhoin)
   call open_mix_file(iunmix, 'mix', exst)
 
@@ -113,19 +116,13 @@ subroutine electrons_sirius()
   allocate(deeq_tmp(nhm, nhm))
   allocate(vxcg(ngm))
 
-  call set_rhoc_sirius
-  !call set_vloc_sirius
-  !CALL setlocal()
-  call sirius_get_pw_coeffs(c_str("vloc"), vxcg(1), ngm, mill(1, 1), intra_bgrp_comm)
-  psic(:) = 0.d0
-  psic(nl(:)) = vxcg(:)
-  if (gamma_only) psic(nlm(:)) = conjg(vxcg(:))
-  call invfft('Dense', psic, dfftp)
-  vltot(:) = dble(psic(:)) * 2 ! convert to Ry
-  v_of_0=0.d0
-  IF (gg(1) < eps8) v_of_0 = dble(vxcg(1))
-  !
-  CALL mp_sum( v_of_0, intra_bgrp_comm )
+  call get_rhoc_sirius
+  call get_vloc_sirius
+
+  if (nspin.gt.1.and.nspin_mag.eq.1) then
+    write(*,*)'this case has to be checked'
+    stop
+  endif
   
   call sirius_start_timer(c_str("qe|electrons|scf"))
 
@@ -153,38 +150,12 @@ subroutine electrons_sirius()
 !     CALL sirius_find_band_occupancies(kset_id)
 !     CALL sirius_get_energy_fermi(kset_id, ef)
 !     ef = ef * 2.d0
-
-    allocate(band_e(nbnd, nkstot))
-    ! get band energies
-    do ik = 1, nkstot
-      call sirius_get_band_energies(kset_id, ik, band_e(1, ik))
-    end do
-
-    do ik = 1, nks
-      ! convert to Ry
-      et(:, ik) = 2.d0 * band_e(:, global_kpoint_index ( nkstot, ik ))
-    enddo
-
-    deallocate(band_e)
+    call get_band_energies_from_sirius
 
     ! compute band weights
     call weights()
 
-    ! compute occupancies
-    allocate(bnd_occ(nbnd, nkstot ))
-    bnd_occ = 0.d0
-    ! define a maximum band occupancy (2 in case of spin-unpolarized, 1 in case of spin-polarized)
-    maxocc = 2.d0
-    do ik = 1, nks
-      bnd_occ(:, global_kpoint_index ( nkstot, ik )) = maxocc * wg(:, ik) / wk(ik)
-    enddo
-    call mpi_allreduce(MPI_IN_PLACE, bnd_occ(1, 1), nbnd * nkstot, MPI_DOUBLE, MPI_SUM, inter_pool_comm, ierr)
-
-    ! set band occupancies
-    do ik = 1, nkstot
-      call sirius_set_band_occupancies(kset_id, ik, bnd_occ(1, ik))
-    enddo
-    deallocate(bnd_occ)
+    call put_band_occupancies_to_sirius
 
     !  generate valence density
     call sirius_generate_valence_density(kset_id)
@@ -197,28 +168,10 @@ subroutine electrons_sirius()
       call sirius_mix_density(rms)
       call sirius_get_density_dr2(dr2)
     endif
-    ! get rho(G)
-    call sirius_get_pw_coeffs(c_str("rho"), rho%of_g(1, 1), ngm, mill(1, 1), intra_bgrp_comm)
-    ! get density matrix
-    do iat = 1, nsp
-      do na = 1, nat
-        if (ityp(na).eq.iat.and.allocated(rho%bec)) then
-          rho%bec(:, na, :) = 0.d0
-          call sirius_get_density_matrix(na, dens_mtrx(1, 1), nhm)
-          ijh = 0
-          do ih = 1, nh(iat)
-            do jh = ih, nh(iat)
-              ijh = ijh + 1
-              rho%bec(ijh, na, 1) = dens_mtrx(ih, jh)
-              ! off-diagonal elements
-              if (ih.ne.jh) then
-                rho%bec(ijh, na, 1) = rho%bec(ijh, na, 1) * 2.d0
-              endif
-            enddo
-          enddo
-        endif
-      enddo
-    enddo
+
+    ! get rho(G) and density matrix
+    call get_density_from_sirius
+
     ! mix density with QE
     if (use_sirius_mixer.eq.0) then
       ! mix density
@@ -229,7 +182,7 @@ subroutine electrons_sirius()
       call mp_bcast(dr2,       root_pool, inter_pool_comm)
       call mp_bcast(conv_elec, root_pool, inter_pool_comm)
       ! set new (mixed) rho(G)
-      call sirius_set_pw_coeffs(c_str("rho"), rho%of_g(1, 1), ngm, mill(1, 1), intra_bgrp_comm)
+      call put_density_to_sirius
       ! set new (mixed) density matrix
     endif
     call sirius_stop_timer(c_str("qe|mix"))
@@ -260,34 +213,8 @@ subroutine electrons_sirius()
         call PAW_potential(rho%bec, ddd_PAW, epaw, etot_cmp_paw)
       endif
 
-      ! add local part of the potential and transform to PW domain
-      psic(:) = v%of_r(:, 1) + vltot(:)
-      call fwfft('Dense', psic, dfftp)
-      ! convert to Hartree
-      do ig = 1, ngm
-         v%of_g(ig, 1) = psic(nl(ig)) * 0.5d0
-      enddo
-      ! set effective potential
-      call sirius_set_pw_coeffs(c_str("veff"),v%of_g(1, 1), ngm, mill(1, 1), intra_bgrp_comm)
-
-      ! convert Vxc to plane-wave domain
-      if (nspin.eq.1.or.nspin.eq.4) then
-         do ir = 1, dfftp%nnr
-            psic(ir) = vxc(ir, 1)
-         enddo
-      else
-         do ir = 1, dfftp%nnr
-            psic(ir) = 0.5d0 * (vxc(ir, 1) + vxc(ir, 2))
-         enddo
-      endif
-      call fwfft('Dense', psic, dfftp)
-      ! convert to Hartree
-      do ig = 1, ngm
-         vxcg(ig) = psic(nl(ig)) * 0.5d0
-      end do
-      ! set XC potential
-      call sirius_set_pw_coeffs(c_str("vxc"), vxcg(1), ngm, mill(1, 1), intra_bgrp_comm)
-
+      call put_potential_to_sirius
+     
       ! update D-operator matrix
       call sirius_generate_d_operator_matrix()
       if (okpaw) then
@@ -304,6 +231,7 @@ subroutine electrons_sirius()
         enddo
       endif
     endif
+    write(*,*)"STEP#8"
     call sirius_stop_timer(c_str("qe|veff"))
 
     call sirius_get_energy_ewald(ewld)
@@ -334,10 +262,8 @@ subroutine electrons_sirius()
        !ENDIF
 
        ! get band energies
-       do ik = 1, nkstot
-         call sirius_get_band_energies(kset_id, ik, et(1, ik))
-       enddo
-       et = et * 2.d0
+       call get_band_energies_from_sirius
+
        call print_ks_energies()
     endif
 
@@ -507,17 +433,8 @@ subroutine electrons_sirius()
      rho%of_r(:,is) = psic(:)
      !
   end do
-
-  allocate(band_e(nbnd, nkstot))
-  ! get band energies
-  do ik = 1, nkstot
-    call sirius_get_band_energies(kset_id, ik, band_e(1, ik))
-  end do
-  do ik = 1, nks
-    ! convert to ry
-    et(:, ik) = 2.d0 * band_e(:, global_kpoint_index ( nkstot, ik ))
-  enddo
-  deallocate(band_e)
+  
+  call get_band_energies_from_sirius
 
   call sirius_stop_timer(c_str("qe|electrons"))
 
