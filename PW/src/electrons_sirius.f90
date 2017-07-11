@@ -54,7 +54,6 @@ subroutine electrons_sirius()
   complex(8), allocatable :: dens_mtrx(:,:), vxcg(:)
   integer, allocatable :: nk_loc(:)
   real(8) :: etot_cmp_paw(nat,2,2)
-  complex(8) :: z1,z2
   !---------------
   ! paw one elec
   !---------------
@@ -116,8 +115,8 @@ subroutine electrons_sirius()
   allocate(deeq_tmp(nhm, nhm))
   allocate(vxcg(ngm))
 
-  call get_rhoc_sirius
-  call get_vloc_sirius
+  call get_rhoc_from_sirius
+  call get_vloc_from_sirius
 
   if (nspin.gt.1.and.nspin_mag.eq.1) then
     write(*,*)'this case has to be checked'

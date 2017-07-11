@@ -128,7 +128,7 @@ SUBROUTINE forces()
     ! set XC potential
     call sirius_set_pw_coeffs(c_str("vxc"),vxc_g(1), ngm, mill(1, 1), intra_bgrp_comm)
     deallocate(vxc_g)
-    call sirius_calc_forces(kset_id)
+    call sirius_calculate_forces(kset_id)
   endif
 
   !

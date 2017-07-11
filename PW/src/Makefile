@@ -250,7 +250,6 @@ wannier_occ.o \
 wannier_enrg.o \
 electrons_sirius.o \
 setup_sirius.o \
-set_rhoc_sirius.o \
 interface_sirius.o
 
 QEMODS=../../Modules/libqemod.a ../../FFTXlib/libqefft.a ../../LAXlib/libqela.a
