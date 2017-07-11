@@ -230,7 +230,6 @@ subroutine electrons_sirius()
         enddo
       endif
     endif
-    write(*,*)"STEP#8"
     call sirius_stop_timer(c_str("qe|veff"))
 
     call sirius_get_energy_ewald(ewld)

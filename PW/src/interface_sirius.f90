@@ -119,7 +119,7 @@ subroutine get_density_from_sirius
     ! convert to rho_{up}, rho_{dn}
     do ig = 1, ngm
       z1 = rho%of_g(ig, 1)
-      z1 = rho%of_g(ig, 2)
+      z2 = rho%of_g(ig, 2)
       rho%of_g(ig, 1) = 0.5 * (z1 + z2)
       rho%of_g(ig, 2) = 0.5 * (z1 - z2)
     enddo
