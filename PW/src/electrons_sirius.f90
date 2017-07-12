@@ -43,7 +43,7 @@ subroutine electrons_sirius()
   !
   implicit none
   integer iat, ia, i, j, num_gvec, num_fft_grid_points, ik, iter, ig, li, lj, ijv, ilast, ir, l, mb, nb, is, nk1
-  real(8), allocatable :: vloc(:), dion(:,:), tmp(:)
+  real(8), allocatable :: tmp(:)
   real(8), allocatable :: bnd_occ(:,:), band_e(:,:), wk_tmp(:), xk_tmp(:,:)
   real(8) a1(3), a2(3), a3(3), maxocc, rms
   type (scf_type) :: rhoin ! used to store rho_in of current/next iteration
@@ -56,7 +56,7 @@ subroutine electrons_sirius()
   real(8), allocatable :: qij(:,:,:), deeq_tmp(:,:)
   complex(8), allocatable :: dens_mtrx(:,:), vxcg(:)
   integer, allocatable :: nk_loc(:)
-  real(8) :: etot_cmp_paw(nat,2,2), mag
+  real(8) :: etot_cmp_paw(nat,2,2), mag, d1, d2
   !---------------
   ! paw one elec
   !---------------
@@ -224,14 +224,36 @@ subroutine electrons_sirius()
       if (okpaw) then
         ! get D-operator matrix
         do ia = 1, nat
-          call sirius_get_d_operator_matrix(ia, deeq(1, 1, ia, 1), nhm)
+          do is = 1, nspin
+            call sirius_get_d_operator_matrix(ia, is, deeq(1, 1, ia, is), nhm)
+          enddo
+          if (nspin.eq.2) then
+            do i = 1, nhm
+              do j = 1, nhm
+                d1 = deeq(i, j, ia, 1)
+                d2 = deeq(i, j, ia, 2)
+                deeq(i, j, ia, 1) = d1 + d2
+                deeq(i, j, ia, 2) = d1 - d2
+              enddo
+            enddo
+          endif
           ! convert to Ry
           deeq(:, :, ia, :) = deeq(:, :, ia, :) * 2
         enddo
         call add_paw_to_deeq(deeq)
         do ia = 1, nat
-          deeq_tmp(:, :) = deeq(:, :, ia, 1) / 2.d0 ! convert to Ha
-          call sirius_set_d_operator_matrix(ia, deeq_tmp(1, 1), nhm)
+          do is = 1, nspin
+            if (nspin.eq.2.and.is.eq.1) then
+              deeq_tmp(:, :) = 0.5 * (deeq(:, :, ia, 1) + deeq(:, :, ia, 2)) / 2 ! convert to Ha
+            endif
+            if (nspin.eq.2.and.is.eq.2) then
+              deeq_tmp(:, :) = 0.5 * (deeq(:, :, ia, 1) - deeq(:, :, ia, 2)) / 2 ! convert to Ha
+            endif
+            if (nspin.eq.1.or.nspin.eq.4) then
+              deeq_tmp(:, :) = deeq(:, :, ia, is) / 2 ! convert to Ha
+            endif
+            call sirius_set_d_operator_matrix(ia, is, deeq_tmp(1, 1), nhm)
+          enddo
         enddo
       endif
     endif
@@ -400,11 +422,11 @@ subroutine electrons_sirius()
   call close_mix_file(iunmix, 'delete')
   call destroy_scf_type(rhoin)
 
-  do ia = 1, nat
-    call sirius_get_d_operator_matrix(ia, deeq(1, 1, ia, 1), nhm)
-    ! convert to Ry
-    deeq(:, :, ia, :) = deeq(:, :, ia, :) * 2
-  enddo
+  !do ia = 1, nat
+  !  call sirius_get_d_operator_matrix(ia, deeq(1, 1, ia, 1), nhm)
+  !  ! convert to Ry
+  !  deeq(:, :, ia, :) = deeq(:, :, ia, :) * 2
+  !enddo
   do iat = 1, nsp
     call sirius_get_q_operator_matrix(iat, qq(1, 1, iat), nhm)
   enddo
