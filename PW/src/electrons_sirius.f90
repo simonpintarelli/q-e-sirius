@@ -5,7 +5,7 @@ subroutine electrons_sirius()
   use gvect,                only : mill, ngm, gg
   use wvfct,                only : nbnd, wg, et
   use gvecw,                only : ecutwfc
-  use klist,                only : kset_id, nelec, nks, nkstot, lgauss, wk
+  use klist,                only : kset_id, nelec, nks, nkstot, lgauss, wk, two_fermi_energies
   use io_global,            only : stdout
   use control_flags,        only : conv_elec, ethr, gamma_only, iprint, iverbosity, mixing_beta, niter,&
                                    nmix, llondon, lxdm, lmd
@@ -34,9 +34,12 @@ subroutine electrons_sirius()
   use extfield,             only : tefield, etotefield
   use paw_variables,        only : okpaw, ddd_paw, total_core_energy, only_paw
   use paw_onecenter,        only : PAW_potential
-  use lsda_mod,             only : nspin
+  use lsda_mod,             only : nspin, lsda, absmag, magtot
   use constants, only : eps8
   use paw_init,             only : paw_atomic_becsum
+  use noncollin_module,     only : noncolin, magtot_nc, bfield
+  use spin_orb,             only : domag
+  use cell_base,            only : omega
   !
   implicit none
   integer iat, ia, i, j, num_gvec, num_fft_grid_points, ik, iter, ig, li, lj, ijv, ilast, ir, l, mb, nb, is, nk1
@@ -53,7 +56,7 @@ subroutine electrons_sirius()
   real(8), allocatable :: qij(:,:,:), deeq_tmp(:,:)
   complex(8), allocatable :: dens_mtrx(:,:), vxcg(:)
   integer, allocatable :: nk_loc(:)
-  real(8) :: etot_cmp_paw(nat,2,2)
+  real(8) :: etot_cmp_paw(nat,2,2), mag
   !---------------
   ! paw one elec
   !---------------
@@ -204,6 +207,8 @@ subroutine electrons_sirius()
          call invfft('Dense', psic, dfftp)
          rho%of_r(:,is) = dble(psic(:))
       end do
+
+      if (lsda .or. noncolin ) call compute_magnetization()
 
       ! calculate potential (Vha + Vxc)
       call v_of_rho(rho, rho_core, rhog_core, ehart, etxc, vtxc, eth, etotefield, charge, v)
@@ -500,13 +505,13 @@ subroutine electrons_sirius()
        end if
        
        call plugin_print_energies()
-       !!!
-       !!IF ( lsda ) WRITE( stdout, 9017 ) magtot, absmag
-       !!!
-       !!IF ( noncolin .AND. domag ) &
-       !!     WRITE( stdout, 9018 ) magtot_nc(1:3), absmag
-       !!!
-       !!IF ( i_cons == 3 .OR. i_cons == 4 )  &
+       !
+       IF ( lsda ) WRITE( stdout, 9017 ) magtot, absmag
+       !
+       IF ( noncolin .AND. domag ) &
+            WRITE( stdout, 9018 ) magtot_nc(1:3), absmag
+       ! 
+       !IF ( i_cons == 3 .OR. i_cons == 4 )  &
        !!     WRITE( stdout, 9071 ) bfield(1), bfield(2), bfield(3)
        !!IF ( i_cons /= 0 .AND. i_cons < 4 ) &
        !!     WRITE( stdout, 9073 ) lambda
@@ -551,6 +556,75 @@ subroutine electrons_sirius()
 9085 format(/'     total all-electron energy =',0PF17.6,' Ry' )
 
   end subroutine print_energies
+
+  !-----------------------------------------------------------------------
+  SUBROUTINE compute_magnetization()
+    !-----------------------------------------------------------------------
+    !
+    IMPLICIT NONE
+    !
+    INTEGER :: ir
+    !
+    !
+    IF ( lsda ) THEN
+       !
+       magtot = 0.D0
+       absmag = 0.D0
+       !
+       DO ir = 1, dfftp%nnr
+          !
+          mag = rho%of_r(ir,1) - rho%of_r(ir,2)
+          !
+          magtot = magtot + mag
+          absmag = absmag + ABS( mag )
+          !
+       END DO
+       !
+       magtot = magtot * omega / ( dfftp%nr1*dfftp%nr2*dfftp%nr3 )
+       absmag = absmag * omega / ( dfftp%nr1*dfftp%nr2*dfftp%nr3 )
+       !
+       CALL mp_sum( magtot, intra_bgrp_comm )
+       CALL mp_sum( absmag, intra_bgrp_comm )
+       !
+       IF (two_fermi_energies.and.lgauss) bfield(3)=0.5D0*(ef_up-ef_dw)
+       !
+    ELSE IF ( noncolin ) THEN
+       !
+       magtot_nc = 0.D0
+       absmag    = 0.D0
+       !
+       DO ir = 1,dfftp%nnr
+          !
+          mag = SQRT( rho%of_r(ir,2)**2 + &
+                      rho%of_r(ir,3)**2 + &
+                      rho%of_r(ir,4)**2 )
+          !
+          DO i = 1, 3
+             !
+             magtot_nc(i) = magtot_nc(i) + rho%of_r(ir,i+1)
+             !
+          END DO
+          !
+          absmag = absmag + ABS( mag )
+          !
+       END DO
+       !
+       CALL mp_sum( magtot_nc, intra_bgrp_comm )
+       CALL mp_sum( absmag, intra_bgrp_comm )
+       !
+       DO i = 1, 3
+          !
+          magtot_nc(i) = magtot_nc(i) * omega / ( dfftp%nr1*dfftp%nr2*dfftp%nr3 )
+          !
+       END DO
+       !
+       absmag = absmag * omega / ( dfftp%nr1*dfftp%nr2*dfftp%nr3 )
+       !
+    END IF
+    !
+    RETURN
+    !
+  END SUBROUTINE compute_magnetization
 
 end subroutine
 
