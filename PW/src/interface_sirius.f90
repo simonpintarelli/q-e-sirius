@@ -130,6 +130,7 @@ subroutine get_density_from_sirius
     call sirius_get_pw_coeffs(c_str("magz"), rho%of_g(1, 4), ngm, mill(1, 1), intra_bgrp_comm)
   endif
   ! get density matrix
+  allocate(dens_mtrx(nhm, nhm))
   do iat = 1, nsp
     do na = 1, nat
       if (ityp(na).eq.iat.and.allocated(rho%bec)) then
@@ -149,6 +150,7 @@ subroutine get_density_from_sirius
       endif
     enddo
   enddo
+  deallocate(dens_mtrx)
 end subroutine get_density_from_sirius
 
 subroutine put_density_to_sirius

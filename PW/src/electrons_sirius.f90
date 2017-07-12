@@ -54,7 +54,7 @@ subroutine electrons_sirius()
   integer kmesh(3), kshift(3), printout, vt(3)
   integer, external :: global_kpoint_index
   real(8), allocatable :: qij(:,:,:), deeq_tmp(:,:)
-  complex(8), allocatable :: dens_mtrx(:,:), vxcg(:)
+  complex(8), allocatable :: vxcg(:)
   integer, allocatable :: nk_loc(:)
   real(8) :: etot_cmp_paw(nat,2,2), mag, d1, d2
   !---------------
@@ -114,7 +114,6 @@ subroutine electrons_sirius()
 
   conv_elec = .false.
 
-  allocate(dens_mtrx(nhm, nhm))
   allocate(deeq_tmp(nhm, nhm))
   allocate(vxcg(ngm))
 
@@ -341,7 +340,6 @@ subroutine electrons_sirius()
 
   call sirius_stop_timer(c_str("qe|electrons|scf"))
 
-  deallocate(dens_mtrx)
   deallocate(deeq_tmp)
   deallocate(vxcg)
 
