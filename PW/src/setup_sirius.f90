@@ -18,6 +18,7 @@ subroutine setup_sirius()
   use input_parameters, only : sirius_cfg
   use noncollin_module, only : noncolin, npol, angle1, angle2
   use lsda_mod, only : lsda, nspin, starting_magnetization
+  use cell_base, only : omega
   implicit none
   !
   integer :: dims(3), i, ia, iat, rank, ierr, ijv, ik, li, lj, mb, nb, j, l,&
@@ -30,6 +31,10 @@ subroutine setup_sirius()
   call sirius_create_simulation_context(c_str(trim(adjustl(sirius_cfg))))
   ! set up a type of calculation
   call sirius_set_esm_type(c_str("pseudopotential"))
+
+  if (omega.lt.250) then
+    call sirius_set_processing_unit(c_str("cpu"))
+  endif
 
   if (get_meta().ne.0.or.get_inlc().ne.0) then
     write(*,*)get_igcx()
