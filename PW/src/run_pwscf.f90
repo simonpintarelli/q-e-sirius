@@ -257,7 +257,9 @@ SUBROUTINE run_pwscf ( exit_status )
   !
   ! ... save final data file
   !
+  call sirius_start_timer(c_str("qe|run_pwscf|punch"))
   CALL punch('all')
+  call sirius_stop_timer(c_str("qe|run_pwscf|punch"))
   IF ( .NOT. conv_ions )  exit_status =  3
 
 100 continue

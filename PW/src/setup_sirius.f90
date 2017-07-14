@@ -32,9 +32,9 @@ subroutine setup_sirius()
   ! set up a type of calculation
   call sirius_set_esm_type(c_str("pseudopotential"))
 
-  if (omega.lt.250) then
-    call sirius_set_processing_unit(c_str("cpu"))
-  endif
+  !if (omega.lt.250) then
+  !  call sirius_set_processing_unit(c_str("cpu"))
+  !endif
 
   if (get_meta().ne.0.or.get_inlc().ne.0) then
     write(*,*)get_igcx()
