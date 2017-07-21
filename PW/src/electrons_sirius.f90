@@ -28,7 +28,7 @@ subroutine electrons_sirius()
   use wavefunctions_module, only : psic
   use fft_interfaces,       only : fwfft, invfft
   use fft_base,             only : dfftp
-  use input_parameters,     only : conv_thr, sirius_cfg
+  use input_parameters,     only : conv_thr, sirius_cfg, diago_thr_init
   use funct,                only : dft_is_hybrid
   use ldaU,                 only : eth
   use extfield,             only : tefield, etotefield
@@ -126,20 +126,21 @@ subroutine electrons_sirius()
   endif
   
   call sirius_start_timer(c_str("qe|electrons|scf"))
-
+  
+  ethr = diago_thr_init
   do iter = 1, niter
     write(stdout, 9010)iter, ecutwfc, mixing_beta
 
     if (iter.gt.1) then
        !
-       if (iter.eq.2) then
-          ethr = 1.D-2
-       else
+       !if (iter.eq.2) then
+          !ethr = 1.D-2
+       !else
           ethr = min(ethr, 0.1d0 * dr2 / max(1.d0, nelec))
           ! ... do not allow convergence threshold to become too small:
           ! ... iterative diagonalization may become unstable
           ethr = max(ethr, 1.d-13)
-       endif
+       !endif
        !
        call sirius_set_iterative_solver_tolerance(ethr)
     end if
