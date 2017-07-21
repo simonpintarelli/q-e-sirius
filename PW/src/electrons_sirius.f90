@@ -144,6 +144,7 @@ subroutine electrons_sirius()
        !
        call sirius_set_iterative_solver_tolerance(ethr)
     end if
+    write(stdout, '( 5X,"ethr = ", 1PE9.2)' )ethr
 
     ! solve H\spi = E\psi
     call sirius_find_eigen_states(kset_id, precompute=1)
