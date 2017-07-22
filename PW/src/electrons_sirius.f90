@@ -127,7 +127,7 @@ subroutine electrons_sirius()
   
   call sirius_start_timer(c_str("qe|electrons|scf"))
   
-  ethr = min(1d-3, diago_thr_init)
+  ethr = 1d-3
   do iter = 1, niter
     write(stdout, 9010)iter, ecutwfc, mixing_beta
 
