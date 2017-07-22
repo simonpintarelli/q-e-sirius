@@ -127,21 +127,15 @@ subroutine electrons_sirius()
   
   call sirius_start_timer(c_str("qe|electrons|scf"))
   
-  ethr = diago_thr_init
+  ethr = min(1d-3, diago_thr_init)
   do iter = 1, niter
     write(stdout, 9010)iter, ecutwfc, mixing_beta
 
     if (iter.gt.1) then
-       !
-       !if (iter.eq.2) then
-          !ethr = 1.D-2
-       !else
-          ethr = min(ethr, 0.1d0 * dr2 / max(1.d0, nelec))
-          ! ... do not allow convergence threshold to become too small:
-          ! ... iterative diagonalization may become unstable
-          ethr = max(ethr, 1.d-13)
-       !endif
-       !
+       ethr = min(ethr, 0.1d0 * dr2 / max(1.d0, nelec))
+       ! ... do not allow convergence threshold to become too small:
+       ! ... iterative diagonalization may become unstable
+       ethr = max(ethr, 1.d-13)
        call sirius_set_iterative_solver_tolerance(ethr)
     end if
     write(stdout, '( 5X,"ethr = ", 1PE9.2)' )ethr
