@@ -282,10 +282,10 @@ SUBROUTINE summary()
   !    description of the atoms inside the unit cell
   !
   WRITE( stdout, '(/,3x,"Cartesian axes")')
-  WRITE( stdout, '(/,5x,"site n.     atom                  positions (alat units)")')
+  WRITE( stdout, '(/,5x,"site n.     atom                  positions (a.u.)")')
 
   WRITE( stdout, '(6x,i4,8x,a6," tau(",i4,") = (",3f12.7,"  )")') &
-             (na, atm(ityp(na)), na, (tau(ipol,na), ipol=1,3), na=1,nat)
+             (na, atm(ityp(na)), na, (tau(ipol,na) * alat, ipol=1,3), na=1,nat)
   !
   !  output of starting magnetization
   !
