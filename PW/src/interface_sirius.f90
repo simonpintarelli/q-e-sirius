@@ -217,7 +217,7 @@ subroutine put_potential_to_sirius
       v%of_g(ig, 1) = psic(nl(ig)) * 0.5d0
     enddo
     ! set effective potential
-    call sirius_set_pw_coeffs(c_str("veff"),v%of_g(1, 1), ngm, mill(1, 1), intra_bgrp_comm)
+    call sirius_set_pw_coeffs(c_str("veff"), v%of_g(1, 1), ngm, mill(1, 1), intra_bgrp_comm)
   endif
 
   if (nspin.eq.2) then
