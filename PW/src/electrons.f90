@@ -1112,6 +1112,8 @@ SUBROUTINE electrons_scf ( printout, exxen )
           !
           WRITE( stdout, 9060 ) &
                ( eband + deband ), ehart, ( etxc - etxcc ), ewld
+          write( stdout, 9200 ) eband
+          write( stdout, 9202 ) deband
           !
           IF ( llondon ) WRITE ( stdout , 9074 ) elondon
           IF ( lxdm )    WRITE ( stdout , 9075 ) exdm
@@ -1187,6 +1189,9 @@ SUBROUTINE electrons_scf ( printout, exxen )
             /'     hartree contribution      =',F17.8,' Ry' &
             /'     xc contribution           =',F17.8,' Ry' &
             /'     ewald contribution        =',F17.8,' Ry' )
+9200 format( '     band sum                  =',F17.8,' Ry' )
+9201 format( '     descf                     =',F17.8,' Ry' )
+9202 format( '     deband                    =',F17.8,' Ry' )
 9061 FORMAT( '     electric field correction =',F17.8,' Ry' )
 9062 FORMAT( '     monopole field correction =',F17.8,' Ry' ) ! TB
 9065 FORMAT( '     Hubbard energy            =',F17.8,' Ry' )
