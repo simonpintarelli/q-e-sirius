@@ -81,15 +81,29 @@ subroutine electrons_sirius()
    
   ! create Potential class
   call sirius_create_potential()
-
-  ! initialize ground-state class
+  
+  ! get core density as it is not computed by QE when SIRIUS is triggered
+  call get_rhoc_from_sirius
+  
+  ! get local part of pseudopotential
+  call get_vloc_from_sirius
+  
+  ! create ground-state class
   call sirius_create_ground_state(kset_id)
 
   ! generate initial density from atomic densities rho_at
   call sirius_generate_initial_density()
 
+  ! get initial density
+  call get_density_from_sirius
+
   ! generate effective potential
   call sirius_generate_effective_potential()
+  
+  ! this is an alternative way to initialize the effective potential
+  !call v_of_rho(rho, rho_core, rhog_core, ehart, etxc, vtxc, eth, etotefield, charge, v)
+  !call put_potential_to_sirius
+  !call sirius_generate_d_operator_matrix
 
   ! initialize subspace before calling "sirius_find_eigen_states"
   call sirius_initialize_subspace(kset_id)
@@ -103,7 +117,6 @@ subroutine electrons_sirius()
   !CALL flush_unit( stdout )
 
   call create_scf_type(rhoin)
-  call get_density_from_sirius
   if (okpaw) then
     call PAW_atomic_becsum()
   endif
@@ -117,9 +130,6 @@ subroutine electrons_sirius()
   allocate(deeq_tmp(nhm, nhm))
   allocate(vxcg(ngm))
 
-  call get_rhoc_from_sirius
-  call get_vloc_from_sirius
-
   if (nspin.gt.1.and.nspin_mag.eq.1) then
     write(*,*)'this case has to be checked'
     stop
@@ -127,8 +137,14 @@ subroutine electrons_sirius()
   
   call sirius_start_timer(c_str("qe|electrons|scf"))
   
-  ethr = 1d-3
+  if (diago_thr_init.eq.0.d0) then
+    ethr = 1d-3
+  else
+    ethr = diago_thr_init
+  endif
+
   do iter = 1, niter
+
     write(stdout, 9010)iter, ecutwfc, mixing_beta
 
     if (iter.gt.1) then
@@ -136,8 +152,8 @@ subroutine electrons_sirius()
        ! ... do not allow convergence threshold to become too small:
        ! ... iterative diagonalization may become unstable
        ethr = max(ethr, 1.d-13)
-       call sirius_set_iterative_solver_tolerance(ethr)
     end if
+    call sirius_set_iterative_solver_tolerance(ethr)
     write(stdout, '( 5X,"ethr = ", 1PE9.2)' )ethr
 
     ! solve H\spi = E\psi
@@ -147,6 +163,8 @@ subroutine electrons_sirius()
 !     CALL sirius_find_band_occupancies(kset_id)
 !     CALL sirius_get_energy_fermi(kset_id, ef)
 !     ef = ef * 2.d0
+    
+    ! get band energies
     call get_band_energies_from_sirius
 
     ! compute band weights
@@ -270,7 +288,7 @@ subroutine electrons_sirius()
     !!== IF ( lda_plus_u ) hwf_energy = hwf_energy + eth
 
     if (conv_elec) write(stdout, 9101)
-
+    
     if (conv_elec.or.mod(iter, iprint).eq.0) then
        write(stdout, 9101)
        !IF ( lda_plus_U .AND. iverbosity == 0 ) THEN
@@ -280,9 +298,6 @@ subroutine electrons_sirius()
        !      CALL write_ns()
        !   ENDIF
        !ENDIF
-
-       ! get band energies
-       call get_band_energies_from_sirius
 
        call print_ks_energies()
     endif
@@ -482,6 +497,8 @@ subroutine electrons_sirius()
           !
           write( stdout, 9060 ) &
                ( eband + deband ), ehart, ( etxc - etxcc ), ewld
+          write( stdout, 9200 ) eband
+          write( stdout, 9202 ) deband
           !
           if ( llondon ) write ( stdout , 9074 ) elondon
           if ( lxdm )    write ( stdout , 9075 ) exdm
@@ -545,6 +562,8 @@ subroutine electrons_sirius()
             /'     hartree contribution      =',F17.8,' Ry' &
             /'     xc contribution           =',F17.8,' Ry' &
             /'     ewald contribution        =',F17.8,' Ry' )
+9200 format( '     band sum                  =',F17.8,' Ry' )
+9202 format( '     deband                    =',F17.8,' Ry' )
 9061 format( '     electric field correction =',F17.8,' Ry' )
 9065 format( '     Hubbard energy            =',F17.8,' Ry' )
 9067 format( '     one-center paw contrib.   =',F17.8,' Ry' )
