@@ -98,12 +98,21 @@ subroutine electrons_sirius()
   call get_density_from_sirius
 
   ! generate effective potential
-  call sirius_generate_effective_potential()
+  !call sirius_generate_effective_potential()
   
-  ! this is an alternative way to initialize the effective potential
-  !call v_of_rho(rho, rho_core, rhog_core, ehart, etxc, vtxc, eth, etotefield, charge, v)
-  !call put_potential_to_sirius
-  !call sirius_generate_d_operator_matrix
+  ! initialize effective potential from SIRIUS density
+
+  ! transform initial density to real space
+  do is = 1, nspin_mag
+     psic(:) = 0.d0
+     psic(nl(:)) = rho%of_g(:,is)
+     if (gamma_only) psic(nlm(:)) = conjg(rho%of_g(:,is))
+     call invfft('Dense', psic, dfftp)
+     rho%of_r(:,is) = dble(psic(:))
+  end do
+  call v_of_rho(rho, rho_core, rhog_core, ehart, etxc, vtxc, eth, etotefield, charge, v)
+  call put_potential_to_sirius
+  call sirius_generate_d_operator_matrix
 
   ! initialize subspace before calling "sirius_find_eigen_states"
   call sirius_initialize_subspace(kset_id)
