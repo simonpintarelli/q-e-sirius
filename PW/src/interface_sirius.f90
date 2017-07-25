@@ -280,6 +280,32 @@ subroutine put_potential_to_sirius
 
 end subroutine put_potential_to_sirius
 
+subroutine put_vltot_to_sirius
+  use scf,       only : vltot
+  use gvect, only : nl, nlm, mill, ngm
+  use wavefunctions_module, only : psic
+  use fft_interfaces,       only : fwfft, invfft
+  use fft_base,             only : dfftp
+  use mp_bands, only : intra_bgrp_comm
+  use sirius
+  !
+  implicit none
+  !
+  complex(8), allocatable :: vg(:)
+  integer ig
+  !
+  allocate(vg(ngm))
+  psic(:) = vltot(:)
+  call fwfft('Dense', psic, dfftp)
+  ! convert to Hartree
+  do ig = 1, ngm
+    vg(ig) = psic(nl(ig)) * 0.5d0 ! convert to Ha
+  enddo
+  ! set local potential
+  call sirius_set_pw_coeffs(c_str("vloc"), vg(1), ngm, mill(1, 1), intra_bgrp_comm)
+  deallocate(vg)
+end subroutine put_vltot_to_sirius
+
 subroutine get_rhoc_from_sirius
   use uspp_param,only : upf
   use ener,      only : etxcc
