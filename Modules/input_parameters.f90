@@ -280,6 +280,7 @@ MODULE input_parameters
 
         LOGICAL  :: use_sirius = .FALSE.
         CHARACTER(len=256) :: sirius_cfg
+        LOGICAL  :: sirius_veff = .FALSE.
 
         NAMELIST / control / title, calculation, verbosity, restart_mode, &
           nstep, iprint, isave, tstress, tprnfor, dt, ndr, ndw, outdir,   &

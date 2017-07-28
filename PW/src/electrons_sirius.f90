@@ -28,7 +28,7 @@ subroutine electrons_sirius()
   use wavefunctions_module, only : psic
   use fft_interfaces,       only : fwfft, invfft
   use fft_base,             only : dfftp
-  use input_parameters,     only : conv_thr, sirius_cfg, diago_thr_init
+  use input_parameters,     only : conv_thr, sirius_cfg, sirius_veff, diago_thr_init
   use funct,                only : dft_is_hybrid
   use ldaU,                 only : eth
   use extfield,             only : tefield, etotefield
@@ -49,7 +49,7 @@ subroutine electrons_sirius()
   type (scf_type) :: rhoin ! used to store rho_in of current/next iteration
   real(8) :: dr2, etmp
   logical exst
-  integer ierr, rank, use_sirius_mixer, use_sirius_veff, num_ranks_k, dims(3), ih, jh, ijh, na
+  integer ierr, rank, use_sirius_mixer, num_ranks_k, dims(3), ih, jh, ijh, na
   real(8) vlat(3, 3), vlat_inv(3, 3), v2(3), bg_inv(3, 3), charge
   integer kmesh(3), kshift(3), printout, vt(3)
   integer, external :: global_kpoint_index
@@ -74,7 +74,6 @@ subroutine electrons_sirius()
   end if
 
   use_sirius_mixer = 0
-  use_sirius_veff = 0
   
   ! create Density class
   call sirius_create_density()
@@ -98,21 +97,22 @@ subroutine electrons_sirius()
   call get_density_from_sirius
 
   ! generate effective potential
-  !call sirius_generate_effective_potential()
-  
-  ! initialize effective potential from SIRIUS density
-
-  ! transform initial density to real space
-  do is = 1, nspin_mag
-     psic(:) = 0.d0
-     psic(nl(:)) = rho%of_g(:,is)
-     if (gamma_only) psic(nlm(:)) = conjg(rho%of_g(:,is))
-     call invfft('Dense', psic, dfftp)
-     rho%of_r(:,is) = dble(psic(:))
-  end do
-  call v_of_rho(rho, rho_core, rhog_core, ehart, etxc, vtxc, eth, etotefield, charge, v)
-  call put_potential_to_sirius
-  call sirius_generate_d_operator_matrix
+  if (sirius_veff) then
+    call sirius_generate_effective_potential()
+  else
+    ! initialize effective potential from SIRIUS density
+    ! transform initial density to real space
+    do is = 1, nspin_mag
+       psic(:) = 0.d0
+       psic(nl(:)) = rho%of_g(:,is)
+       if (gamma_only) psic(nlm(:)) = conjg(rho%of_g(:,is))
+       call invfft('Dense', psic, dfftp)
+       rho%of_r(:,is) = dble(psic(:))
+    end do
+    call v_of_rho(rho, rho_core, rhog_core, ehart, etxc, vtxc, eth, etotefield, charge, v)
+    call put_potential_to_sirius
+    call sirius_generate_d_operator_matrix
+  endif
 
   ! initialize subspace before calling "sirius_find_eigen_states"
   call sirius_initialize_subspace(kset_id)
@@ -207,13 +207,12 @@ subroutine electrons_sirius()
       call mp_bcast(conv_elec, root_pool, inter_pool_comm)
       ! set new (mixed) rho(G)
       call put_density_to_sirius
-      ! set new (mixed) density matrix
     endif
     call sirius_stop_timer(c_str("qe|mix"))
     
     ! generate effective potential
     call sirius_start_timer(c_str("qe|veff"))
-    if (use_sirius_veff.eq.1) then
+    if (sirius_veff) then
       call sirius_generate_effective_potential()
       call sirius_get_energy_exc(etxc)
       etxc = etxc * 2.d0
@@ -315,14 +314,13 @@ subroutine electrons_sirius()
     etot = eband + (etxc - etxcc) + ewld + ehart + deband + demet !+ descf
 
     if (okpaw) then
-      if (use_sirius_veff.eq.1) then
+      if (sirius_veff) then
         call sirius_get_paw_total_energy(epaw)
         call sirius_get_paw_one_elec_energy(paw_one_elec_energy)
         epaw = epaw * 2.0;
         paw_one_elec_energy = paw_one_elec_energy * 2.0;
         etot = etot - paw_one_elec_energy + epaw
-      endif
-      if (use_sirius_veff.eq.0) then
+      else
         etot = etot + epaw - sum(ddd_paw(:, :, :) * rho%bec(:, :, :))
       endif
     endif
@@ -449,8 +447,8 @@ subroutine electrons_sirius()
     call sirius_get_q_operator_matrix(iat, qq(1, 1, iat), nhm)
   enddo
 
-  ! TODO: not clear is rho(r) is needed
-  if (use_sirius_veff.eq.1) then
+  ! rho(r) is needed in stres_gradcorr
+  if (sirius_veff) then
     ! transform density to real-space  
     do is = 1, nspin_mag
        psic(:) = ( 0.d0, 0.d0 )
@@ -460,6 +458,15 @@ subroutine electrons_sirius()
        rho%of_r(:,is) = psic(:)
        !
     end do
+    ! calculate potential (Vha + Vxc)
+    call v_of_rho(rho, rho_core, rhog_core, ehart, etxc, vtxc, eth, etotefield, charge, v)
+    ! calculate PAW potential
+    if (okpaw) then
+      call PAW_potential(rho%bec, ddd_PAW, epaw, etot_cmp_paw)
+    endif
+    call put_potential_to_sirius
+    ! update D-operator matrix
+    !call sirius_generate_d_operator_matrix()
   endif
   
   call get_band_energies_from_sirius

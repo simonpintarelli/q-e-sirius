@@ -29,7 +29,7 @@ MODULE command_line_options
   USE mp,        ONLY : mp_bcast
   USE mp_world,  ONLY : root, world_comm
   USE io_global, ONLY : meta_ionode
-  USE input_parameters, ONLY : use_sirius, sirius_cfg
+  USE input_parameters, ONLY : use_sirius, sirius_cfg, sirius_veff
   !
   IMPLICIT NONE
   !
@@ -141,6 +141,8 @@ CONTAINS
               ENDIF
               IF ( TRIM (sirius_cfg) == ' ' ) GO TO 15
               narg = narg + 1
+           CASE ('-sirius_veff')
+              sirius_veff = .true.
            CASE DEFAULT
               command_line = TRIM(command_line) // ' ' // TRIM(arg)
         END SELECT
