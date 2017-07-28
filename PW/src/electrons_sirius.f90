@@ -458,13 +458,13 @@ subroutine electrons_sirius()
        rho%of_r(:,is) = psic(:)
        !
     end do
-    ! calculate potential (Vha + Vxc)
-    call v_of_rho(rho, rho_core, rhog_core, ehart, etxc, vtxc, eth, etotefield, charge, v)
-    ! calculate PAW potential
-    if (okpaw) then
-      call PAW_potential(rho%bec, ddd_PAW, epaw, etot_cmp_paw)
-    endif
-    call put_potential_to_sirius
+    !!==! calculate potential (Vha + Vxc)
+    !!==call v_of_rho(rho, rho_core, rhog_core, ehart, etxc, vtxc, eth, etotefield, charge, v)
+    !!==! calculate PAW potential
+    !!==if (okpaw) then
+    !!==  call PAW_potential(rho%bec, ddd_PAW, epaw, etot_cmp_paw)
+    !!==endif
+    !!==call put_potential_to_sirius
     ! update D-operator matrix
     !call sirius_generate_d_operator_matrix()
   endif
