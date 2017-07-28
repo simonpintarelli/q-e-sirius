@@ -458,15 +458,15 @@ subroutine electrons_sirius()
        rho%of_r(:,is) = psic(:)
        !
     end do
-    !!==! calculate potential (Vha + Vxc)
-    !!==call v_of_rho(rho, rho_core, rhog_core, ehart, etxc, vtxc, eth, etotefield, charge, v)
-    !!==! calculate PAW potential
-    !!==if (okpaw) then
-    !!==  call PAW_potential(rho%bec, ddd_PAW, epaw, etot_cmp_paw)
-    !!==endif
-    !!==call put_potential_to_sirius
-    ! update D-operator matrix
-    !call sirius_generate_d_operator_matrix()
+    ! calculate potential (Vha + Vxc)
+    call v_of_rho(rho, rho_core, rhog_core, ehart, etxc, vtxc, eth, etotefield, charge, v)
+    ! calculate PAW potential
+    if (okpaw) then
+      call PAW_potential(rho%bec, ddd_PAW, epaw, etot_cmp_paw)
+    endif
+    call put_potential_to_sirius
+    !!==! update D-operator matrix
+    !!==!call sirius_generate_d_operator_matrix()
   endif
   
   call get_band_energies_from_sirius
@@ -523,7 +523,17 @@ subroutine electrons_sirius()
        !!   IF ( tefield )            WRITE( stdout, 9061 ) etotefield
        !!   IF ( lda_plus_u )         WRITE( stdout, 9065 ) eth
        !!   IF ( ABS (descf) > eps8 ) WRITE( stdout, 9069 ) descf
-          if ( okpaw )              write( stdout, 9067 ) epaw
+          if (okpaw) then
+            write(stdout, 9067) epaw
+            if(iverbosity>0)then
+                write(stdout, 9068) sum(etot_cmp_paw(:,1,1)), &
+                                    sum(etot_cmp_paw(:,1,2)), &
+                                    sum(etot_cmp_paw(:,2,1)), &
+                                    sum(etot_cmp_paw(:,2,2)), &
+                                    sum(etot_cmp_paw(:,1,1))+sum(etot_cmp_paw(:,1,2))+ehart, &
+                                    sum(etot_cmp_paw(:,2,1))+sum(etot_cmp_paw(:,2,2))+etxc-etxcc
+            endif
+          endif
        !!   !
        !!   ! ... With Fermi-Dirac population factor, etot is the electronic
        !!   ! ... free energy F = E - TS , demet is the -TS contribution
@@ -583,6 +593,12 @@ subroutine electrons_sirius()
 9061 format( '     electric field correction =',F17.8,' Ry' )
 9065 format( '     Hubbard energy            =',F17.8,' Ry' )
 9067 format( '     one-center paw contrib.   =',F17.8,' Ry' )
+9068 FORMAT( '      -> PAW hartree energy AE =',F17.8,' Ry' &
+            /'      -> PAW hartree energy PS =',F17.8,' Ry' &
+            /'      -> PAW xc energy AE      =',F17.8,' Ry' &
+            /'      -> PAW xc energy PS      =',F17.8,' Ry' &
+            /'      -> total E_H with PAW    =',F17.8,' Ry'& 
+            /'      -> total E_XC with PAW   =',F17.8,' Ry' )
 9069 format( '     scf correction            =',F17.8,' Ry' )
 9070 format( '     smearing contrib. (-TS)   =',F17.8,' Ry' )
 9071 format( '     Magnetic field            =',3F12.7,' Ry' )

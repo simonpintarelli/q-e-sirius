@@ -226,15 +226,19 @@ subroutine put_density_to_sirius
             if (nspin.le.2) then
               do ispn = 1, nspin
                 dens_mtrx(ih, jh, ispn) = fact * rho%bec(ijh, na, ispn)
+                dens_mtrx(jh, ih, ispn) = fact * rho%bec(ijh, na, ispn)
               enddo
             endif
             if (nspin.eq.4) then
               ! 0.5 * (rho + mz)
               dens_mtrx(ih, jh, 1) = fact * 0.5 * (rho%bec(ijh, na, 1) + rho%bec(ijh, na, 4))
+              dens_mtrx(jh, ih, 1) = fact * 0.5 * (rho%bec(ijh, na, 1) + rho%bec(ijh, na, 4))
               ! 0.5 * (rho - mz)
               dens_mtrx(ih, jh, 2) = fact * 0.5 * (rho%bec(ijh, na, 1) - rho%bec(ijh, na, 4))
+              dens_mtrx(jh, ih, 2) = fact * 0.5 * (rho%bec(ijh, na, 1) - rho%bec(ijh, na, 4))
               ! 0.5 * (mx - I * my)
               dens_mtrx(ih, jh, 3) = fact * 0.5 * cmplx(rho%bec(ijh, na, 2), -rho%bec(ijh, na, 3))
+              dens_mtrx(jh, ih, 3) = fact * 0.5 * cmplx(rho%bec(ijh, na, 2), -rho%bec(ijh, na, 3))
             endif
           enddo
         enddo

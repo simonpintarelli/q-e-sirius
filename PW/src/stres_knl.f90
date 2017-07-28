@@ -30,7 +30,7 @@ subroutine stres_knl (sigmanlc, sigmakin)
   use input_parameters, only : use_sirius
 
   implicit none
-  real(DP) :: sigmanlc (3, 3), sigmakin (3, 3)
+  real(DP) :: sigmanlc (3, 3), sigmakin (3, 3), tmp(3, 3)
   real(DP), allocatable :: gk (:,:), kfac (:)
   real(DP) :: twobysqrtpi, gk2, arg
   integer :: npw, ik, l, m, i, ibnd, is
@@ -38,8 +38,10 @@ subroutine stres_knl (sigmanlc, sigmakin)
   if (use_sirius) then
     call sirius_get_stress_tensor(c_str("kin"), sigmakin(1, 1))
     sigmakin = -sigmakin * 2 ! convert to Ha
-    call sirius_get_stress_tensor(c_str("nl"), sigmanlc(1, 1))
+    call sirius_get_stress_tensor(c_str("nonloc"), sigmanlc(1, 1))
     sigmanlc = -sigmanlc * 2 ! convert to Ha
+    call sirius_get_stress_tensor(c_str("us"), tmp(1, 1))
+    sigmanlc = sigmanlc - 2 * tmp
     return
   endif
 
