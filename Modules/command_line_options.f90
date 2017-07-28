@@ -164,6 +164,7 @@ CONTAINS
      CALL mp_bcast( ndiag_ , root, world_comm ) 
      CALL mp_bcast( use_sirius, root, world_comm ) 
      CALL mp_bcast( sirius_cfg, root, world_comm ) 
+     CALL mp_bcast( sirius_veff, root, world_comm ) 
      
   END SUBROUTINE get_command_line
   !
