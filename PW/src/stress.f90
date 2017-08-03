@@ -33,7 +33,7 @@ subroutine stress ( sigma )
   USE funct,         ONLY : dft_is_hybrid
   use tsvdw_module,  only : HtsvdW
   use sirius
-  USE input_parameters, only : use_sirius
+  USE input_parameters, only : use_sirius, sirius_veff
   use klist,            only : kset_id
   !
   IMPLICIT NONE
@@ -74,25 +74,35 @@ subroutine stress ( sigma )
   !
   !  xc contribution (diagonal)
   !
-  sigmaxc(:,:) = 0.d0
-  do l = 1, 3
-     sigmaxc (l, l) = - (etxc - vtxc) / omega
-  enddo
   call sirius_start_timer(c_str("qe|stress_xc"))
-  call sirius_start_timer(c_str("qe|stress_xc|gradcorr"))
-  !
-  !  xc contribution: add gradient corrections (non diagonal)
-  !
-  call stres_gradcorr ( rho%of_r, rho%of_g, rho_core, rhog_core, nspin, &
-                        dfftp%nr1, dfftp%nr2, dfftp%nr3, dfftp%nnr, nl, &
-                        ngm, g, alat, omega, sigmaxc)
-  call sirius_stop_timer(c_str("qe|stress_xc|gradcorr"))
+  if (use_sirius.and.sirius_veff) then
+    call sirius_get_stress_tensor(c_str("xc"), sigmaxc(1, 1))
+    sigmaxc = -sigmaxc * 2 ! convert to Ha
+  else
+    sigmaxc(:,:) = 0.d0
+    do l = 1, 3
+       sigmaxc (l, l) = - (etxc - vtxc) / omega
+    enddo
+    call sirius_start_timer(c_str("qe|stress_xc|gradcorr"))
+    !
+    !  xc contribution: add gradient corrections (non diagonal)
+    !
+    call stres_gradcorr ( rho%of_r, rho%of_g, rho_core, rhog_core, nspin, &
+                          dfftp%nr1, dfftp%nr2, dfftp%nr3, dfftp%nnr, nl, &
+                          ngm, g, alat, omega, sigmaxc)
+    call sirius_stop_timer(c_str("qe|stress_xc|gradcorr"))
+  endif
   !
   ! core correction contribution
   !
-  call sirius_start_timer(c_str("qe|stress_xc|cc"))
-  call stres_cc (sigmaxcc)
-  call sirius_stop_timer(c_str("qe|stress_xc|cc"))
+  if (use_sirius.and.sirius_veff) then
+    call sirius_get_stress_tensor(c_str("core"), sigmaxcc(1, 1))
+    sigmaxcc = -sigmaxcc * 2 ! convert to Ha
+  else
+    call sirius_start_timer(c_str("qe|stress_xc|cc"))
+    call stres_cc (sigmaxcc)
+    call sirius_stop_timer(c_str("qe|stress_xc|cc"))
+  endif
   call sirius_stop_timer(c_str("qe|stress_xc"))
   !
   !  ewald contribution
