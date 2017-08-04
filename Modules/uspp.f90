@@ -8,7 +8,7 @@
 MODULE uspp_param
   !
   ! ... Ultrasoft and Norm-Conserving pseudopotential parameters
-  !  
+  !
   USE kinds,        ONLY : DP
   USE parameters,   ONLY : npsx
   USE pseudo_types, ONLY : pseudo_upf
@@ -28,11 +28,11 @@ MODULE uspp_param
        lmaxq                  ! max angular momentum + 1 for Q functions
   LOGICAL :: &
        newpseudo(npsx),      &! if .TRUE. multiple projectors are allowed
-       oldvan(npsx)           ! old version of Vanderbilt PPs, using 
+       oldvan(npsx)           ! old version of Vanderbilt PPs, using
                               ! Herman-Skillman grid - obsolescent
   INTEGER :: &
        nvb,                  &! number of species with Vanderbilt PPs (CPV)
-       ish(npsx)              ! for each specie the index of the first beta 
+       ish(npsx)              ! for each specie the index of the first beta
                               ! function: ish(1)=1, ish(i)=1+SUM(nh(1:i-1))
 CONTAINS
   !
@@ -109,14 +109,14 @@ MODULE uspp
   PUBLIC :: nlx, lpx, lpl, ap, aainit, indv, nhtol, nhtolm, indv_ijkb0, &
             nkb, nkbus, vkb, dvan, deeq, qq, nhtoj, ijtoh, beta, &
             becsum, deallocate_uspp
-       
+
   PUBLIC :: okvan, nlcc_any
-  PUBLIC :: qq_so, dvan_so, deeq_nc 
+  PUBLIC :: qq_so, dvan_so, deeq_nc
   PUBLIC :: dbeta
   INTEGER, PARAMETER :: &
        nlx  = (lmaxx+1)**2, &! maximum number of combined angular momentum
        mx   = 2*lqmax-1      ! maximum magnetic angular momentum of Q
-  INTEGER ::             &! for each pair of combined momenta lm(1),lm(2): 
+  INTEGER ::             &! for each pair of combined momenta lm(1),lm(2):
        lpx(nlx,nlx),     &! maximum combined angular momentum LM
        lpl(nlx,nlx,mx)    ! list of combined angular momenta  LM
   REAL(DP) :: &
@@ -131,7 +131,7 @@ MODULE uspp
        nhtol(:,:),       &! correspondence n <-> angular momentum l
        nhtolm(:,:),      &! correspondence n <-> combined lm index for (l,m)
        ijtoh(:,:,:),     &! correspondence beta indexes ih,jh -> composite index ijh
-       indv_ijkb0(:)      ! first beta (index in the solid) for each atom 
+       indv_ijkb0(:)      ! first beta (index in the solid) for each atom
   !
   LOGICAL :: &
        okvan = .FALSE.,&  ! if .TRUE. at least one pseudo is Vanderbilt
@@ -143,14 +143,14 @@ MODULE uspp
        becsum(:,:,:)           ! \sum_i f(i) <psi(i)|beta_l><beta_m|psi(i)>
   REAL(DP), ALLOCATABLE :: &
        dvan(:,:,:),           &! the D functions of the solid
-       deeq(:,:,:,:),         &! the integral of V_eff and Q_{nm} 
+       deeq(:,:,:,:),         &! the integral of V_eff and Q_{nm}
        qq(:,:,:),             &! the q functions in the solid
        nhtoj(:,:)              ! correspondence n <-> total angular momentum
   !
   COMPLEX(DP), ALLOCATABLE :: & ! variables for spin-orbit/noncolinear case:
        qq_so(:,:,:,:),           &! Q_{nm}
        dvan_so(:,:,:,:),         &! D_{nm}
-       deeq_nc(:,:,:,:)           ! \int V_{eff}(r) Q_{nm}(r) dr 
+       deeq_nc(:,:,:,:)           ! \int V_{eff}(r) Q_{nm}(r) dr
   !
   ! spin-orbit coupling: qq and dvan are complex, qq has additional spin index
   ! noncolinear magnetism: deeq is complex (even in absence of spin-orbit)
@@ -183,7 +183,7 @@ CONTAINS
     implicit none
     !
     ! input: the maximum li considered
-    !  
+    !
     integer :: lli
     !
     ! local variables
@@ -203,10 +203,10 @@ CONTAINS
     if (2*lli-1 > lqmax) &
          call errore('aainit','ap leading dimension is too small',llx)
 
-    allocate (r( 3, llx ))    
-    allocate (rr( llx ))    
-    allocate (ylm( llx, llx ))    
-    allocate (mly( llx, llx ))    
+    allocate (r( 3, llx ))
+    allocate (rr( llx ))
+    allocate (ylm( llx, llx ))
+    allocate (mly( llx, llx ))
 
     r(:,:)   = 0.0_DP
     ylm(:,:) = 0.0_DP
@@ -240,12 +240,12 @@ CONTAINS
           end do
        end do
     end do
-    
+
     deallocate(mly)
     deallocate(ylm)
     deallocate(rr)
     deallocate(r)
-    
+
     return
   end subroutine aainit
   !
@@ -256,13 +256,13 @@ CONTAINS
     !
     USE constants,      ONLY: tpi
     USE random_numbers, ONLY: randy
-    
+
     implicit none
     !
     ! first the I/O variables
     !
     integer :: llx         ! input: the dimension of r and rr
-    
+
     real(DP) :: &
          r(3,llx),  &! output: an array of random vectors
          rr(llx)    ! output: the norm of r
@@ -271,7 +271,7 @@ CONTAINS
     !
     integer :: ir
     real(DP) :: costheta, sintheta, phi
-    
+
     do ir = 1, llx
        costheta = 2.0_DP * randy() - 1.0_DP
        sintheta = SQRT ( 1.0_DP - costheta*costheta)
@@ -281,7 +281,7 @@ CONTAINS
        r (3,ir) = costheta
        rr(ir)   = 1.0_DP
     end do
-    
+
     return
   end subroutine gen_rndm_r
   !
@@ -296,7 +296,7 @@ CONTAINS
     integer :: &
          llx,         &! the dimension of ylm and mly
          l,li,lj       ! the arguments of the array ap
-    
+
     real(DP) :: &
          compute_ap,  &! this function
          ylm(llx,llx),&! the real spherical harmonics for array r
@@ -305,12 +305,14 @@ CONTAINS
     ! here the local variables
     !
     integer :: ir
-    
+
     compute_ap = 0.0_DP
     do ir = 1,llx
        compute_ap = compute_ap + mly(l,ir)*ylm(ir,li)*ylm(ir,lj)
     end do
-    
+
+    !call sirius_real_gaunt_coeff(l, li, lj, compute_ap)
+
     return
   end function compute_ap
   !
@@ -338,4 +340,3 @@ CONTAINS
   END SUBROUTINE deallocate_uspp
   !
 END MODULE uspp
-
