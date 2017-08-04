@@ -381,7 +381,6 @@ subroutine init_us_1
   do nt = 1, ntyp
      if ( upf(nt)%is_gth ) cycle
      do nb = 1, upf(nt)%nbeta
-        write(*,*)'itype: ', nt, ' nb: ', nb, ' num_points: ', upf(nt)%kkbeta
         l = upf(nt)%lll (nb)
         do iq = startq, lastq
            qi = (iq - 1) * dq
