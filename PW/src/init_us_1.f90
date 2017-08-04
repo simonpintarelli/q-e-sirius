@@ -43,7 +43,8 @@ subroutine init_us_1
   USE paw_variables,ONLY : okpaw
   USE mp_bands,     ONLY : intra_bgrp_comm
   USE mp,           ONLY : mp_sum
-  USE input_parameters, ONLY : use_sirius
+  USE input_parameters, ONLY : use_sirius, sirius_radial_integrals_aug,&
+                              &sirius_radial_integrals_beta
   !
   implicit none
   !
@@ -54,7 +55,7 @@ subroutine init_us_1
   ! various counters
   real(DP), allocatable :: aux (:), aux1 (:), besr (:), qtot (:,:)
   ! various work space
-  real(DP) :: prefr, pref, q, qi
+  real(DP) :: prefr, pref, q, qi, tmp
   ! the prefactor of the q functions
   ! the prefactor of the beta functions
   ! the modulus of g for each shell
@@ -78,11 +79,11 @@ subroutine init_us_1
   !    Initialization of the variables
   !
   ndm = MAXVAL ( upf(:)%kkbeta )
-  allocate (aux ( ndm))    
-  allocate (aux1( ndm))    
-  allocate (besr( ndm))    
-  allocate (qtot( ndm , nbetam*(nbetam+1)/2 ))    
-  allocate (ylmk0( lmaxq * lmaxq))    
+  allocate (aux ( ndm))
+  allocate (aux1( ndm))
+  allocate (besr( ndm))
+  allocate (qtot( ndm , nbetam*(nbetam+1)/2 ))
+  allocate (ylmk0( lmaxq * lmaxq))
   ap (:,:,:)   = 0.d0
   if (lmaxq > 0) qrad(:,:,:,:)= 0.d0
   !
@@ -253,7 +254,7 @@ subroutine init_us_1
   !
   !   here for the US types we compute the Fourier transform of the
   !   Q functions.
-  !   
+  !
   call divide (intra_bgrp_comm, nqxq, startq, lastq)
   !
   do nt = 1, ntyp
@@ -297,8 +298,10 @@ subroutine init_us_1
                        do ir = 1, upf(nt)%kkbeta
                           aux1 (ir) = aux (ir) * qtot (ir, ijv)
                        enddo
-                       call simpson ( upf(nt)%kkbeta, aux1, rgrid(nt)%rab, &
-                                     qrad(iq,ijv,l + 1, nt) )
+                       call simpson(upf(nt)%kkbeta, aux1, rgrid(nt)%rab, qrad(iq,ijv,l + 1, nt))
+                       if (sirius_radial_integrals_aug) then
+                         call sirius_ri_aug(ijv, l, nt, q, qrad(iq, ijv, l + 1, nt))
+                       endif
                     endif
                  enddo
               enddo
@@ -378,6 +381,7 @@ subroutine init_us_1
   do nt = 1, ntyp
      if ( upf(nt)%is_gth ) cycle
      do nb = 1, upf(nt)%nbeta
+        write(*,*)'itype: ', nt, ' nb: ', nb, ' num_points: ', upf(nt)%kkbeta
         l = upf(nt)%lll (nb)
         do iq = startq, lastq
            qi = (iq - 1) * dq
@@ -385,7 +389,11 @@ subroutine init_us_1
            do ir = 1, upf(nt)%kkbeta
               aux (ir) = upf(nt)%beta (ir, nb) * besr (ir) * rgrid(nt)%r(ir)
            enddo
-           call simpson (upf(nt)%kkbeta, aux, rgrid(nt)%rab, vqint)
+           call simpson(upf(nt)%kkbeta, aux, rgrid(nt)%rab, vqint)
+           !call sirius_integrate(0, upf(nt)%kkbeta, rgrid(nt)%r(1), aux(1), vqint)
+           !if (sirius_radial_integrals_beta) then
+           ! call sirius_ri_beta(nb, nt, qi, vqint)
+           !endif
            tab (iq, nb, nt) = vqint * pref
         enddo
      enddo
@@ -400,7 +408,7 @@ subroutine init_us_1
         xdata(iq) = (iq - 1) * dq
      enddo
      do nt = 1, ntyp
-        do nb = 1, upf(nt)%nbeta 
+        do nb = 1, upf(nt)%nbeta
            d1 = (tab(2,nb,nt) - tab(1,nb,nt)) / dq
            call spline(xdata, tab(:,nb,nt), 0.d0, d1, tab_d2y(:,nb,nt))
         enddo
@@ -419,4 +427,3 @@ subroutine init_us_1
   call stop_clock ('init_us_1')
   return
 end subroutine init_us_1
-
