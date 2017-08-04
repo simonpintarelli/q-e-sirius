@@ -11,7 +11,7 @@ subroutine qvan2 (ngy, ih, jh, np, qmod, qg, ylmk0)
   !-----------------------------------------------------------------------
   !
   !    This routine computes the fourier transform of the Q functions
-  !    The interpolation table for the radial fourier trasform is stored 
+  !    The interpolation table for the radial fourier trasform is stored
   !    in qrad.
   !
   !    The formula implemented here is
@@ -23,6 +23,9 @@ subroutine qvan2 (ngy, ih, jh, np, qmod, qg, ylmk0)
   USE us, ONLY: dq, qrad
   USE uspp_param, ONLY: lmaxq, nbetam
   USE uspp, ONLY: nlx, lpl, lpx, ap, indv, nhtolm
+  USE cell_base,       ONLY : tpiba, omega
+  USE constants,    ONLY : fpi
+  USE input_parameters, ONLY : use_sirius, sirius_radial_integrals_aug
   implicit none
   !
   ! Input variables
@@ -43,7 +46,7 @@ subroutine qvan2 (ngy, ih, jh, np, qmod, qg, ylmk0)
   !     here the local variables
   !
   real (DP) :: sig
-  ! the nonzero real or imaginary part of (-i)^L 
+  ! the nonzero real or imaginary part of (-i)^L
   real (DP), parameter :: sixth = 1.d0 / 6.d0
   !
   integer :: nb, mb, ijv, ivl, jvl, ig, lp, l, lm, i0, i1, i2, i3, ind
@@ -151,6 +154,10 @@ subroutine qvan2 (ngy, ih, jh, np, qmod, qg, ylmk0)
            qm1 = qmod(ig)
         END IF
 #endif
+        if (sirius_radial_integrals_aug) then
+          call sirius_ri_aug(ijv, l - 1, np, qmod(ig) * tpiba, work)
+          work = work * fpi / omega
+        endif
         qg (ind,ig) = qg (ind,ig) + sig * ylmk0 (ig, lp) * work
      enddo
 !$omp end parallel do
@@ -159,4 +166,3 @@ subroutine qvan2 (ngy, ih, jh, np, qmod, qg, ylmk0)
 
   return
 end subroutine qvan2
-
