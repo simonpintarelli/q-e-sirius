@@ -38,6 +38,7 @@ SUBROUTINE addusstres (sigmanlc)
   REAL(dp)                 :: fac(3,nspin), sus(3,3)
   ! auxiliary variables
   REAL(DP) , ALLOCATABLE :: qmod(:), ylmk0(:,:), dylmk0(:,:), tbecsum(:,:)
+  real(8) m1(nhm, nhm)
   ! work space (real)
   !
   !
@@ -69,6 +70,24 @@ SUBROUTINE addusstres (sigmanlc)
      ENDDO
   ENDDO
   DEALLOCATE ( aux )
+
+     !!== DO nt = 1, ntyp
+     !!==       DO na = 1, nat
+     !!==          IF (ityp (na) == nt) THEN
+     !!==            write(*,*)'atom: ',na
+
+     !!==            nij = 0
+     !!==            do ih = 1, nh(nt)
+     !!==              do jh = ih, nh(nt)
+     !!==                nij = nij + 1
+     !!==                m1(ih, jh) = becsum(nij, na, 1)
+     !!==                m1(jh, ih) = becsum(nij, na, 1)
+     !!==              enddo
+     !!==              write(*,'(255F12.6)')m1(ih,:)
+     !!==            enddo
+     !!==          endif
+     !!==       enddo
+     !!==     enddo
   !
   ! here we compute the integral Q*V for each atom,
   !       I = sum_G i G_a exp(-iR.G) Q_nm v^*
