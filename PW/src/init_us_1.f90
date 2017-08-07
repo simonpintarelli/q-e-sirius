@@ -44,7 +44,7 @@ subroutine init_us_1
   USE mp_bands,     ONLY : intra_bgrp_comm
   USE mp,           ONLY : mp_sum
   USE input_parameters, ONLY : use_sirius, sirius_radial_integrals_aug,&
-                              &sirius_radial_integrals_beta
+                              &sirius_radial_integrals_beta, sirius_spline_integration
   !
   implicit none
   !
@@ -299,6 +299,9 @@ subroutine init_us_1
                           aux1 (ir) = aux (ir) * qtot (ir, ijv)
                        enddo
                        call simpson(upf(nt)%kkbeta, aux1, rgrid(nt)%rab, qrad(iq,ijv,l + 1, nt))
+                       if (sirius_spline_integration) then
+                         call sirius_integrate(0, upf(nt)%kkbeta, rgrid(nt)%r(1), aux1(1), qrad(iq, ijv, l + 1, nt))
+                       endif
                        if (sirius_radial_integrals_aug) then
                          call sirius_ri_aug(ijv, l, nt, q, qrad(iq, ijv, l + 1, nt))
                        endif
@@ -389,7 +392,9 @@ subroutine init_us_1
               aux (ir) = upf(nt)%beta (ir, nb) * besr (ir) * rgrid(nt)%r(ir)
            enddo
            call simpson(upf(nt)%kkbeta, aux, rgrid(nt)%rab, vqint)
-           !call sirius_integrate(0, upf(nt)%kkbeta, rgrid(nt)%r(1), aux(1), vqint)
+           if (sirius_spline_integration) then
+             call sirius_integrate(0, upf(nt)%kkbeta, rgrid(nt)%r(1), aux(1), vqint)
+           endif
            !if (sirius_radial_integrals_beta) then
            ! call sirius_ri_beta(nb, nt, qi, vqint)
            !endif

@@ -283,6 +283,7 @@ MODULE input_parameters
         LOGICAL  :: sirius_veff = .FALSE.
         LOGICAL  :: sirius_radial_integrals_aug = .FALSE.
         LOGICAL  :: sirius_radial_integrals_beta = .FALSE.
+        LOGICAL  :: sirius_spline_integration = .TRUE.
 
         NAMELIST / control / title, calculation, verbosity, restart_mode, &
           nstep, iprint, isave, tstress, tprnfor, dt, ndr, ndw, outdir,   &
