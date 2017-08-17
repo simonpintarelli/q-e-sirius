@@ -26,6 +26,7 @@ SUBROUTINE v_of_rho( rho, rho_core, rhog_core, &
   USE cell_base,        ONLY : alat
   USE control_flags,    ONLY : ts_vdw
   USE tsvdw_module,     ONLY : tsvdw_calculate, UtsvdW
+  use sirius
   !
   IMPLICIT NONE
   !
@@ -53,12 +54,15 @@ SUBROUTINE v_of_rho( rho, rho_core, rhog_core, &
   !
   ! ... calculate exchange-correlation potential
   !
+  
+  call sirius_start_timer(c_str("qe|v_xc"))
   if (dft_is_meta() .and. (get_meta() /= 4)) then
      call v_xc_meta( rho, rho_core, rhog_core, etxc, vtxc, v%of_r, v%kin_r )
   else
      CALL v_xc( rho, rho_core, rhog_core, etxc, vtxc, vxc )
      v%of_r = vxc
   endif
+  call sirius_stop_timer(c_str("qe|v_xc"))
   !
   ! ... add a magnetic field  (if any)
   !
@@ -66,7 +70,9 @@ SUBROUTINE v_of_rho( rho, rho_core, rhog_core, &
   !
   ! ... calculate hartree potential
   !
+  call sirius_start_timer(c_str("qe|v_ha"))
   CALL v_h( rho%of_g, ehart, charge, v%of_r )
+  call sirius_stop_timer(c_str("qe|v_ha"))
   !
   ! ... LDA+U: build up Hubbard potential 
   !

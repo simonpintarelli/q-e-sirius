@@ -27,6 +27,7 @@ subroutine setup_sirius()
   real(8) :: a1(3), a2(3), a3(3), vlat(3, 3), vlat_inv(3, 3), v1(3), v2(3), bg_inv(3, 3)
   real(8), allocatable :: dion(:, :), qij(:,:,:), vloc(:), wk_tmp(:), xk_tmp(:,:)
   integer, allocatable :: nk_loc(:)
+  integer :: lmax_beta
   !
   ! create context of simulation
   call sirius_create_simulation_context(c_str(trim(adjustl(sirius_cfg))))
@@ -157,20 +158,31 @@ subroutine setup_sirius()
   ! initialize atom types
   do iat = 1, nsp
 
+    ! get lmax_beta for this atom type
+    lmax_beta = -1
+    do i = 1, upf(iat)%nbeta
+      lmax_beta = max(lmax_beta, upf(iat)%lll(i))
+    enddo
+    if (upf(iat)%lmax .ne. lmax_beta) then
+      write(*,*)
+      write(*,'("Mismatch between lmax_beta and upf%lmax for atom type", I2)')iat
+      write(*,'("  lmax =", I2)')upf(iat)%lmax
+      write(*,'("  lmax_beta =", I2)')lmax_beta
+    endif
+
     ! add new atom type
     call sirius_add_atom_type(c_str(atm(iat)))
 
     ! set basic properties
     call sirius_set_atom_type_properties(c_str(atm(iat)), c_str(atm(iat)), nint(zv(iat)+0.001d0),&
-         &amass(iat), upf(iat)%r(upf(iat)%mesh),&
-         &upf(iat)%mesh)
+                                        &amass(iat), upf(iat)%r(upf(iat)%mesh), upf(iat)%mesh)
 
     ! set radial grid
     call sirius_set_atom_type_radial_grid(c_str(atm(iat)), upf(iat)%mesh, upf(iat)%r(1))
 
     ! set beta-projectors
     call sirius_set_atom_type_beta_rf(c_str(atm(iat)), upf(iat)%nbeta, upf(iat)%lll(1),&
-         &upf(iat)%kbeta(1), upf(iat)%beta(1, 1), upf(iat)%mesh )
+                                     &upf(iat)%kbeta(1), upf(iat)%beta(1, 1), upf(iat)%mesh)
 
     allocate(dion(upf(iat)%nbeta, upf(iat)%nbeta))
     ! convert to hartree
@@ -185,14 +197,15 @@ subroutine setup_sirius()
 
     ! set radial function of augmentation charge
     if (upf(iat)%tvanp) then
-      if (2 * upf(iat)%lmax .ne. upf(iat)%nqlc - 1) then
-        write(*,*)
-        write(*,'("Mismatch between lmax_beta and lmax_qij for atom type", I2)')iat
-        write(*,'("lmax =", I2)')upf(iat)%lmax
-        write(*,'("nqlc =", I2, ", but expecting ", I2)')upf(iat)%nqlc, 2 * upf(iat)%lmax + 1
-        stop
-      endif
-      call sirius_set_atom_type_q_rf(c_str(atm(iat)), upf(iat)%qfuncl(1, 1, 0), upf(iat)%lmax)
+      !if (2 * upf(iat)%lmax .ne. upf(iat)%nqlc - 1) then
+      !  write(*,*)
+      !  write(*,'("Mismatch between lmax_beta and lmax_qij for atom type", I2)')iat
+      !  write(*,'("lmax =", I2)')upf(iat)%lmax
+      !  write(*,'("nqlc =", I2, ", but expecting ", I2)')upf(iat)%nqlc, 2 * upf(iat)%lmax + 1
+      !  stop
+      !endif
+      !call sirius_set_atom_type_q_rf(c_str(atm(iat)), upf(iat)%qfuncl(1, 1, 0), upf(iat)%lmax)
+      call sirius_set_atom_type_q_rf(c_str(atm(iat)), upf(iat)%qfuncl(1, 1, 0), lmax_beta)
     endif
 
     if (upf(iat)%tpawp) then
