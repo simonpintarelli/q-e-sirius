@@ -25,7 +25,7 @@ subroutine setup_sirius()
   !
   integer :: dims(3), i, ia, iat, rank, ierr, ijv, ik, li, lj, mb, nb, j, l,&
        ilast, ir, num_gvec, num_ranks_k, vt(3)
-  real(8) :: a1(3), a2(3), a3(3), vlat(3, 3), vlat_inv(3, 3), v1(3), v2(3), bg_inv(3, 3)
+  real(8) :: a1(3), a2(3), a3(3), vlat(3, 3), vlat_inv(3, 3), v1(3), v2(3), bg_inv(3, 3), tmp
   real(8), allocatable :: dion(:, :), qij(:,:,:), vloc(:), wk_tmp(:), xk_tmp(:,:)
   integer, allocatable :: nk_loc(:)
   integer :: lmax_beta
@@ -188,8 +188,14 @@ subroutine setup_sirius()
     call sirius_set_atom_type_radial_grid(c_str(atm(iat)), upf(iat)%mesh, upf(iat)%r(1))
 
     ! set beta-projectors
-    call sirius_set_atom_type_beta_rf(c_str(atm(iat)), upf(iat)%nbeta, upf(iat)%lll(1), upf(iat)%jjj(1), &
-                                     &upf(iat)%kbeta(1), upf(iat)%beta(1, 1), upf(iat)%mesh, upf(iat)%has_so)
+    if (upf(iat)%has_so) then
+      call sirius_set_atom_type_beta_rf(c_str(atm(iat)), upf(iat)%nbeta, upf(iat)%lll(1), upf(iat)%jjj(1), &
+                                       &upf(iat)%kbeta(1), upf(iat)%beta(1, 1), upf(iat)%mesh, upf(iat)%has_so)
+    else
+      tmp = 0.d0
+      call sirius_set_atom_type_beta_rf(c_str(atm(iat)), upf(iat)%nbeta, upf(iat)%lll(1), tmp, &
+                                       &upf(iat)%kbeta(1), upf(iat)%beta(1, 1), upf(iat)%mesh, upf(iat)%has_so)
+    endif
 
     allocate(dion(upf(iat)%nbeta, upf(iat)%nbeta))
     ! convert to hartree
