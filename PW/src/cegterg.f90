@@ -80,6 +80,8 @@ SUBROUTINE cegterg( npw, npwx, nvec, nvecx, npol, evc, ethr, &
     ! threshold for empty bands
   !
   REAL(DP), EXTERNAL :: ddot
+  real(8) rnorm
+  integer i,ig
   !
   ! EXTERNAL  h_psi,    s_psi,    g_psi
     ! h_psi(npwx,npw,nvec,psi,hpsi)
@@ -465,6 +467,24 @@ SUBROUTINE cegterg( npw, npwx, nvec, nvecx, npol, evc, ethr, &
   DEALLOCATE( vc )
   DEALLOCATE( hc )
   DEALLOCATE( sc )
+
+  !== CALL h_psi( npwx, npw, nvec, psi, hpsi )
+  !== IF ( uspp ) then
+  !==   CALL s_psi( npwx, npw, nvec, psi, spsi )
+  !== endif
+
+  !== do i = 1, nvec
+  !==   rnorm = 0.d0
+  !==   do ig = 1, npw
+  !==     if (uspp) then
+  !==       rnorm = rnorm + abs(hpsi(ig, 1,i) - e(i) * spsi(ig, 1,i))**2
+  !==     else
+  !==       rnorm = rnorm + abs(hpsi(ig, 1,i) - e(i) * psi(ig, 1,i))**2
+  !==     endif
+  !==   enddo
+  !==   write(*,*)'band:',i,' l2norm:',sqrt(rnorm)
+  !== enddo
+
   !
   IF ( uspp ) DEALLOCATE( spsi )
   !

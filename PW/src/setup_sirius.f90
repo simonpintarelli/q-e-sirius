@@ -20,6 +20,7 @@ subroutine setup_sirius()
   use lsda_mod, only : lsda, nspin, starting_magnetization
   use cell_base, only : omega
   use symm_base, only : nosym
+  use spin_orb,  only : lspinorb
   implicit none
   !
   integer :: dims(3), i, ia, iat, rank, ierr, ijv, ik, li, lj, mb, nb, j, l,&

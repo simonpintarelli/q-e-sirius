@@ -249,6 +249,7 @@ wannier_clean.o \
 wannier_occ.o \
 wannier_enrg.o \
 electrons_sirius.o \
+electrons_sirius_v2.o \
 setup_sirius.o \
 interface_sirius.o
 

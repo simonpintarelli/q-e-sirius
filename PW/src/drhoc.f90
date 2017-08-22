@@ -12,6 +12,7 @@ subroutine drhoc (ngl, gl, omega, tpiba2, mesh, r, rab, rhoc, rhocg)
   !
   USE kinds
   USE constants, ONLY : pi, fpi
+  USE input_parameters,     ONLY : sirius_spline_integration
   implicit none
   !
   !    first the dummy variables
@@ -52,6 +53,9 @@ subroutine drhoc (ngl, gl, omega, tpiba2, mesh, r, rab, rhoc, rhocg)
         aux (ir) = r (ir) **2 * rhoc (ir)
      enddo
      call simpson (mesh, aux, rab, rhocg1)
+     if (sirius_spline_integration) then
+       call sirius_integrate(0, mesh, r(1), aux(1), rhocg1)
+     endif
      rhocg (1) = fpi * rhocg1 / omega
      igl0 = 2
   else
@@ -67,6 +71,9 @@ subroutine drhoc (ngl, gl, omega, tpiba2, mesh, r, rab, rhoc, rhocg)
         aux (ir) = r (ir) **2 * rhoc (ir) * aux (ir)
      enddo
      call simpson (mesh, aux, rab, rhocg1)
+     if (sirius_spline_integration) then
+       call sirius_integrate(0, mesh, r(1), aux(1), rhocg1)
+     endif
      rhocg (igl) = fpi * rhocg1 / omega
   enddo
   deallocate(aux)

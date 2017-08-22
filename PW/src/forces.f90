@@ -188,9 +188,9 @@ SUBROUTINE forces()
   !
   ! ... The SCF contribution
   !
-  IF (.not. use_sirius) THEN
+  !IF (.not. use_sirius) THEN
     CALL force_corr( forcescc )
-  endif
+  !endif
 
   !
   IF (do_comp_mt .and. .not. use_sirius ) THEN

@@ -22,6 +22,7 @@ subroutine vloc_of_g (mesh, msh, rab, r, vloc_at, zp, tpiba2, ngl, &
   USE kinds
   USE constants, ONLY : pi, fpi, e2, eps8
   USE esm, ONLY : do_comp_esm, esm_bc
+  USE input_parameters,     ONLY : sirius_spline_integration
   implicit none
   !
   !    first the dummy variables
@@ -75,6 +76,9 @@ subroutine vloc_of_g (mesh, msh, rab, r, vloc_at, zp, tpiba2, ngl, &
         enddo
      END IF
      call simpson (msh, aux, rab, vlcp)
+     if (sirius_spline_integration) then
+       call sirius_integrate(0, msh, r(1), aux(1), vlcp)
+     endif
      vloc (1) = vlcp        
      igl0 = 2
   else
@@ -98,6 +102,9 @@ subroutine vloc_of_g (mesh, msh, rab, r, vloc_at, zp, tpiba2, ngl, &
         aux (ir) = aux1 (ir) * sin (gx * r (ir) ) / gx
      enddo
      call simpson (msh, aux, rab, vlcp)
+     if (sirius_spline_integration) then
+       call sirius_integrate(0, msh, r(1), aux(1), vlcp)
+     endif
      IF ( ( .not. do_comp_esm ) .or. ( esm_bc .eq. 'pbc' ) ) THEN
         !
         !   here we re-add the analytic fourier transform of the erf function

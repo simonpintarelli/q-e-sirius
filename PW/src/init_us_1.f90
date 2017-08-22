@@ -395,9 +395,9 @@ subroutine init_us_1
            if (sirius_spline_integration) then
              call sirius_integrate(0, upf(nt)%kkbeta, rgrid(nt)%r(1), aux(1), vqint)
            endif
-           !if (sirius_radial_integrals_beta) then
-           ! call sirius_ri_beta(nb, nt, qi, vqint)
-           !endif
+           if (sirius_radial_integrals_beta) then
+            call sirius_ri_beta(nb, nt, qi, vqint)
+           endif
            tab (iq, nb, nt) = vqint * pref
         enddo
      enddo

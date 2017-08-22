@@ -41,6 +41,8 @@ subroutine atomic_rho (rhoa, nspina)
   USE mp,                   ONLY : mp_sum
   USE fft_base,             ONLY : dfftp
   USE fft_interfaces,       ONLY : invfft
+  USE input_parameters,     ONLY : sirius_spline_integration
+
 
   !
   implicit none
@@ -77,7 +79,10 @@ subroutine atomic_rho (rhoa, nspina)
         do ir = 1, msh (nt)
            aux (ir) = upf(nt)%rho_at (ir)
         enddo
-        call simpson (msh (nt), aux, rgrid(nt)%rab, rhocgnt (1) )
+        call simpson (msh (nt), aux, rgrid(nt)%rab, rhocgnt (1))
+        if (sirius_spline_integration) then
+          call sirius_integrate(0, msh(nt), rgrid(nt)%r(1), aux(1), rhocgnt(1))
+        endif
      endif
      !
      ! Here we compute the G<>0 term
@@ -93,6 +98,9 @@ subroutine atomic_rho (rhoa, nspina)
            endif
         enddo
         call simpson (msh (nt), aux, rgrid(nt)%rab, rhocgnt (igl) )
+        if (sirius_spline_integration) then
+          call sirius_integrate(0, msh(nt), rgrid(nt)%r(1), aux(1), rhocgnt(igl))
+        endif
      enddo
      !
      ! we compute the 3D atomic charge in reciprocal space
