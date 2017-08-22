@@ -43,7 +43,7 @@ subroutine setup_sirius()
     write(*,*)get_igcc()
     write(*,*)get_meta()
     write(*,*)get_inlc()
-    stop("interface for this XC functional is not implemented")
+    stop ("interface for this XC functional is not implemented")
   endif
 
   !== write(*,*)"xc_funtionals:", get_iexch(), get_icorr()
@@ -54,7 +54,7 @@ subroutine setup_sirius()
     case(1)
       call sirius_add_xc_functional(c_str("XC_LDA_X"))
     case default
-      stop("interface for this exchange functional is not implemented")
+      stop ("interface for this exchange functional is not implemented")
     end select
   endif
 
@@ -67,7 +67,7 @@ subroutine setup_sirius()
       call sirius_add_xc_functional(c_str("XC_GGA_X_PBE"))
     case default
       write(*,*)get_igcx()
-      stop("interface for this gradient exchange functional is not implemented")
+      stop ("interface for this gradient exchange functional is not implemented")
     end select
   endif
 
@@ -79,7 +79,7 @@ subroutine setup_sirius()
     case(4)
       call sirius_add_xc_functional(c_str("XC_LDA_C_PW"))
     case default
-      stop("interface for this correlation functional is not implemented")
+      stop ("interface for this correlation functional is not implemented")
     end select
   endif
 
@@ -91,7 +91,7 @@ subroutine setup_sirius()
     case(4)
       call sirius_add_xc_functional(c_str("XC_GGA_C_PBE"))
     case default
-      stop("interface for this gradient correlation functional is not implemented")
+      stop ("interface for this gradient correlation functional is not implemented")
     end select
   endif
   
@@ -107,7 +107,7 @@ subroutine setup_sirius()
   num_ranks_k = nproc_image / npool
   i = sqrt(dble(num_ranks_k) + 1d-10)
   if (i * i .ne. num_ranks_k) then
-    stop("not a square MPI grid")
+    stop ("not a square MPI grid")
   endif
 
   !dims(3) = npool
@@ -129,14 +129,20 @@ subroutine setup_sirius()
   ! convert from |G+k|^2/2 Rydbergs to |G+k| in [a.u.^-1]
   call sirius_set_gk_cutoff(sqrt(ecutwfc))
   
-  if (noncolin) then
-    call sirius_set_num_mag_dims(3)
+  if (lspinorb) then
+     call sirius_set_num_mag_dims(3)
+     call sirius_set_so_correction(.true.)
   else
-    if (nspin.eq.2) then
-      call sirius_set_num_mag_dims(1)
-    else
-      call sirius_set_num_mag_dims(0)
-    endif
+     if (noncolin) then
+        write(*,*) "We should be here"
+        call sirius_set_num_mag_dims(3)
+     else
+        if (nspin.eq.2) then
+           call sirius_set_num_mag_dims(1)
+        else
+           call sirius_set_num_mag_dims(0)
+        endif
+     endif
   endif
 
   ! set lattice vectors of the unit cell (length is in [a.u.])
@@ -181,8 +187,8 @@ subroutine setup_sirius()
     call sirius_set_atom_type_radial_grid(c_str(atm(iat)), upf(iat)%mesh, upf(iat)%r(1))
 
     ! set beta-projectors
-    call sirius_set_atom_type_beta_rf(c_str(atm(iat)), upf(iat)%nbeta, upf(iat)%lll(1),&
-                                     &upf(iat)%kbeta(1), upf(iat)%beta(1, 1), upf(iat)%mesh)
+    call sirius_set_atom_type_beta_rf(c_str(atm(iat)), upf(iat)%nbeta, upf(iat)%lll(1), upf(iat)%jjj(1), &
+                                     &upf(iat)%kbeta(1), upf(iat)%beta(1, 1), upf(iat)%mesh, upf(iat)%has_so)
 
     allocate(dion(upf(iat)%nbeta, upf(iat)%nbeta))
     ! convert to hartree
