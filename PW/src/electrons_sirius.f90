@@ -141,7 +141,7 @@ subroutine electrons_sirius()
 
   if (nspin.gt.1.and.nspin_mag.eq.1) then
     write(*,*)'this case has to be checked'
-    stop
+    !stop
   endif
   
   call sirius_start_timer(c_str("qe|electrons|scf"))
