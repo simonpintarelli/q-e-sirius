@@ -243,6 +243,20 @@ subroutine setup_sirius()
     call sirius_set_atom_type_vloc(c_str(atm(iat)), upf(iat)%mesh, vloc(1))
     deallocate(vloc)
   enddo
+    
+  tmp = 0.d0
+  do iat = 1, nsp
+    if (abs(starting_magnetization(iat)).lt.1.d0) then
+      tmp = max(tmp, 1 - abs(starting_magnetization(iat)))
+    endif
+  enddo
+  do iat = 1, nsp
+    if (starting_magnetization(iat).lt.0) then
+      starting_magnetization(iat) = starting_magnetization(iat) - tmp
+    else
+      starting_magnetization(iat) = starting_magnetization(iat) + tmp
+    endif
+  enddo
 
   ! add atoms to the unit cell
   ! WARNING: sirius accepts only fractional coordinates;
