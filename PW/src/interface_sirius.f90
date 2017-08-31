@@ -144,14 +144,14 @@ subroutine get_density_from_sirius
             ijh = ijh + 1
             if (nspin.le.2) then
               do ispn = 1, nspin
-                rho%bec(ijh, na, ispn) = real(dens_mtrx(ih, jh, ispn))
+                rho%bec(ijh, na, ispn) = dreal(dens_mtrx(ih, jh, ispn))
               enddo
             endif
             if (nspin.eq.4) then
-              rho%bec(ijh, na, 1) = real(dens_mtrx(ih, jh, 1) + dens_mtrx(ih, jh, 2))
-              rho%bec(ijh, na, 4) = real(dens_mtrx(ih, jh, 1) - dens_mtrx(ih, jh, 2))
-              rho%bec(ijh, na, 2) = 2.d0 * real(dens_mtrx(ih, jh, 3))
-              rho%bec(ijh, na, 3) = -2.d0 * imag(dens_mtrx(ih, jh, 3))
+              rho%bec(ijh, na, 1) = dreal(dens_mtrx(ih, jh, 1) + dens_mtrx(ih, jh, 2))
+              rho%bec(ijh, na, 4) = dreal(dens_mtrx(ih, jh, 1) - dens_mtrx(ih, jh, 2))
+              rho%bec(ijh, na, 2) = 2.d0 * dreal(dens_mtrx(ih, jh, 3))
+              rho%bec(ijh, na, 3) = -2.d0 * dimag(dens_mtrx(ih, jh, 3))
             endif
             ! off-diagonal elements have a weight of 2
             if (ih.ne.jh) then
@@ -259,14 +259,20 @@ subroutine put_potential_to_sirius
   use wavefunctions_module, only : psic
   use fft_interfaces,       only : fwfft, invfft
   use fft_base,             only : dfftp
+  use uspp,                 only : deeq
+  use uspp_param,           only : nhm
+  use paw_variables,        only : okpaw
+  use ions_base,            only : nat
   use sirius
   !
   implicit none
   !
   complex(8), allocatable :: vxcg(:)
   complex(8) :: z1, z2
-  integer ig, is, ir
+  integer ig, is, ir, i, ia, j
   character(10) label
+  real(8), allocatable :: deeq_tmp(:,:)
+  real(8) :: d1,d2
   !
   if (nspin.eq.1.or.nspin.eq.4) then
     ! add local part of the potential and transform to PW domain
@@ -337,6 +343,46 @@ subroutine put_potential_to_sirius
   ! set XC potential
   call sirius_set_pw_coeffs(c_str("vxc"), vxcg(1), ngm, mill(1, 1), intra_bgrp_comm)
   deallocate(vxcg)
+
+  ! update D-operator matrix
+  call sirius_generate_d_operator_matrix()
+  if (okpaw) then
+    allocate(deeq_tmp(nhm, nhm))
+    ! get D-operator matrix
+    do ia = 1, nat
+      do is = 1, nspin
+        call sirius_get_d_operator_matrix(ia, is, deeq(1, 1, ia, is), nhm)
+      enddo
+      if (nspin.eq.2) then
+        do i = 1, nhm
+          do j = 1, nhm
+            d1 = deeq(i, j, ia, 1)
+            d2 = deeq(i, j, ia, 2)
+            deeq(i, j, ia, 1) = d1 + d2
+            deeq(i, j, ia, 2) = d1 - d2
+          enddo
+        enddo
+      endif
+      ! convert to Ry
+      deeq(:, :, ia, :) = deeq(:, :, ia, :) * 2
+    enddo
+    call add_paw_to_deeq(deeq)
+    do ia = 1, nat
+      do is = 1, nspin
+        if (nspin.eq.2.and.is.eq.1) then
+          deeq_tmp(:, :) = 0.5 * (deeq(:, :, ia, 1) + deeq(:, :, ia, 2)) / 2 ! convert to Ha
+        endif
+        if (nspin.eq.2.and.is.eq.2) then
+          deeq_tmp(:, :) = 0.5 * (deeq(:, :, ia, 1) - deeq(:, :, ia, 2)) / 2 ! convert to Ha
+        endif
+        if (nspin.eq.1.or.nspin.eq.4) then
+          deeq_tmp(:, :) = deeq(:, :, ia, is) / 2 ! convert to Ha
+        endif
+        call sirius_set_d_operator_matrix(ia, is, deeq_tmp(1, 1), nhm)
+      enddo
+    enddo
+    deallocate(deeq_tmp)
+  endif
 
 end subroutine put_potential_to_sirius
 
@@ -450,3 +496,4 @@ subroutine get_vloc_from_sirius
   deallocate(vpw)
 
 end subroutine get_vloc_from_sirius
+
