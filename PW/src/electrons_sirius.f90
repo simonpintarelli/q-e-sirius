@@ -20,7 +20,7 @@ subroutine electrons_sirius()
   use symm_base,            only : nosym
   use ener,                 only : etot, hwf_energy, eband, deband, ehart, &
                                    vtxc, etxc, etxcc, ewld, demet, epaw, &
-                                   elondon, ef_up, ef_dw, exdm
+                                   elondon, ef_up, ef_dw, ef, exdm
   use noncollin_module,     only : nspin_mag
   use uspp,                 only : okvan, deeq, qq, becsum
   use paw_variables,        only : okpaw, total_core_energy
@@ -34,6 +34,7 @@ subroutine electrons_sirius()
   use extfield,             only : tefield, etotefield
   use paw_variables,        only : okpaw, ddd_paw, total_core_energy, only_paw
   use paw_onecenter,        only : PAW_potential
+  use paw_symmetry,         ONLY : PAW_symmetrize_ddd
   use lsda_mod,             only : nspin, lsda, absmag, magtot
   use constants, only : eps8
   use paw_init,             only : paw_atomic_becsum
@@ -110,8 +111,11 @@ subroutine electrons_sirius()
        rho%of_r(:,is) = dble(psic(:))
     end do
     call v_of_rho(rho, rho_core, rhog_core, ehart, etxc, vtxc, eth, etotefield, charge, v)
+    if (okpaw) then
+      call PAW_potential(rho%bec, ddd_PAW, epaw, etot_cmp_paw)
+      CALL PAW_symmetrize_ddd(ddd_paw)
+    endif
     call put_potential_to_sirius
-    call sirius_generate_d_operator_matrix
   endif
 
   ! initialize subspace before calling "sirius_find_eigen_states"
@@ -168,11 +172,6 @@ subroutine electrons_sirius()
     ! solve H\spi = E\psi
     call sirius_find_eigen_states(kset_id, precompute=1)
 
-!    ! use sirius to calculate band occupancies
-!     CALL sirius_find_band_occupancies(kset_id)
-!     CALL sirius_get_energy_fermi(kset_id, ef)
-!     ef = ef * 2.d0
-    
     ! get band energies
     call get_band_energies_from_sirius
 
@@ -180,6 +179,13 @@ subroutine electrons_sirius()
     call weights()
 
     call put_band_occupancies_to_sirius
+
+    !! use sirius to calculate band occupancies
+    ! CALL sirius_find_band_occupancies(kset_id)
+    ! CALL sirius_get_energy_fermi(kset_id, ef)
+    ! ef = ef * 2.d0
+    
+    write(stdout, '( 5X,"Ef = ", F20.16)' )ef
 
     !  generate valence density
     call sirius_generate_valence_density(kset_id)
@@ -202,7 +208,7 @@ subroutine electrons_sirius()
       call mix_rho(rho, rhoin, mixing_beta, dr2, 0.d0, iter, nmix, iunmix, conv_elec)
       ! broadcast
       call bcast_scf_type(rhoin, root_pool, inter_pool_comm)
-      call scf_type_COPY(rhoin, rho)
+      call scf_type_copy(rhoin, rho)
       call mp_bcast(dr2,       root_pool, inter_pool_comm)
       call mp_bcast(conv_elec, root_pool, inter_pool_comm)
       ! set new (mixed) rho(G)
@@ -235,59 +241,24 @@ subroutine electrons_sirius()
       call v_of_rho(rho, rho_core, rhog_core, ehart, etxc, vtxc, eth, etotefield, charge, v)
       ! calculate PAW potential
       if (okpaw) then
-        call PAW_potential(rho%bec, ddd_PAW, epaw, etot_cmp_paw)
+        call paw_potential(rho%bec, ddd_paw, epaw, etot_cmp_paw)
+        call paw_symmetrize_ddd(ddd_paw)
       endif
 
       call put_potential_to_sirius
-     
-      ! update D-operator matrix
-      call sirius_generate_d_operator_matrix()
-      if (okpaw) then
-        ! get D-operator matrix
-        do ia = 1, nat
-          do is = 1, nspin
-            call sirius_get_d_operator_matrix(ia, is, deeq(1, 1, ia, is), nhm)
-          enddo
-          if (nspin.eq.2) then
-            do i = 1, nhm
-              do j = 1, nhm
-                d1 = deeq(i, j, ia, 1)
-                d2 = deeq(i, j, ia, 2)
-                deeq(i, j, ia, 1) = d1 + d2
-                deeq(i, j, ia, 2) = d1 - d2
-              enddo
-            enddo
-          endif
-          ! convert to Ry
-          deeq(:, :, ia, :) = deeq(:, :, ia, :) * 2
-        enddo
-        call add_paw_to_deeq(deeq)
-        do ia = 1, nat
-          do is = 1, nspin
-            if (nspin.eq.2.and.is.eq.1) then
-              deeq_tmp(:, :) = 0.5 * (deeq(:, :, ia, 1) + deeq(:, :, ia, 2)) / 2 ! convert to Ha
-            endif
-            if (nspin.eq.2.and.is.eq.2) then
-              deeq_tmp(:, :) = 0.5 * (deeq(:, :, ia, 1) - deeq(:, :, ia, 2)) / 2 ! convert to Ha
-            endif
-            if (nspin.eq.1.or.nspin.eq.4) then
-              deeq_tmp(:, :) = deeq(:, :, ia, is) / 2 ! convert to Ha
-            endif
-            call sirius_set_d_operator_matrix(ia, is, deeq_tmp(1, 1), nhm)
-          enddo
-        enddo
-      endif
     endif
     call sirius_stop_timer(c_str("qe|veff"))
 
-    call sirius_get_energy_ewald(ewld)
     call sirius_get_evalsum(eband)
     call sirius_get_energy_veff(deband)
+    call sirius_get_energy_bxc(etmp)
+    deband = deband + etmp
     call sirius_get_energy_vloc(etmp)
-    ewld = ewld * 2.d0
     eband = eband * 2.d0
     deband = -(deband - etmp) * 2.d0
-    
+    call sirius_get_energy_ewald(ewld)
+    ewld = ewld * 2.d0
+
     !!== ! ... the Harris-Weinert-Foulkes energy is computed here using only
     !!== ! ... quantities obtained from the input density
     !!== !
@@ -320,6 +291,7 @@ subroutine electrons_sirius()
         epaw = epaw * 2.0;
         paw_one_elec_energy = paw_one_elec_energy * 2.0;
         etot = etot - paw_one_elec_energy + epaw
+        etot_cmp_paw = 0
       else
         etot = etot + epaw - sum(ddd_paw(:, :, :) * rho%bec(:, :, :))
       endif
