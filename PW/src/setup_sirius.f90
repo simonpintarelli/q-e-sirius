@@ -3,7 +3,7 @@ subroutine setup_sirius()
   use funct, only : get_iexch, get_icorr, get_inlc, get_meta, get_igcc, get_igcx
   use ions_base, only : tau, nsp, atm, zv, amass, ityp, nat
   use uspp_param, only : upf
-  use atom, only : rgrid
+  use atom, only : rgrid, msh
   use fft_base, only :  dfftp
   use klist, only : kset_id, nks, xk, nkstot, wk
   use gvect, only : ngm_g, ecutrho
@@ -24,7 +24,7 @@ subroutine setup_sirius()
   implicit none
   !
   integer :: dims(3), i, ia, iat, rank, ierr, ijv, ik, li, lj, mb, nb, j, l,&
-       ilast, ir, num_gvec, num_ranks_k, vt(3)
+       ilast, ir, num_gvec, num_ranks_k, vt(3), iwf
   real(8) :: a1(3), a2(3), a3(3), vlat(3, 3), vlat_inv(3, 3), v1(3), v2(3), bg_inv(3, 3), tmp
   real(8), allocatable :: dion(:, :), qij(:,:,:), vloc(:), wk_tmp(:), xk_tmp(:,:)
   integer, allocatable :: nk_loc(:)
@@ -196,6 +196,12 @@ subroutine setup_sirius()
       call sirius_set_atom_type_beta_rf(c_str(atm(iat)), upf(iat)%nbeta, upf(iat)%lll(1), tmp, &
                                        &upf(iat)%kbeta(1), upf(iat)%beta(1, 1), upf(iat)%mesh, upf(iat)%has_so)
     endif
+    
+    ! set the atomic radial functions
+    do iwf = 1, upf(iat)%nwfc
+      l = upf(iat)%lchi(iwf)
+      call sirius_add_atom_type_chi(c_str(atm(iat)), l, msh(iat), upf(iat)%chi(1, iwf))
+    enddo
 
     allocate(dion(upf(iat)%nbeta, upf(iat)%nbeta))
     ! convert to hartree
