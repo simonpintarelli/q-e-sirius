@@ -691,6 +691,7 @@ gloop:    DO jg=iig,ngm_
     INTEGER :: is, ig, igl, np, ierr, ngm_
     !
     IF ( no_rho_sym) RETURN
+    CALL start_clock ('sym_rho')
 #if !defined(__MPI)
     !
     CALL sym_rho_serial ( ngm, g, nspin, rhog )
@@ -735,6 +736,7 @@ gloop:    DO jg=iig,ngm_
     DEALLOCATE ( rhog_ )
 #endif
     !
+    CALL stop_clock ('sym_rho')
     RETURN
   END SUBROUTINE sym_rho
   !

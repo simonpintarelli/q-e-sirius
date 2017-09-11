@@ -58,6 +58,7 @@ SUBROUTINE print_clock_pw()
    CALL print_clock( 'newd' )
    CALL print_clock( 'PAW_pot')
    CALL print_clock( 'mix_rho' )
+   CALL print_clock( 'sym_rho' )
 
    CALL print_clock( 'vdW_energy' )
    CALL print_clock( 'vdW_ffts' )
