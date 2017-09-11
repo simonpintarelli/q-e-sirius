@@ -138,11 +138,11 @@ subroutine electrons_sirius_v2()
   
   call sirius_start_timer(c_str("qe|electrons|scf"))
   
-  if (diago_thr_init.eq.0.d0) then
-    ethr = 1d-3
-  else
-    ethr = diago_thr_init
-  endif
+  !if (diago_thr_init.eq.0.d0) then
+  !  ethr = 1d-3
+  !else
+  !  ethr = diago_thr_init
+  !endif
 
   ! Ewald energy doesn't change during iterations
   call sirius_get_energy_ewald(ewld)
@@ -154,12 +154,19 @@ subroutine electrons_sirius_v2()
 
     write(stdout, 9010)iter, ecutwfc, mixing_beta
 
-    if (iter.gt.1) then
+    if (iter > 1) then
+       if (iter == 2) ethr = 1.d-2
        ethr = min(ethr, 0.1d0 * dr2 / max(1.d0, nelec))
-       ! ... do not allow convergence threshold to become too small:
-       ! ... iterative diagonalization may become unstable
        ethr = max(ethr, 1.d-13)
+       !
     end if
+
+    !if (iter.gt.1) then
+    !   ethr = min(ethr, 0.1d0 * dr2 / max(1.d0, nelec))
+    !   ! ... do not allow convergence threshold to become too small:
+    !   ! ... iterative diagonalization may become unstable
+    !   ethr = max(ethr, 1.d-13)
+    !end if
     call sirius_set_iterative_solver_tolerance(ethr)
     write(stdout, '( 5X,"ethr = ", 1PE9.2)' )ethr
 
