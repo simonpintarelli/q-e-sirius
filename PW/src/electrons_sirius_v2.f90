@@ -131,10 +131,10 @@ subroutine electrons_sirius_v2()
   allocate(deeq_tmp(nhm, nhm))
   allocate(vxcg(ngm))
 
-  if (nspin.gt.1.and.nspin_mag.eq.1) then
-    write(*,*)'this case has to be checked'
-    stop
-  endif
+  !if (nspin.gt.1.and.nspin_mag.eq.1) then
+  !  write(*,*)'this case has to be checked'
+  !  !stop
+  !endif
   
   call sirius_start_timer(c_str("qe|electrons|scf"))
   
