@@ -88,7 +88,7 @@ SUBROUTINE sum_band()
      !
      btype(:,:) = 1
      FORALL( ik = 1:nks, wk(ik) > 0.D0 )
-        WHERE( wg(:,ik) / wk(ik) < 0.001D0 ) btype(:,ik) = 0
+        WHERE( wg(:,ik) / wk(ik) < 0.01D0 ) btype(:,ik) = 0
      END FORALL
      !
   END IF
