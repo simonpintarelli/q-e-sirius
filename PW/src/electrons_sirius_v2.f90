@@ -41,6 +41,7 @@ subroutine electrons_sirius_v2()
   use noncollin_module,     only : noncolin, magtot_nc, bfield
   use spin_orb,             only : domag
   use cell_base,            only : omega
+  use symme,                only : sym_rho
   !
   implicit none
   integer iat, ia, i, j, num_gvec, num_fft_grid_points, ik, iter, ig, li, lj, ijv, ilast, ir, l, mb, nb, is, nk1
@@ -188,10 +189,12 @@ subroutine electrons_sirius_v2()
     !  generate valence density
     call sirius_generate_valence_density(kset_id)
 
-    if (.not.nosym) call sirius_symmetrize_density()
+    !if (.not.nosym) call sirius_symmetrize_density()
 
     ! get rho(G) and density matrix
     call get_density_from_sirius
+
+    call sym_rho ( nspin_mag, rho%of_g )
 
     call sirius_get_evalsum(eband)
     call sirius_get_energy_veff(deband)
