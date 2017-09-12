@@ -283,6 +283,7 @@ subroutine electrons_sirius_v2()
        !   ENDIF
        !ENDIF
 
+       call poolrecover(et, nbnd, nkstot, nks)
        call print_ks_energies()
     endif
 
