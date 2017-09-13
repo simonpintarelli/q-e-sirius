@@ -188,9 +188,11 @@ SUBROUTINE forces()
   !
   ! ... The SCF contribution
   !
+  call sirius_start_timer(c_str("qe|force_corr"))
   !IF (.not. use_sirius) THEN
     CALL force_corr( forcescc )
   !endif
+  call sirius_stop_timer(c_str("qe|force_corr"))
 
   !
   IF (do_comp_mt .and. .not. use_sirius ) THEN
