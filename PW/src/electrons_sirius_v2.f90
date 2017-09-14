@@ -194,8 +194,10 @@ subroutine electrons_sirius_v2()
     ! get rho(G) and density matrix
     call get_density_from_sirius
 
-    call sym_rho (nspin_mag, rho%of_g)
-    call PAW_symmetrize(rho%bec)
+    call sym_rho(nspin_mag, rho%of_g)
+    if (okpaw)  then
+      call PAW_symmetrize(rho%bec)
+    endif
 
     call sirius_get_evalsum(eband)
     call sirius_get_energy_veff(deband)
