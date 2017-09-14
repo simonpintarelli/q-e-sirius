@@ -37,7 +37,7 @@ subroutine electrons_sirius_v2()
   use lsda_mod,             only : nspin, lsda, absmag, magtot
   use constants, only : eps8
   use paw_init,             only : paw_atomic_becsum
-  use paw_symmetry,         ONLY : PAW_symmetrize_ddd
+  use paw_symmetry,         ONLY : PAW_symmetrize_ddd, PAW_symmetrize
   use noncollin_module,     only : noncolin, magtot_nc, bfield
   use spin_orb,             only : domag
   use cell_base,            only : omega
@@ -194,7 +194,8 @@ subroutine electrons_sirius_v2()
     ! get rho(G) and density matrix
     call get_density_from_sirius
 
-    call sym_rho ( nspin_mag, rho%of_g )
+    call sym_rho (nspin_mag, rho%of_g)
+    call PAW_symmetrize(rho%bec)
 
     call sirius_get_evalsum(eband)
     call sirius_get_energy_veff(deband)
