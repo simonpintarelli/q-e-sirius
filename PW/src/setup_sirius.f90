@@ -288,10 +288,11 @@ subroutine setup_sirius()
 
   ! initialize global variables/indices/arrays/etc. of the simulation
   call sirius_initialize_simulation_context()
-
-  if (nosym) then
+    
+  ! QE is taking care of symmetry
+  !if (nosym) then
     call sirius_set_use_symmetry(0)
-  endif
+  !endif
 
   ! get number of g-vectors of the dense fft grid
   call sirius_get_num_gvec(num_gvec)
