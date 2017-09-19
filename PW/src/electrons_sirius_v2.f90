@@ -269,7 +269,6 @@ subroutine electrons_sirius_v2()
      
     call sirius_stop_timer(c_str("qe|veff"))
 
-    
     !!== ! ... the Harris-Weinert-Foulkes energy is computed here using only
     !!== ! ... quantities obtained from the input density
     !!== !
@@ -414,9 +413,11 @@ subroutine electrons_sirius_v2()
   !  ! convert to Ry
   !  deeq(:, :, ia, :) = deeq(:, :, ia, :) * 2
   !enddo
-  do iat = 1, nsp
-    call sirius_get_q_operator_matrix(iat, qq(1, 1, iat), nhm)
-  enddo
+  !do iat = 1, nsp
+  !  call sirius_get_q_operator_matrix(iat, qq(1, 1, iat), nhm)
+  !enddo
+
+  call put_density_to_sirius
 
   !! rho(r) is needed in stres_gradcorr
   !if (sirius_veff) then
@@ -440,7 +441,7 @@ subroutine electrons_sirius_v2()
   !  !!==!call sirius_generate_d_operator_matrix()
   !endif
   
-  call get_band_energies_from_sirius
+  !call get_band_energies_from_sirius
 
   call sirius_stop_timer(c_str("qe|electrons"))
 

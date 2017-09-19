@@ -50,7 +50,8 @@ SUBROUTINE force_us( forcenl )
 
   if (use_sirius) then
     call sirius_get_forces(c_str("usnl"), forcenl(1,1))
-    forcenl = forcenl * 2 ! convert to Ha
+    forcenl = forcenl * 2 ! convert to Ry
+    call symvector(nat, forcenl)
     return
   endif
 

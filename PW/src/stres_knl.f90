@@ -32,8 +32,9 @@ subroutine stres_knl (sigmanlc, sigmakin)
   implicit none
   real(DP) :: sigmanlc (3, 3), sigmakin (3, 3), tmp(3, 3)
   real(DP), allocatable :: gk (:,:), kfac (:)
-  real(DP) :: twobysqrtpi, gk2, arg
+  real(DP) :: twobysqrtpi, gk2, arg, d1
   integer :: npw, ik, l, m, i, ibnd, is
+  integer :: idx(2, 3)
 
   if (use_sirius) then
     call sirius_get_stress_tensor(c_str("kin"), sigmakin(1, 1))
@@ -42,6 +43,21 @@ subroutine stres_knl (sigmanlc, sigmakin)
     sigmanlc = -sigmanlc * 2 ! convert to Ha
     call sirius_get_stress_tensor(c_str("us"), tmp(1, 1))
     sigmanlc = sigmanlc - 2 * tmp
+    call symmatrix ( sigmakin )
+    call symmatrix ( sigmanlc )
+
+    idx = reshape((/1, 2, 1, 3, 2, 3/), (/2, 3/))
+
+    do i = 1, 3
+      d1 = 0.5 * (sigmakin(idx(1, i), idx(2, i)) + sigmakin(idx(2, i), idx(1, i)))
+      sigmakin(idx(1, i), idx(2, i)) = d1
+      sigmakin(idx(2, i), idx(1, i)) = d1
+
+      d1 = 0.5 * (sigmanlc(idx(1, i), idx(2, i)) + sigmanlc(idx(2, i), idx(1, i)))
+      sigmanlc(idx(1, i), idx(2, i)) = d1
+      sigmanlc(idx(2, i), idx(1, i)) = d1
+    enddo
+
     return
   endif
 

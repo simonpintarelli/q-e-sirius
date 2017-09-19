@@ -32,6 +32,8 @@ subroutine force_corr (forcescc)
   USE wavefunctions_module, ONLY : psic
   USE mp_bands,             ONLY : intra_bgrp_comm
   USE mp,                   ONLY : mp_sum
+  use sirius
+  USE input_parameters, only : use_sirius
   !
   implicit none
   !
@@ -43,6 +45,11 @@ subroutine force_corr (forcescc)
   ! temp factors
   integer :: ir, isup, isdw, ig, nt, na, ipol, ndm
   ! counters
+  if (use_sirius) then
+    call sirius_get_forces(c_str("scf_corr"), forcescc(1, 1))
+    forcescc = forcescc * 2 ! convert to Ry
+    return
+  endif
   !
   ! vnew is V_out - V_in, psic is the temp space
   !

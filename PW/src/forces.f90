@@ -37,7 +37,7 @@ SUBROUTINE forces()
   USE symme,         ONLY : symvector
   USE vlocal,        ONLY : strf, vloc
   USE force_mod,     ONLY : force, lforce, sumfor
-  USE scf,           ONLY : rho
+  USE scf,           ONLY : rho, vnew
   USE ions_base,     ONLY : if_pos
   USE ldaU,          ONLY : lda_plus_u, U_projection
   USE extfield,      ONLY : tefield, forcefield, monopole, forcemono, relaxz
@@ -102,22 +102,18 @@ SUBROUTINE forces()
   if (use_sirius) then
     ! recalculate the exchange-correlation potential
     !
-    allocate ( vxc(dfftp%nnr,nspin) )
+    allocate (vxc(dfftp%nnr, nspin))
     !
     call v_xc (rho, rho_core, rhog_core, etxc, vtxc, vxc)
     !
     psic=(0.0_DP,0.0_DP)
     if (nspin == 1 .or. nspin == 4) then
-       do ir = 1, dfftp%nnr
-          psic (ir) = vxc (ir, 1)
-       enddo
+       psic(:) = vxc(:, 1)
     else
-       do ir = 1, dfftp%nnr
-          psic (ir) = 0.5d0 * (vxc (ir, 1) + vxc (ir, 2) )
-       enddo
+       psic(:) = (vxc(:, 1) + vxc(:, 2)) * 0.5d0
     endif
-    deallocate (vxc)
-    CALL fwfft ('Dense', psic, dfftp)
+    deallocate(vxc)
+    call fwfft('Dense', psic, dfftp)
     !
     ! psic contains now Vxc(G)
     !
@@ -126,8 +122,27 @@ SUBROUTINE forces()
        vxc_g(ig) = psic(nl(ig)) * 0.5d0 ! convert to Ha
     enddo
     ! set XC potential
-    call sirius_set_pw_coeffs(c_str("vxc"),vxc_g(1), ngm, mill(1, 1), intra_bgrp_comm)
+    call sirius_set_pw_coeffs(c_str("vxc"), vxc_g(1), ngm, mill(1, 1), intra_bgrp_comm)
+    
+    !
+    ! vnew is V_out - V_in, psic is the temp space
+    !
+    if (nspin == 1 .or. nspin == 4) then
+       psic(:) = vnew%of_r(:, 1)
+    else
+       psic(:) = (vnew%of_r(:, 1) + vnew%of_r(:, 2)) * 0.5d0
+    endif
+    call fwfft ('Dense', psic, dfftp)
+
+    do ig = 1, ngm
+       vxc_g(ig) = psic(nl(ig)) * 0.5d0 ! convert to Ha
+    enddo
+    ! set XC potential
+    call sirius_set_pw_coeffs(c_str("dveff"), vxc_g(1), ngm, mill(1, 1), intra_bgrp_comm)
+
     deallocate(vxc_g)
+
+    ! calculate all the contributions to forces
     call sirius_calculate_forces(kset_id)
   endif
 
@@ -140,18 +155,13 @@ SUBROUTINE forces()
   !
 
   ! print local forces
-
-
-
   CALL force_lc( nat, tau, ityp, alat, omega, ngm, ngl, igtongl, &
                  g, rho%of_r, nl, nspin, gstart, gamma_only, vloc, &
                  forcelc )
   !
   ! ... The NLCC contribution
   !
-  call sirius_start_timer(c_str("qe|force_cc"))
   CALL force_cc( forcecc )
-  call sirius_stop_timer(c_str("qe|force_cc"))
   !
   ! ... The Hubbard contribution
   !     (included by force_us if using beta as local projectors)
@@ -188,11 +198,7 @@ SUBROUTINE forces()
   !
   ! ... The SCF contribution
   !
-  call sirius_start_timer(c_str("qe|force_corr"))
-  !IF (.not. use_sirius) THEN
-    CALL force_corr( forcescc )
-  !endif
-  call sirius_stop_timer(c_str("qe|force_corr"))
+  CALL force_corr( forcescc )
 
   !
   IF (do_comp_mt .and. .not. use_sirius ) THEN
