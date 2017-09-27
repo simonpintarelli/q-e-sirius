@@ -10,7 +10,7 @@ SUBROUTINE exx_gs(nfi, c)
     !
     USE kinds,                   ONLY  : DP
     USE constants,               ONLY  : fpi
-    USE fft_base,                ONLY  : dffts, dfftp, dtgs
+    USE fft_base,                ONLY  : dffts, dfftp
     USE mp,                      ONLY  : mp_barrier, mp_sum
     USE mp_global,               ONLY  : nproc_image, me_image, root_image, intra_image_comm, intra_bgrp_comm, me_bgrp
     USE parallel_include
@@ -43,6 +43,7 @@ SUBROUTINE exx_gs(nfi, c)
     USE exx_module,              ONLY  : dexx_dh
     USE exx_module,              ONLY  : exx_energy_cell_derivative
     USE exx_module,              ONLY  : exxalfa
+    USE fft_helper_subroutines
     !
     IMPLICIT NONE
     COMPLEX(DP)   c(ngw, nbspx)        ! wave functions at time t
@@ -886,7 +887,7 @@ SUBROUTINE exx_gs(nfi, c)
       !
       !-----------Zhaofeng's vpsil (local) to exx_potential (global) -----------
       !
-      nogrp = dtgs%nogrp
+      nogrp = fftx_ntgrp(dffts)
       !
       ALLOCATE( sdispls(nproc_image), sendcount(nproc_image) ); sdispls=0; sendcount=0
       ALLOCATE( rdispls(nproc_image), recvcount(nproc_image) ); rdispls=0; recvcount=0 
@@ -961,10 +962,10 @@ SUBROUTINE exx_gs(nfi, c)
 #if defined(__MPI)
       !
       DO ir=1,nproc_image/nogrp
-        CALL mp_barrier( dtgs%ogrp_comm )
+        CALL mp_barrier( fftx_tgcomm(dffts) )
         CALL MPI_ALLTOALLV(exx_tmp3(1,ir), sendcount1, sdispls1, MPI_DOUBLE_PRECISION, &
             &         exx_potential(1,ir),recvcount1, rdispls1, MPI_DOUBLE_PRECISION, &
-            &         dtgs%ogrp_comm, ierr)
+            &         fftx_tgcomm(dffts), ierr)
       END DO
 #endif
       !

@@ -11,17 +11,17 @@
   ! excess variables
   !
   !-----------------------------------------------------------------------
-  SUBROUTINE bcast_ph_input
+  SUBROUTINE bcast_epw_input
   !-----------------------------------------------------------------------
   !!
   !!     In this routine the first processor sends the input to all
   !!     the other processors
   !!
 #if defined(__MPI)
-  USE phcom,         ONLY : zue, trans, tr2_ph, recover, nmix_ph, niter_ph, &
+  USE phcom,         ONLY : zue, trans, tr2_ph, nmix_ph, niter_ph, &
                             lnscf, ldisp, fildvscf, fildrho, epsil, alpha_mix 
   USE epwcom,        ONLY : epexst, epbwrite, ep_coupling, &
-                            eliashberg, elecselfen, eig_read, &
+                            eliashberg, elecselfen, eig_read, plselfen, &
                             efermi_read, dvscf_dir, delta_smear, &
                             delta_qsmear, degaussw, degaussq, conv_thr_raxis, &
                             conv_thr_racon, conv_thr_iaxis, broyden_ndim, &
@@ -35,9 +35,10 @@
                             ngaussw, nest_fn,  nbndsub, nbndskip, &
                             muc, mp_mesh_q, mp_mesh_k, max_memlt, lunif, &
                             lreal, lpolar, lpade, liso, limag, laniso, &
-                            specfun, lifc, asr_typ, &
+                            specfun_el, specfun_ph, lifc, asr_typ, &
+                            lscreen, scr_typ, fermi_diff, smear_rpa, &
                             rand_q, rand_nq, rand_nk, rand_k, pwc, phonselfen, &
-                            parallel_q, parallel_k, &
+                            parallel_q, parallel_k, specfun_pl, cumulant, bnd_cum, &
                             nw_specfun, nw, nswi, nswfc, nswc, nstemp, nsmear, &
                             wsfc, wscut, write_wfn, wmin_specfun, wmin, &
                             wmax_specfun, wmax, wepexst, wannierize, &
@@ -45,14 +46,13 @@
                             tempsmin, tempsmax, temps, delta_approx, title, &
                             scattering, scattering_serta, scattering_0rta, &
                             int_mob, scissor, carrier, ncarrier, iterative_bte, &
-                            restart, restart_freq
+                            restart, restart_freq, prtgkk, nel, meff, epsiHEG
 !  USE epwcom,        ONLY : fildvscf0, tphases
   USE elph2,         ONLY : elph 
   USE mp,            ONLY : mp_bcast
   USE mp_world,      ONLY : world_comm
   USE io_files,      ONLY : prefix, tmp_dir
   USE qpoint,        ONLY : xq
-  USE control_lr,    ONLY : lgamma
   USE io_global,     ONLY : meta_ionode_id
   USE control_flags, ONLY : iverbosity
   USE ions_base,     ONLY : amass
@@ -61,7 +61,6 @@
   !
   ! logicals
   !
-  CALL mp_bcast (lgamma, meta_ionode_id, world_comm)
   CALL mp_bcast (epsil, meta_ionode_id, world_comm)
   CALL mp_bcast (trans, meta_ionode_id, world_comm)
   CALL mp_bcast (zue, meta_ionode_id, world_comm)
@@ -70,10 +69,10 @@
   CALL mp_bcast (ldisp, meta_ionode_id, world_comm)
   CALL mp_bcast (elecselfen, meta_ionode_id, world_comm)!
   CALL mp_bcast (phonselfen, meta_ionode_id, world_comm)!
+  CALL mp_bcast (plselfen, meta_ionode_id, world_comm)!
   CALL mp_bcast (ephwrite, meta_ionode_id, world_comm)! RM
   CALL mp_bcast (band_plot, meta_ionode_id, world_comm)! RM
   CALL mp_bcast (vme, meta_ionode_id, world_comm)!
-  CALL mp_bcast (recover, meta_ionode_id, world_comm)!
   CALL mp_bcast (epbread, meta_ionode_id, world_comm)   !
   CALL mp_bcast (epbwrite, meta_ionode_id, world_comm)  !
 !  CALL mp_bcast (tphases, meta_ionode_id, world_comm)   !
@@ -82,7 +81,9 @@
   CALL mp_bcast (wmax, meta_ionode_id, world_comm)      !
   CALL mp_bcast (epwread, meta_ionode_id, world_comm)   !
   CALL mp_bcast (epwwrite, meta_ionode_id, world_comm)  !
-  CALL mp_bcast (specfun, meta_ionode_id, world_comm)   !
+  CALL mp_bcast (specfun_el, meta_ionode_id, world_comm)   !
+  CALL mp_bcast (specfun_ph, meta_ionode_id, world_comm)   !
+  CALL mp_bcast (specfun_pl, meta_ionode_id, world_comm)   !
   CALL mp_bcast (wannierize, meta_ionode_id, world_comm)! JN
   CALL mp_bcast (write_wfn, meta_ionode_id, world_comm) ! 
   CALL mp_bcast (kmaps, meta_ionode_id, world_comm) ! 
@@ -106,6 +107,8 @@
   CALL mp_bcast (laniso, meta_ionode_id, world_comm)     !
   CALL mp_bcast (lpolar, meta_ionode_id, world_comm)     !
   CALL mp_bcast (lifc, meta_ionode_id, world_comm) 
+  CALL mp_bcast (lscreen, meta_ionode_id, world_comm)
+  CALL mp_bcast (cumulant, meta_ionode_id, world_comm)
   CALL mp_bcast (lunif, meta_ionode_id, world_comm)     !
   CALL mp_bcast (kerwrite, meta_ionode_id, world_comm)     !
   CALL mp_bcast (kerread, meta_ionode_id, world_comm)     !
@@ -126,6 +129,7 @@
   CALL mp_bcast (iterative_bte, meta_ionode_id, world_comm)
   CALL mp_bcast (carrier, meta_ionode_id, world_comm)  
   CALL mp_bcast (restart, meta_ionode_id, world_comm)
+  CALL mp_bcast (prtgkk, meta_ionode_id, world_comm)
   !
   ! integers
   !
@@ -155,6 +159,8 @@
   CALL mp_bcast (nsiter, meta_ionode_id, world_comm )     !
   CALL mp_bcast (nw_specfun, meta_ionode_id, world_comm)  !
   CALL mp_bcast (restart_freq, meta_ionode_id, world_comm)
+  CALL mp_bcast (scr_typ, meta_ionode_id, world_comm)
+  CALL mp_bcast (bnd_cum, meta_ionode_id, world_comm)
   !
   ! real*8
   !
@@ -184,6 +190,11 @@
   CALL mp_bcast (eptemp, meta_ionode_id, world_comm)    !
   CALL mp_bcast (scissor, meta_ionode_id, world_comm)    !
   CALL mp_bcast (ncarrier, meta_ionode_id, world_comm)      
+  CALL mp_bcast (nel, meta_ionode_id, world_comm)      
+  CALL mp_bcast (meff, meta_ionode_id, world_comm)      
+  CALL mp_bcast (epsiHEG, meta_ionode_id, world_comm)      
+  CALL mp_bcast (fermi_diff, meta_ionode_id, world_comm)
+  CALL mp_bcast (smear_rpa, meta_ionode_id, world_comm)
   !
   ! characters
   !
@@ -204,10 +215,10 @@
   CALL mp_bcast (asr_typ, meta_ionode_id, world_comm)
 #endif
   !
-END SUBROUTINE bcast_ph_input
+END SUBROUTINE bcast_epw_input
 !
 !-----------------------------------------------------------------------
-SUBROUTINE bcast_ph_input1
+SUBROUTINE bcast_epw_input1
 !-----------------------------------------------------------------------
 !
 #if defined(__MPI)
@@ -226,4 +237,4 @@ SUBROUTINE bcast_ph_input1
   ENDIF
 #endif
   !  
-END SUBROUTINE bcast_ph_input1
+END SUBROUTINE bcast_epw_input1

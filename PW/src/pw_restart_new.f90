@@ -22,8 +22,9 @@ MODULE pw_restart_new
                           qexsd_init_symmetries, qexsd_init_basis_set, qexsd_init_dft, &
                           qexsd_init_magnetization,qexsd_init_band_structure,          &
                           qexsd_init_dipole_info, qexsd_init_total_energy,             &
-                          qexsd_init_forces,qexsd_init_stress,                         &
-                          qexsd_init_outputElectricField, qexsd_input => qexsd_input_obj
+                          qexsd_init_forces,qexsd_init_stress, qexsd_xf,               &
+                          qexsd_init_outputElectricField,                              &
+                          qexsd_input_obj, qexsd_occ_obj, qexsd_smear_obj
   USE iotk_module
   USE io_global, ONLY : ionode, ionode_id
   USE io_files,  ONLY : iunpun, xmlpun_schema, prefix, tmp_dir
@@ -59,8 +60,8 @@ MODULE pw_restart_new
       USE io_files,             ONLY : nwordwfc, iunwfc, psfile
       USE buffers,              ONLY : get_buffer
       USE wavefunctions_module, ONLY : evc
-      USE klist,                ONLY : nks, nkstot, xk, ngk, wk, qnorm, &
-                                       lgauss, ngauss, degauss, nelec, &
+      USE klist,                ONLY : nks, nkstot, xk, ngk, wk, &
+                                       lgauss, ngauss, smearing, degauss, nelec, &
                                        two_fermi_energies, nelup, neldw, tot_charge
       USE start_k,              ONLY : nk1, nk2, nk3, k1, k2, k3, &
                                        nks_start, xk_start, wk_start
@@ -92,7 +93,7 @@ MODULE pw_restart_new
       USE force_mod,            ONLY : lforce, sumfor, force, sigma, lstres
       USE extfield,             ONLY : tefield, dipfield, edir, etotefield, &
                                        emaxpos, eopreg, eamp, el_dipole, ion_dipole,&
-                                       monopole, zmon, relaxz, block, block_1,&
+                                       gate, zgate, relaxz, block, block_1,&
                                        block_2, block_height ! TB
       USE mp,                   ONLY : mp_sum
       USE mp_bands,             ONLY : intra_bgrp_comm
@@ -105,14 +106,16 @@ MODULE pw_restart_new
       USE xdm_module,           ONLY : xdm_a1=>a1i, xdm_a2=>a2i
       USE tsvdw_module,         ONLY : vdw_isolated, vdw_econv_thr
       USE input_parameters,     ONLY : verbosity, calculation, ion_dynamics, starting_ns_eigenvalue, &
-                                       vdw_corr, london, input_parameters_occupations => occupations
+                                       vdw_corr, london, k_points, input_parameters_occupations => occupations
       USE bp,                   ONLY : lelfield, lberry, bp_mod_el_pol => el_pol, bp_mod_ion_pol => ion_pol
       !
       USE rap_point_group,      ONLY : elem, nelem, name_class
       USE rap_point_group_so,   ONLY : elem_so, nelem_so, name_class_so
       USE bfgs_module,          ONLY : bfgs_get_n_iter
-      USE qexsd_module,         ONLY : qexsd_dipol_obj, qexsd_bp_obj
+      USE qexsd_module,         ONLY : qexsd_dipol_obj, qexsd_bp_obj, qexsd_start_k_obj
+      USE qexsd_input,          ONLY : qexsd_init_k_points_ibz, qexsd_init_occupations, qexsd_init_smearing
       USE fcp_variables,        ONLY : lfcpopt, lfcpdyn, fcp_mu  
+      USE io_files,             ONLY : pseudo_dir
       !
       IMPLICIT NONE
       !
@@ -127,7 +130,7 @@ MODULE pw_restart_new
       INTEGER                  :: iclass, isym, ielem
       CHARACTER(LEN=15)        :: symop_2_class(48)
       LOGICAL                  :: opt_conv_ispresent
-      INTEGER                  :: n_opt_steps, h_band
+      INTEGER                  :: n_opt_steps, n_scf_steps_, h_band
       REAL(DP)                 :: h_energy
       !
       TYPE(output_type) :: output
@@ -185,15 +188,20 @@ MODULE pw_restart_new
                 ELSE 
                     n_opt_steps = istep 
                 END IF 
+            CASE ("nscf", "bands" )
+                opt_conv_ispresent = .FALSE.
+                n_opt_steps = 0
+                n_scf_steps_ = 1
             CASE default
                 opt_conv_ispresent = .FALSE.
                 n_opt_steps        = 0 
+                n_scf_steps_ = n_scf_steps
          END SELECT
          ! 
-         call qexsd_init_convergence_info(output%convergence_info, &
-              n_scf_steps=n_scf_steps, scf_error=scf_error, &
-              opt_conv_ispresent=lforce, &
-              n_opt_steps=n_opt_steps, grad_norm=sumfor )
+            call qexsd_init_convergence_info(output%convergence_info,   &
+                        N_SCF_STEPS = n_scf_steps_, SCF_ERROR=scf_error,&
+                        OPT_CONV_ISPRESENT = opt_conv_ispresent,        &
+                        N_OPT_STEPS = n_opt_steps, GRAD_NORM = sumfor)
          !
 !-------------------------------------------------------------------------------
 ! ... ALGORITHMIC_INFO
@@ -220,6 +228,8 @@ MODULE pw_restart_new
             CALL qexsd_init_atomic_species(output%atomic_species, nsp, atm,psfile, &
                  amass)
          END IF
+         output%atomic_species%pseudo_dir = TRIM(pseudo_dir)
+         output%atomic_species%pseudo_dir_ispresent = .TRUE.
          !
 !-------------------------------------------------------------------------------
 ! ... ATOMIC_STRUCTURE
@@ -316,28 +326,36 @@ MODULE pw_restart_new
             occupations_are_fixed = .FALSE. 
             h_energy  = ef 
          END IF 
-         IF (TRIM(input_parameters_occupations) == 'smearing' ) THEN
-              IF (TRIM(qexsd_input%tagname) .ne. 'input') THEN 
-                 qexsd_input%k_points_IBZ%lwrite=.FALSE.
-                 qexsd_input%bands%occupations%lwrite = .FALSE. 
-                 qexsd_input%bands%smearing%lwrite = .FALSE.
-              END IF             
-              CALL  qexsd_init_band_structure(output%band_structure,lsda,noncolin,lspinorb, &
-                   nbnd, nbnd,nelec, natomwfc, occupations_are_fixed, & 
-                   h_energy,two_fermi_energies, [ef_up,ef_dw], et,wg,nkstot,xk,ngk_g,wk,    & 
-                   STARTING_KPOINTS = qexsd_input%k_points_IBZ, OCCUPATION_KIND = qexsd_input%bands%occupations, &
-                   WF_COLLECTED = twfcollect, SMEARING = qexsd_input%bands%smearing)
-         ELSE     
-              IF ( TRIM(qexsd_input%tagname) .ne. 'input') THEN
-                 qexsd_input%k_points_IBZ%lwrite = .FALSE.
-                 qexsd_input%bands%occupations%lwrite = .FALSE.
-              END IF 
-              CALL  qexsd_init_band_structure(output%band_structure,lsda,noncolin,lspinorb, &
-                   nbnd, nbnd, nelec, natomwfc, occupations_are_fixed, & 
-                   h_energy,two_fermi_energies, [ef_up,ef_dw], et,wg,nkstot,xk,ngk_g,wk,    & 
-                   STARTING_KPOINTS = qexsd_input%k_points_IBZ, OCCUPATION_KIND = qexsd_input%bands%occupations, &
-                   WF_COLLECTED = twfcollect)
+         CALL qexsd_init_k_points_ibz(qexsd_start_k_obj, k_points, calculation, nk1, nk2, nk3, k1, k2, k3,&
+                                      nks_start, xk_start, wk_start, alat, at(:,1), .TRUE.)
+         qexsd_start_k_obj%tagname = 'starting_kpoints'
+         IF ( TRIM (qexsd_input_obj%tagname) == 'input') THEN 
+            qexsd_occ_obj = qexsd_input_obj%bands%occupations
+         ELSE 
+            CALL qexsd_init_occupations ( qexsd_occ_obj, input_parameters_occupations, nspin)
          END IF 
+
+         IF (TRIM(input_parameters_occupations) == 'smearing' ) THEN
+            IF (TRIM(qexsd_input_obj%tagname) == 'input') THEN 
+               qexsd_smear_obj = qexsd_input_obj%bands%smearing
+            ELSE 
+               CALL qexsd_init_smearing(qexsd_smear_obj, smearing, degauss)
+            END IF  
+            !  
+            CALL qexsd_init_band_structure(  output%band_structure,lsda,noncolin,lspinorb, nbnd, nbnd,      &
+                   nelec, natomwfc, occupations_are_fixed, h_energy,two_fermi_energies, [ef_up,ef_dw],      &
+                   et,wg,nkstot,xk,ngk_g,wk, STARTING_KPOINTS = qexsd_start_k_obj,                          &
+                   OCCUPATION_KIND = qexsd_occ_obj, WF_COLLECTED = twfcollect, SMEARING = qexsd_smear_obj )
+
+            CALL qes_reset_smearing(qexsd_smear_obj)
+         ELSE     
+            CALL  qexsd_init_band_structure(output%band_structure,lsda,noncolin,lspinorb, nbnd, nbnd, nelec,& 
+                                natomwfc, occupations_are_fixed, h_energy,two_fermi_energies, [ef_up,ef_dw],&
+                                et,wg,nkstot,xk,ngk_g,wk, STARTING_KPOINTS = qexsd_start_k_obj,             &
+                                OCCUPATION_KIND = qexsd_occ_obj, WF_COLLECTED = twfcollect)
+         END IF 
+         CALL qes_reset_k_points_ibz(qexsd_start_k_obj)
+         CALL qes_reset_occupations(qexsd_occ_obj)
          !
 !-------------------------------------------------------------------------------------------
 ! ... TOTAL ENERGY
@@ -407,7 +425,7 @@ MODULE pw_restart_new
 ! ... ACTUAL WRITING
 !-------------------------------------------------------------------------------
          !
-         CALL qes_write_output(iunpun,output)
+         CALL qes_write_output(qexsd_xf,output)
          CALL qes_reset_output(output) 
          !
 !-------------------------------------------------------------------------------
@@ -462,7 +480,7 @@ MODULE pw_restart_new
       CHARACTER(LEN=256)    :: dirname
       CHARACTER(LEN=320)    :: filename
       CHARACTER(iotk_attlenx)  :: attr
-#if defined(__HDF5)	
+#if defined(__HDF5)
       TYPE(hdf5_type)       :: gvecs_h5desc
 #endif
       !
@@ -655,28 +673,32 @@ MODULE pw_restart_new
     SUBROUTINE pw_readschema_file(ierr, restart_output, restart_parallel_info, restart_general_info)
       !------------------------------------------------------------------------
       USE qes_types_module,     ONLY : input_type, output_type, general_info_type, parallel_info_type    
-      USE qexsd_reader_module,  ONLY : qexsd_get_output, qexsd_get_general_info, &
-                                       qexsd_get_parallel_info
       !
       USE qes_libs_module,      ONLY : qes_write_input, qes_write_output, qes_write_parallel_info, &
                                        qes_write_general_info 
+      USE FoX_dom,              ONLY : parseFile, item, getElementsByTagname, destroy, nodeList, Node
+      USE qes_read_module,      ONLY : qes_read
       IMPLICIT NONE 
       ! 
-      INTEGER                                            :: ierr, iotk_err  
+      INTEGER                                            :: ierr, io_err  
       TYPE( output_type ),OPTIONAL,        INTENT(OUT)   :: restart_output
       TYPE(parallel_info_type),OPTIONAL,   INTENT(OUT)   :: restart_parallel_info
       TYPE(general_info_type ),OPTIONAL,   INTENT(OUT)   :: restart_general_info
       ! 
-      LOGICAL               :: found
-      CHARACTER(LEN=80)     :: errmsg = ' '
-      CHARACTER(LEN=320)    :: filename
+      TYPE(Node), POINTER     :: root, nodePointer
+      TYPE(nodeList),POINTER  :: listPointer
+      LOGICAL                 :: found
+      CHARACTER(LEN=80)       :: errmsg = ' '
+      CHARACTER(LEN=320)      :: filename
+      INTEGER,EXTERNAL        :: find_free_unit
       !  
       ! 
       ierr = 0 
+      io_err = 0 
       ! 
-      CALL iotk_free_unit( iunpun, iotk_err )
-      CALL errore( 'pw_readschema_file', &
-                   'no free units to read xsd output', iotk_err )
+      iunpun = find_free_unit()
+      IF (iunpun .LT. 0 ) &
+            CALL errore ("pw_readschema_file", "could not find a free unit to open data-file-schema.xml", 1)
       CALL qexsd_init_schema( iunpun )
       !
       filename = TRIM( tmp_dir ) // TRIM( prefix ) // '.save' &
@@ -688,11 +710,11 @@ MODULE pw_restart_new
          GOTO 100
       END IF
       !
-      CALL iotk_open_read( iunpun, TRIM(filename) )
+      root => parseFile(filename)
       !
       IF ( PRESENT ( restart_general_info ) ) THEN 
-         CALL qexsd_get_general_info ( iunpun, restart_general_info , found)
-         IF (.NOT. found ) ierr = ierr + 1
+         nodePointer => item ( getElementsByTagname(root, "general_info"),0)
+         CALL qes_read( nodePointer, restart_general_info, ierr)
          IF ( ierr /=0 ) THEN
             errmsg='error header of xml data file'
             GOTO 100
@@ -701,19 +723,20 @@ MODULE pw_restart_new
       END IF 
       ! 
       IF ( PRESENT ( restart_parallel_info ) ) THEN 
-         CALL qexsd_get_parallel_info ( iunpun, restart_parallel_info, found ) 
-         IF ( .NOT. found ) THEN 
-            ierr = ierr + 1  
+         nodePointer => item ( getElementsByTagname(root,"parallel_info"),0)
+         CALL qes_read(nodePointer, restart_parallel_info, ierr)
+         !
+         IF ( ierr /=0) THEN  
             errmsg='error parallel_info  of xsd data file' 
             GOTO 100
          END IF
          ! CALL qes_write_parallel_info ( 82, restart_parallel_info )
       END IF  
       ! 
-      IF ( PRESENT ( restart_output ) )THEN 
-         CALL qexsd_get_output ( iunpun, restart_output, found ) 
-         IF ( .NOT. found ) THEN 
-            ierr = ierr + 1 
+      IF ( PRESENT ( restart_output ) ) THEN
+         nodePointer => item ( getElementsByTagname(root, "output"),0)
+         CALL qes_read ( nodePointer, restart_output, ierr ) 
+         IF ( ierr /= 0 ) THEN  
             errmsg = 'error output of xsd data file' 
             GOTO 100 
          END IF 
@@ -722,8 +745,7 @@ MODULE pw_restart_new
       END IF 
       !
       ! 
-      
-      CALL iotk_close_read (iunpun)
+      CALL destroy(root)       
 
  100  CALL errore('pw_readschemafile',TRIM(errmsg),ierr)
       !
@@ -1134,7 +1156,12 @@ MODULE pw_restart_new
     IF ( atomic_structure%alat_ispresent ) alat = atomic_structure%alat 
     tau(:,1:nat) = tau(:,1:nat)/alat  
     ! 
-    pseudo_dir_cur = TRIM (dirname)
+    IF ( atomic_species%pseudo_dir_ispresent) THEN 
+       pseudo_dir = TRIM(atomic_species%pseudo_dir)
+    ELSE 
+       pseudo_dir = TRIM (dirname)
+    END IF
+      pseudo_dir_cur = TRIM(pseudo_dir)
     ! 
     END SUBROUTINE readschema_ions
     !  
@@ -1161,7 +1188,7 @@ MODULE pw_restart_new
       !  
       invsym = .FALSE. 
       DO isym = 1, nrot
-        s(:,:,isym) = symms_obj%symmetry(isym)%rotation%mat 
+        s(:,:,isym) = reshape(symms_obj%symmetry(isym)%rotation%matrix, [3,3]) 
         sname(isym) = TRIM ( symms_obj%symmetry(isym)%info%name )  
         IF ( (TRIM(sname(isym)) == "inversion") .AND. (isym .LE. nsym) ) invsym = .TRUE.
         IF ( symms_obj%symmetry(isym)%fractional_translation_ispresent .AND. (isym .LE. nsym) ) THEN
@@ -1178,7 +1205,7 @@ MODULE pw_restart_new
            END IF 
         END IF
         IF ( symms_obj%symmetry(isym)%equivalent_atoms_ispresent .AND. (isym .LE. nsym) )   &
-             irt(isym,:) = symms_obj%symmetry(isym)%equivalent_atoms%index_list(:)
+             irt(isym,:) = symms_obj%symmetry(isym)%equivalent_atoms%equivalent_atoms(:)
       END DO
       CALL inverse_s()
       CALL s_axis_to_cart() 
@@ -1557,7 +1584,7 @@ MODULE pw_restart_new
     !-----------------------------------------------------------------------------------------------------
        !
        USE lsda_mod, ONLY : lsda, isk
-       USE klist,    ONLY : nkstot, xk, wk, qnorm
+       USE klist,    ONLY : nkstot, xk, wk
        USE start_k,  ONLY : nks_start, xk_start, wk_start, &
                               nk1, nk2, nk3, k1, k2, k3
        USE symm_base,ONLY : nrot, s, sname
@@ -1596,18 +1623,25 @@ MODULE pw_restart_new
            k1 = band_structure%starting_k_points%monkhorst_pack%k1
            k2 = band_structure%starting_k_points%monkhorst_pack%k2
            k3 = band_structure%starting_k_points%monkhorst_pack%k3
-       ELSE IF (band_structure%starting_k_points%nk_ispresent .AND. &
-                band_structure%starting_k_points%k_point_ispresent ) THEN 
+       ELSE IF (band_structure%starting_k_points%nk_ispresent ) THEN 
            nks_start = band_structure%starting_k_points%nk
-           ALLOCATE (xk_start(3,nks_start), wk_start(nks_start))
-           DO ik =1, nks_start
-               xk_start(:,ik) = band_structure%starting_k_points%k_point(ik)%k_point(:) 
-               IF ( band_structure%starting_k_points%k_point(ik)%weight_ispresent) THEN 
-                  wk_start(ik) = band_structure%starting_k_points%k_point(ik)%weight 
-               ELSE 
-                  wk_start(ik) = 0.d0
-               END IF 
-           END DO
+           IF ( nks_start > 0 ) THEN 
+              ALLOCATE (xk_start(3,nks_start), wk_start(nks_start))
+              IF ( nks_start == size( band_structure%starting_k_points%k_point ) ) THEN 
+                 DO ik =1, nks_start
+                    xk_start(:,ik) = band_structure%starting_k_points%k_point(ik)%k_point(:) 
+                    IF ( band_structure%starting_k_points%k_point(ik)%weight_ispresent) THEN 
+                        wk_start(ik) = band_structure%starting_k_points%k_point(ik)%weight 
+                    ELSE 
+                        wk_start(ik) = 0.d0
+                    END IF 
+                 END DO
+              ELSE
+                 CALL infomsg ( "pw_readschema: ", &
+                                "actual number of start kpoint not equal to nks_start, set nks_start=0")  
+                 nks_start = 0 
+              END IF
+           END IF
        ELSE 
            CALL errore ("pw_readschema: ", &
                         " no information found for initializing brillouin zone information", 1)
@@ -1615,7 +1649,7 @@ MODULE pw_restart_new
        ! 
        nrot = symmetries_obj%nrot
        DO isym =1, symmetries_obj%ndim_symmetry
-          s(:,:,isym)     = symmetries_obj%symmetry(isym)%rotation%mat
+          s(:,:,isym)     = reshape(symmetries_obj%symmetry(isym)%rotation%matrix, [3,3])
           sname(isym) = TRIM ( symmetries_obj%symmetry(isym)%info%name) 
        END DO 
        !
@@ -1749,27 +1783,27 @@ MODULE pw_restart_new
                nbnd_dw_ = band_struct_obj%nbnd_dw 
             ELSE IF ( band_struct_obj%nbnd_up_ispresent ) THEN 
                nbnd_up_ = band_struct_obj%nbnd_up
-               nbnd_dw_ = band_struct_obj%ks_energies(ik)%ndim_eigenvalues - nbnd_up_
+               nbnd_dw_ = band_struct_obj%ks_energies(ik)%eigenvalues%size - nbnd_up_
             ELSE IF ( band_struct_obj%nbnd_dw_ispresent ) THEN 
                nbnd_dw_ = band_struct_obj%nbnd_dw
-               nbnd_up_ = band_struct_obj%ks_energies(ik)%ndim_eigenvalues - nbnd_dw_ 
+               nbnd_up_ = band_struct_obj%ks_energies(ik)%eigenvalues%size - nbnd_dw_ 
             ELSE 
-               nbnd_up_ = band_struct_obj%ks_energies(ik)%ndim_eigenvalues/2  
-               nbnd_dw_ = band_struct_obj%ks_energies(ik)%ndim_eigenvalues/2
+               nbnd_up_ = band_struct_obj%ks_energies(ik)%eigenvalues%size/2  
+               nbnd_dw_ = band_struct_obj%ks_energies(ik)%eigenvalues%size/2
             END IF
             wk(ik) = band_struct_obj%ks_energies(ik)%k_point%weight
             wk( ik + band_struct_obj%ndim_ks_energies ) = wk(ik) 
-            et(1:nbnd_up_,ik) = band_struct_obj%ks_energies(ik)%eigenvalues(1:nbnd_up_)*e2
+            et(1:nbnd_up_,ik) = band_struct_obj%ks_energies(ik)%eigenvalues%vector(1:nbnd_up_)*e2
             et(1:nbnd_dw_,ik+band_struct_obj%ndim_ks_energies) =  &
-                             band_struct_obj%ks_energies(ik)%eigenvalues(nbnd_up_+1:nbnd_up_+nbnd_dw_)*e2
-            wg(1:nbnd_up_,ik) = band_struct_obj%ks_energies(ik)%occupations(1:nbnd_up_)*wk(ik)
+                             band_struct_obj%ks_energies(ik)%eigenvalues%vector(nbnd_up_+1:nbnd_up_+nbnd_dw_)*e2
+            wg(1:nbnd_up_,ik) = band_struct_obj%ks_energies(ik)%occupations%vector(1:nbnd_up_)*wk(ik)
             wg(1:nbnd_dw_,ik+band_struct_obj%ndim_ks_energies) =  &
-                             band_struct_obj%ks_energies(ik)%occupations(nbnd_up_+1:nbnd_up_+nbnd_dw_)*wk(ik)
+                             band_struct_obj%ks_energies(ik)%occupations%vector(nbnd_up_+1:nbnd_up_+nbnd_dw_)*wk(ik)
          ELSE 
             wk(ik) = band_struct_obj%ks_energies(ik)%k_point%weight
-            nbnd_ = band_struct_obj%ks_energies(ik)%ndim_eigenvalues
-            et (1:nbnd_,ik) = band_struct_obj%ks_energies(ik)%eigenvalues(1:nbnd_)*e2
-            wg (1:nbnd_,ik) = band_struct_obj%ks_energies(ik)%occupations(1:nbnd_)*wk(ik)
+            nbnd_ = band_struct_obj%ks_energies(ik)%eigenvalues%size
+            et (1:nbnd_,ik) = band_struct_obj%ks_energies(ik)%eigenvalues%vector(1:nbnd_)*e2
+            wg (1:nbnd_,ik) = band_struct_obj%ks_energies(ik)%occupations%vector(1:nbnd_)*wk(ik)
          END IF  
       END DO 
     END SUBROUTINE readschema_band_structure 

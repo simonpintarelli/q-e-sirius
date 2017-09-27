@@ -61,7 +61,6 @@ PROGRAM main
   ! temporary moved to init_run
 !  CALL plugin_initialization()
   !
-  !
   CALL check_stop_init()
   !
   CALL cpr_loop( 1 )

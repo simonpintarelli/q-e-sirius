@@ -7,9 +7,11 @@ include make.libs
 # use recursive definitions in Makefile to modify the PATH for modules
 #
 
-IFLAGS   = -I../../include  
-MODFLAGS = -I../../iotk/src -I../../Modules -I../../LAXlib -I../../iotk/src \
-	   -I../../FFTXlib -I../../PW/src -I../../LR_Modules -I../../PHonon/PH -I../../PP/src/ -I. -I../../wannier90-2.1.0/src/obj/
+IFLAGS   = -I../../include  -I../../UtilXlib/ 
+MODFLAGS = -I../../iotk/src -I../../UtilXlib/ -I../../Modules -I../../KS_Solvers/CG -I../../KS_Solvers/Davidson \
+           -I../../LAXlib -I../../FFTXlib  -I../../PW/src -I../../LR_Modules -I../../PHonon/PH \
+	   -I../../PP/src/ -I. -I../../wannier90-2.1.0/src/obj/
+
 
 #
 # The above is in alphabetical order except when order matter during compilation
@@ -54,8 +56,11 @@ elphon_shuffle_wrap.o \
 ephbloch2wane.o \
 ephbloch2wanp.o \
 ephwan2bloch.o \
+ephwan2bloch_mem.o \
 ephwan2blochp.o \
+ephwan2blochp_mem.o \
 ephwann_shuffle.o \
+ephwann_shuffle_mem.o \
 epwcom.o \
 epw_init.o \
 epw_readin.o \
@@ -78,10 +83,12 @@ loadqmesh.o \
 loadumat.o \
 nesting_fn.o \
 openfilepw.o \
+rgd_blk_epw_fine_mem.o \
 pade.o \
 plot_band.o \
 poolgather.o \
 print_clock_epw.o \
+print_gkk.o \
 readdvscf.o \
 readgmap.o \
 readmat_shuffle2.o \
@@ -92,11 +99,15 @@ rotate_eigenm.o \
 rotate_epmat.o \
 selfen_elec.o \
 selfen_phon.o \
+selfen_pl.o \
 set_ndnmbr.o \
 setphases_wrap.o \
 sgama2.o \
 sort.o \
+spectral_cumulant.o \
 spectral_func.o \
+spectral_func_ph.o \
+spectral_func_pl.o \
 star_q2.o \
 stop_epw.o \
 vmebloch2wan.o \
@@ -117,12 +128,12 @@ system_mem_usage.o
 
 PHOBJS = ../../PHonon/PH/libph.a
 PWOBJS = ../../PW/src/libpw.a
-###W90LIB = ../../wannier90-2.0.1/libwannier.a 
 W90LIB = ../../wannier90-2.1.0/libwannier.a 
 LRMODS = ../../LR_Modules/liblrmod.a
-PWOBJS = ../../PW/src/libpw.a
-QEMODS = ../../Modules/libqemod.a ../../FFTXlib/libqefft.a ../../LAXlib/libqela.a
-LIBOBJS = ../../clib/clib.a ../../iotk/src/libiotk.a
+PWOBJS = ../../PW/src/libpw.a 
+QEMODS = ../../Modules/libqemod.a ../../KS_Solvers/CG/libcg.a  ../../KS_Solvers/Davidson/libdavid.a ../../LAXlib/libqela.a \
+         ../../FFTXlib/libqefft.a
+LIBOBJS =../../UtilXlib/libutil.a ../../clib/clib.a ../../iotk/src/libiotk.a 
 
 TLDEPS= bindir mods libs pw-lib pw ph
 

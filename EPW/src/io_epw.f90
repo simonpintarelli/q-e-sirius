@@ -24,9 +24,9 @@
   PUBLIC :: lambda_phself, linewidth_phself, linewidth_elself, iospectral, &
             iua2ffil, iudosfil, iufillambda, iuqdos, iufe, iufilker, &
             iufilgap, iospectral_sup, iua2ftrfil, iufilgapFS, iufillambdaFS, &
-            iuwanep, iuwane, iunukk, iudvscf
+            iospectral_cum, iuwanep, iuwane, iunukk, iudvscf
   PUBLIC :: epwdata, iundmedata, iunvmedata, iunksdata, iudyn, iukgmap, iuepb,&
-            iurecover, iufilfreq, iufilegnv, iufileph, iufilkqmap, &
+            iufilfreq, iufilegnv, iufileph, iufilkqmap, &
             iufilikmap, iueig, iunepmatwp, iunepmatwe, iunkf, iunqf, &
             iufileig, iukmap, crystal, iunifc, iunimem
   PUBLIC :: iuwinfil, iun_plot, iuukk, iuprojfil !, iummn
@@ -56,6 +56,8 @@
   INTEGER :: iua2ftrfil      = 72  ! Eliashberg transport a2f function [.a2f_tr]
   INTEGER :: iufilgapFS      = 73  ! Eliashberg superconducting gap on FS with k-points  
   INTEGER :: iufillambdaFS   = 74  ! Electron-phonon coupling strength on FS with k-points
+  INTEGER :: iospectral_cum  = 75  ! Electronic spectral function with the cumulant method
+                                   ! [specfun_cum##.elself]
 !DBSP : iukgmap was 96. Should be the same as set_kplusq.f90. 
   INTEGER :: iunukk          = 77  ! Unit with rotation matrix U(k) from wannier code
   INTEGER :: iudvscf         = 80  ! Unit for the dvscf_q file
@@ -76,7 +78,6 @@
   INTEGER :: iunksdata       = 104  ! Hamiltonian in wannier basis
   INTEGER :: iuepb           = 105  ! Electron-phonon matrix in Bloch 
                                     ! representation [.epb]
-  INTEGER :: iurecover       = 107  ! Dvanqq2 recovery file
   INTEGER :: iufilfreq       = 108  ! Phonon frequency from a previous epw run
                                     ! [.freq]
   INTEGER :: iufilegnv       = 109  ! Eigenvalues from a previous epw run [.egnv]

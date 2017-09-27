@@ -25,7 +25,7 @@
   USE noncollin_module, ONLY : noncolin, npol
   USE wavefunctions_module,  ONLY: evc
   USE spin_orb,     ONLY : lspinorb
-  USE control_lr,   ONLY : lgamma, nbnd_occ
+  USE control_lr,   ONLY : nbnd_occ
   USE phcom,        ONLY : evq, dpsi, vlocq,&
                            dmuxc, npertx 
   USE phus,         ONLY : int1, int1_nc, int2, int2_so, &
@@ -41,7 +41,7 @@
 ! SP creation of ffts
   USE units_ph,     ONLY : this_dvkb3_is_on_file, this_pcxpsi_is_on_file
   USE modes,        ONLY : u, npert, name_rap_mode, num_rap_mode
-  USE fft_base,     ONLY : dtgs
+  USE fft_base,     ONLY : dffts
   USE klist,        ONLY : nks
 
   implicit none
@@ -54,26 +54,21 @@
   !
   !  allocate space for the quantities needed in EPW
   !
-  IF (lgamma) THEN
-     !
-     !  q=0  : evq is a pointers to evc
-     !
-     evq  => evc
-  ELSE
-     !
-     !  q!=0 : evq is ALLOCATEd and calculated at point k+q
-     !
-     ALLOCATE (evq ( npwx*npol, nbnd))    
-  ENDIF
-  !
-  ALLOCATE ( dpsi ( npwx*npol, nbnd))    
+  ALLOCATE (evq ( npwx*npol, nbnd))    
+  ALLOCATE (dpsi ( npwx*npol, nbnd))    
   ALLOCATE (vlocq ( ngm, ntyp))    
 ! SP: nrxx is not used in QE 5 ==> tg_nnr is the maximum among nnr
 !     This SHOULD have the same dim as nrxx had.
 !  ALLOCATE (dmuxc ( nrxx, nspin, nspin))  
 ! SP: Again a new change in QE (03/08/2016)  
 !  ALLOCATE (dmuxc ( dffts%tg_nnr, nspin, nspin))    
-  ALLOCATE (dmuxc ( dtgs%tg_nnr, nspin, nspin))    
+! SP: Following new FFT restructuration from Aug. 2017 (SdG)
+!     nnr = local number of FFT grid elements  ( ~nr1*nr2*nr3/nproc )
+!     nnr_tg = local number of grid elements for task group FFT ( ~nr1*nr2*nr3/proc3 )  
+!           --> tg = task group    
+!  ALLOCATE (dmuxc ( dtgs%tg_nnr, nspin, nspin))    
+  ALLOCATE (dmuxc ( dffts%nnr, nspin, nspin))    
+
   !
   ALLOCATE (eigqts ( nat))    
   ALLOCATE (rtau ( 3, 48, nat))    

@@ -62,7 +62,7 @@
 !-----------------------------------------------------------------------
 !
 !-----------------------------------------------------------------------
-      subroutine kedtauofr_meta (c, psi, nlsi, psis, nlsis )
+      subroutine kedtauofr_meta (c)
 !-----------------------------------------------------------------------
 !
       use kinds, only: dp
@@ -70,7 +70,6 @@
       use gvecs
       use gvecw, only: ngw
       use gvect, only: g
-      use gvect, only: nl, nlm
       use cell_base, only : omega, tpiba, ainv
       use electrons_base, only: nx => nbspx, n => nbsp, f, ispin, nspin
       use constants, only: pi, fpi
@@ -80,12 +79,12 @@
                           dkedtaus
       USE fft_interfaces, ONLY: fwfft, invfft
       USE fft_base,       ONLY: dffts, dfftp
+      USE fft_rho
       
       implicit none
 
-      integer, intent(in) :: nlsi, nlsis
       complex(dp) :: c(ngw,nx)
-      complex(dp) :: psi( nlsi ), psis( nlsis )
+      complex(dp), allocatable :: psis( : )
 
 ! local variables
       integer iss, isup, isdw, iss1, iss2, ios, i, ir, ig
@@ -93,7 +92,7 @@
       real(dp) sa1, sa2
       complex(dp) ci,fp,fm
 !
-      psi( : ) = (0.d0,0.d0)
+      ALLOCATE( psis( dffts%nnr ) )
 !
       ci=(0.0d0,1.0d0)
       kedtaur(:,:)=0.d0
@@ -175,67 +174,23 @@
          end if  !end metagga
          !
       end do
+
+      DEALLOCATE( psis )
+
 !     kinetic energy density (kedtau) in g-space (kedtaug)
-      if(nspin.eq.1)then
-         iss=1
 
-         psis(1:dffts%nnr)=CMPLX(kedtaus(1:dffts%nnr,iss),0.d0,kind=DP)
-         call fwfft('Smooth',psis, dffts )
-         kedtaug(1:ngms,iss)=psis(nls(1:ngms))
-
-      else
-         isup=1
-         isdw=2
-
-         psis(1:dffts%nnr)=CMPLX(kedtaus(1:dffts%nnr,isup),kedtaus(1:dffts%nnr,isdw),kind=DP)
-         call fwfft('Smooth',psis, dffts )
-         do ig=1,ngms
-            fp= psis(nls(ig)) + psis(nlsm(ig))
-            fm= psis(nls(ig)) - psis(nlsm(ig))
-            kedtaug(ig,isup)=0.5d0*CMPLX( DBLE(fp),AIMAG(fm),kind=DP)
-            kedtaug(ig,isdw)=0.5d0*CMPLX(AIMAG(fp),-DBLE(fm),kind=DP)
-         end do
-
-      endif
+      CALL smooth_rho_r2g( kedtaus, kedtaug )
 !
-      if(nspin.eq.1) then
-!     ==================================================================
-!     case nspin=1
-!     ------------------------------------------------------------------
-         iss=1
+      kedtaug(ngms+1:,:) = 0.0d0
 
-         psi( : ) = (0.d0,0.d0)
-         psi(nlm(1:ngms))=CONJG(kedtaug(1:ngms,iss))
-         psi(nl(1:ngms)) =      kedtaug(1:ngms,iss)
-         call invfft('Dense',psi, dfftp )
-         kedtaur(1:dfftp%nnr,iss)=DBLE(psi(1:dfftp%nnr))
-
-      else 
-!     ==================================================================
-!     case nspin=2
-!     ------------------------------------------------------------------
-         isup=1
-         isdw=2
-
-         psi( : ) = (0.d0,0.d0)
-
-         do ig=1,ngms
-            psi(nlm(ig))=CONJG(kedtaug(ig,isup))+ci*conjg(kedtaug(ig,isdw))
-            psi(nl(ig)) =kedtaug(ig,isup)+ci*kedtaug(ig,isdw)
-         end do
-         call invfft('Dense',psi, dfftp )
-         kedtaur(1:dfftp%nnr,isup)= DBLE(psi(1:dfftp%nnr))
-         kedtaur(1:dfftp%nnr,isdw)=AIMAG(psi(1:dfftp%nnr))
-
-      endif
-
+      CALL rho_g2r( kedtaug, kedtaur )
 !
       return
     end subroutine kedtauofr_meta
 !
 !
 !-----------------------------------------------------------------------
-      subroutine vofrho_meta (v, vs)
+      subroutine vofrho_meta ( )
 !-----------------------------------------------------------------------
 !     computes: the one-particle potential v in real space,
 !               the total energy etot,
@@ -252,8 +207,6 @@
       use control_flags, only: thdyn, tpre, tfor, tprnfor
       use io_global, only: stdout
       use ions_base, only: nsp, na, nat
-      use gvecs
-      use gvect, only: ngm, nl, nlm
       use cell_base, only: omega
       use electrons_base, only: nspin
       use constants, only: pi, fpi
@@ -262,23 +215,20 @@
       use core
       use smallbox_gvec
       use dener
-!      use derho
       use mp,      ONLY : mp_sum
       use mp_global, ONLY : intra_bgrp_comm
       use metagga, ONLY : kedtaur, kedtaug, kedtaus, dkedtaus
       USE fft_interfaces, ONLY: fwfft, invfft
       USE fft_base,       ONLY: dffts, dfftp
+      USE fft_rho
 !
       implicit none
 !
       integer iss, isup, isdw, ig, ir,i,j,k,is, ia
       real(dp) dkedxc(3,3) !metagga
       complex(dp)  fp, fm, ci
-      complex(dp)  v(dfftp%nnr), vs(dffts%nnr)
 !
       ci=(0.d0,1.d0)
-
-      v(:)=(0.d0,0.d0)
 !
 !     ===================================================================
 !      calculation exchange and correlation energy and potential
@@ -297,53 +247,10 @@
 !     fourier transform of xc potential to g-space (dense grid)
 !     -------------------------------------------------------------------
 !
-      if(nspin.eq.1) then
-         iss=1
-         do ir=1,dfftp%nnr
-            v(ir)=CMPLX(kedtaur(ir,iss),0.0d0,kind=DP)
-         end do
-         call fwfft('Dense',v, dfftp )
-         !
-         do ig=1,ngm
-            kedtaug(ig,iss)=v(nl(ig))
-         end do
-      else
-         isup=1
-         isdw=2
+      CALL rho_r2g( kedtaur, kedtaug )
+!
+      CALL smooth_rho_g2r ( kedtaug, kedtaus )
 
-         v(1:dfftp%nnr)=CMPLX(kedtaur(1:dfftp%nnr,isup),kedtaur(1:dfftp%nnr,isdw),kind=DP)
-         call fwfft('Dense',v, dfftp )
-         do ig=1,ngm
-            fp=v(nl(ig))+v(nlm(ig))
-            fm=v(nl(ig))-v(nlm(ig))
-            kedtaug(ig,isup)=0.5d0*CMPLX( DBLE(fp),AIMAG(fm),kind=DP)
-            kedtaug(ig,isdw)=0.5d0*CMPLX(AIMAG(fp),-DBLE(fm),kind=DP)
-         end do
-
-      endif
-!
-      vs(:) = (0.d0,0.d0)
-      if(nspin.eq.1)then
-         iss=1
-         do ig=1,ngms
-            vs(nlsm(ig))=CONJG(kedtaug(ig,iss))
-            vs(nls(ig))=kedtaug(ig,iss)
-         end do
-!
-         call invfft('Smooth',vs, dffts )
-!
-         kedtaus(1:dffts%nnr,iss)=DBLE(vs(1:dffts%nnr))
-      else
-         isup=1
-         isdw=2
-         do ig=1,ngms
-            vs(nls(ig))=kedtaug(ig,isup)+ci*kedtaug(ig,isdw)
-            vs(nlsm(ig))=CONJG(kedtaug(ig,isup)) +ci*conjg(kedtaug(ig,isdw))
-         end do
-         call invfft('Smooth',vs, dffts )
-         kedtaus(1:dffts%nnr,isup)= DBLE(vs(1:dffts%nnr))
-         kedtaus(1:dffts%nnr,isdw)=AIMAG(vs(1:dffts%nnr))
-      endif
       !calculate dkedxc in real space on smooth grids  !metagga
       if(tpre) then
          do iss=1,nspin

@@ -41,6 +41,7 @@ default :
 #	@echo '  SaX          Standard GW-BSE with plane waves'
 	@echo '  yambo        electronic excitations with plane waves'
 	@echo '  yambo-devel  yambo devel version'
+	@echo '  SternheimerGW calculate GW using Sternheimer equations'
 	@echo '  plumed       Metadynamics plugin for pw or cp'
 	@echo '  d3q          general third-order code and thermal transport codes'
 	@echo ' '
@@ -64,39 +65,39 @@ default :
 # If "|| exit 1" is not present, the error code from make in subdirectories
 # is not returned and make goes on even if compilation has failed
 
-pw : bindir libfft libla mods liblapack libs libiotk 
+pw : bindir libfft libdavid libcg libla libutil mods liblapack libs libiotk 
 	if test -d PW ; then \
 	( cd PW ; $(MAKE) TLDEPS= all || exit 1) ; fi
 
-pw-lib : bindir libfft libla mods liblapack libs libiotk
+pw-lib : bindir libdavid libcg libfft libla libutil mods liblapack libs libiotk
 	if test -d PW ; then \
 	( cd PW ; $(MAKE) TLDEPS= pw-lib || exit 1) ; fi
 
-cp : bindir libfft libla mods liblapack libs libiotk
+cp : bindir libfft libla libutil mods liblapack libs libiotk libfox
 	if test -d CPV ; then \
 	( cd CPV ; $(MAKE) TLDEPS= all || exit 1) ; fi
 
-ph : bindir libfft libla mods libs pw lrmods
+ph : bindir libfft libla libutil mods libs pw lrmods
 	if test -d PHonon; then \
 	(cd PHonon; $(MAKE) all || exit 1) ; fi
 
-neb : bindir libfft libla mods libs pw
+neb : bindir libfft libla libutil mods libs pw
 	if test -d NEB; then \
   (cd NEB; $(MAKE) all || exit 1) ; fi
 
-tddfpt : bindir libfft libla mods libs pw
+tddfpt : bindir libfft libla libutil mods libs pw
 	if test -d TDDFPT; then \
 	(cd TDDFPT; $(MAKE) all || exit 1) ; fi
 
-pp : bindir libfft libla mods libs pw
+pp : bindir libfft libla libutil mods libs pw
 	if test -d PP ; then \
 	( cd PP ; $(MAKE) TLDEPS= all || exit 1 ) ; fi
 
-pwcond : bindir libfft libla mods libs pw pp
+pwcond : bindir libfft libla libutil mods libs pw pp
 	if test -d PWCOND ; then \
 	( cd PWCOND ; $(MAKE) TLDEPS= all || exit 1 ) ; fi
 
-acfdt : bindir libfft libla mods libs pw ph
+acfdt : bindir libfft libla libutil mods libs pw ph
 	if test -d ACFDT ; then \
 	( cd ACFDT ; $(MAKE) TLDEPS= all || exit 1 ) ; fi
 
@@ -114,11 +115,11 @@ gipaw : pw
 d3q : pw ph
 	( cd install ; $(MAKE) -f plugins_makefile $@ || exit 1 )
 
-ld1 : bindir liblapack libfft libla mods libs
+ld1 : bindir liblapack libfft libla libutil mods libs
 	if test -d atomic ; then \
 	( cd atomic ; $(MAKE) TLDEPS= all || exit 1 ) ; fi
 
-upf : libfft libla mods libs liblapack
+upf : libfft libla libutil mods libs liblapack
 	if test -d upftools ; then \
 	( cd upftools ; $(MAKE) TLDEPS= all || exit 1 ) ; fi
 
@@ -144,7 +145,6 @@ travis : pwall epw
 	if test -d test-suite ; then \
 	( cd test-suite ; make run-travis || exit 1 ) ; fi
 
-
 gui :
 	@echo 'Check "GUI/README" how to access the Graphical User Interface'
 #@echo 'Check "PWgui-X.Y/README" how to access the Graphical User Interface'
@@ -161,19 +161,31 @@ all   : pwall cp ld1 upf tddfpt xspectra gwl
 # compile modules, libraries, directory for binaries, etc
 ###########################################################
 
-libla : touch-dummy liblapack
+libdavid_rci : touch-dummy libla clib libutil
+	( cd KS_Solvers/Davidson_RCI ; $(MAKE) TLDEPS= all || exit 1 )
+
+libdavid : touch-dummy libla clib libutil
+	( cd KS_Solvers/Davidson ; $(MAKE) TLDEPS= all || exit 1 )
+
+libcg : touch-dummy libla clib libutil
+	( cd KS_Solvers/CG ; $(MAKE) TLDEPS= all || exit 1 )
+
+libla : touch-dummy liblapack libutil
 	( cd LAXlib ; $(MAKE) TLDEPS= all || exit 1 )
 
 libfft : touch-dummy
 	( cd FFTXlib ; $(MAKE) TLDEPS= all || exit 1 )
 
-mods : libiotk libla libfft
+libutil : touch-dummy 
+	( cd UtilXlib ; $(MAKE) TLDEPS= all || exit 1 )
+
+mods : libiotk libfox libla libfft libutil
 	( cd Modules ; $(MAKE) TLDEPS= all || exit 1 )
 
 libs : mods
 	( cd clib ; $(MAKE) TLDEPS= all || exit 1 )
 
-lrmods : libs libla libfft 
+lrmods : libs libla libfft  libutil
 	( cd LR_Modules ; $(MAKE) TLDEPS= all || exit 1 )
 
 bindir :
@@ -191,10 +203,11 @@ liblapack: touch-dummy
 
 libiotk: touch-dummy
 	cd install ; $(MAKE) -f extlibs_makefile $@
+libfox: touch-dummy
+	cd install ; $(MAKE) -f extlibs_makefile $@
 
 # In case of trouble with iotk and compilers, add
 # FFLAGS="$(FFLAGS_NOOPT)" after $(MFLAGS)
-
 
 #########################################################
 # plugins
@@ -219,6 +232,9 @@ plumed: touch-dummy
 	( cd install ; $(MAKE) -f plugins_makefile $@ || exit 1 )
 
 west: pw touch-dummy
+	( cd install ; $(MAKE) -f plugins_makefile $@ || exit 1 )
+
+SternheimerGW: pw lrmods touch-dummy
 	( cd install ; $(MAKE) -f plugins_makefile $@ || exit 1 )
 
 touch-dummy :
@@ -274,7 +290,8 @@ test-suite: pw cp touch-dummy
 clean : 
 	touch make.inc 
 	for dir in \
-		CPV LAXlib FFTXlib Modules PP PW EPW \
+		CPV LAXlib FFTXlib UtilXlib Modules PP PW EPW \
+                KS_Solvers/CG KS_Solvers/Davidson KS_Solvers/Davidson_RCI \
 		NEB ACFDT COUPLE GWW XSpectra PWCOND \
 		atomic clib LR_Modules pwtools upftools \
 		dev-tools extlibs Environ TDDFPT PHonon GWW \
@@ -286,7 +303,7 @@ clean :
 	done
 	- @(cd install ; $(MAKE) -f plugins_makefile clean)
 	- @(cd install ; $(MAKE) -f extlibs_makefile clean)
-	- /bin/rm -rf bin/*.x tmp
+	- /bin/rm -rf bin/*.x tempdir
 
 # remove files produced by "configure" as well
 veryclean : clean
@@ -300,9 +317,9 @@ veryclean : clean
 	- cd pseudo; ./clean_ps ; cd -
 	- cd install; ./clean.sh ; cd -
 	- cd include; ./clean.sh ; cd -
-	- rm -f espresso.tar.gz
-	- rm -rf make.inc
-
+	- rm -f espresso.tar.gz -
+	- rm -rf make.inc -
+	- rm -rf FoX
 # remove everything not in the original distribution
 distclean : veryclean
 	( cd install ; $(MAKE) -f plugins_makefile $@ || exit 1 )

@@ -40,10 +40,12 @@
   IF ( laniso ) THEN 
      !
      IF ( temp .lt. 10.d0 ) THEN
-        WRITE(name1,'(a,a1,a4,a8,f4.2)') TRIM(prefix), '.', cname, '_aniso_0', temp
-     ELSEIF ( temp .ge. 10.d0 ) THEN
-        WRITE(name1,'(a,a1,a4,a7,f5.2)') TRIM(prefix), '.', cname, '_aniso_', temp
-     ENDIF
+        WRITE(name1,'(a,a1,a4,a9,f4.2)') TRIM(prefix), '.', cname, '_aniso_00', temp
+     ELSEIF ( temp .ge. 10.d0 .AND. temp .lt. 100.d0 ) THEN
+        WRITE(name1,'(a,a1,a4,a8,f5.2)') TRIM(prefix), '.', cname, '_aniso_0', temp
+     ELSEIF ( temp .ge. 100.d0 ) THEN
+        WRITE(name1,'(a,a1,a4,a7,f6.2)') TRIM(prefix), '.', cname, '_aniso_',temp
+     ENDIF     
      OPEN(iufilgap, file=name1, form='formatted')
      WRITE(iufilgap,'(5a20)') '#        w [eV]', 'Enk-Ef [eV]', 'Znorm(w) [eV]', 'Delta(w) [eV]', 'NZnorm(w) [eV]'
      DO iw = 1, nsiw(itemp) ! loop over omega
@@ -69,9 +71,11 @@
   ! SP: Only write isotropic for laniso if user really wants that
   IF ( ( laniso .AND. iverbosity .eq. 2 ) .OR. liso ) THEN
      IF ( temp .lt. 10.d0 ) THEN
-        WRITE(name1,'(a,a1,a4,a6,f4.2)') TRIM(prefix), '.', cname, '_iso_0', temp
-     ELSEIF ( temp .ge. 10.d0 ) THEN
-        WRITE(name1,'(a,a1,a4,a5,f5.2)') TRIM(prefix), '.', cname, '_iso_', temp
+        WRITE(name1,'(a,a1,a4,a7,f4.2)') TRIM(prefix), '.', cname, '_iso_00', temp
+     ELSEIF ( temp .ge. 10.d0 .AND. temp .lt. 100.d0  ) THEN
+        WRITE(name1,'(a,a1,a4,a6,f5.2)') TRIM(prefix), '.', cname, '_iso_0', temp
+     ELSEIF ( temp .ge. 100.d0 ) THEN
+        WRITE(name1,'(a,a1,a4,a5,f6.2)') TRIM(prefix), '.', cname, '_iso_', temp
      ENDIF
      OPEN(iufilgap, file=name1, form='formatted')
      WRITE(iufilgap,'(4a24)') 'w', 'Znorm(w)', 'Delta(w)', 'NZnorm(w)'
@@ -115,9 +119,11 @@
   IF ( laniso ) THEN 
      IF ( iverbosity .eq. 2 ) THEN
         IF ( temp .lt. 10.d0 ) THEN
-           WRITE(name1,'(a,a1,a4,a8,f4.2)') TRIM(prefix), '.', cname, '_aniso_0', temp
-        ELSEIF ( temp .ge. 10.d0 ) THEN
-           WRITE(name1,'(a,a1,a4,a7,f5.2)') TRIM(prefix), '.', cname, '_aniso_', temp
+           WRITE(name1,'(a,a1,a4,a9,f4.2)') TRIM(prefix), '.', cname, '_aniso_00', temp
+        ELSEIF ( temp .ge. 10.d0 .AND. temp .lt. 100.d0  ) THEN
+           WRITE(name1,'(a,a1,a4,a8,f5.2)') TRIM(prefix), '.', cname, '_aniso_0', temp
+        ELSEIF ( temp .ge. 100.d0 ) THEN
+           WRITE(name1,'(a,a1,a4,a7,f6.2)') TRIM(prefix), '.', cname, '_aniso_', temp
         ENDIF
         OPEN(iufilgap, file=name1, form='formatted')
         WRITE(iufilgap,'(6a24)') 'w', 'Enk-Ef', 'Re[Znorm(w)]', 'Im[Znorm(w)]', 'Re[Delta(w)]', 'Im[Delta(w)]'
@@ -158,9 +164,11 @@
   ! SP: Only write isotropic for laniso if user really wants that
   IF ( ( laniso .AND. iverbosity .eq. 2 ) .OR. liso ) THEN
      IF ( temp .lt. 10.d0 ) THEN
-        WRITE(name1,'(a,a1,a4,a6,f4.2)') TRIM(prefix), '.', cname, '_iso_0', temp
-     ELSEIF ( temp .ge. 10.d0 ) THEN
-        WRITE(name1,'(a,a1,a4,a5,f5.2)') TRIM(prefix), '.', cname, '_iso_', temp
+        WRITE(name1,'(a,a1,a4,a7,f4.2)') TRIM(prefix), '.', cname, '_iso_00', temp
+     ELSEIF ( temp .ge. 10.d0 .AND. temp .lt. 100.d0  ) THEN
+        WRITE(name1,'(a,a1,a4,a6,f5.2)') TRIM(prefix), '.', cname, '_iso_0', temp
+     ELSEIF ( temp .ge. 100.d0 ) THEN
+        WRITE(name1,'(a,a1,a4,a5,f6.2)') TRIM(prefix), '.', cname, '_iso_', temp
      ENDIF
      OPEN(iufilgap, file=name1, form='formatted')
      WRITE(iufilgap,'(5a18)') 'w', 'Re[Znorm(w)]', 'Im[Znorm(w)]', 'Re[Delta(w)]', 'Im[Delta(w)]'
@@ -228,9 +236,11 @@
   ENDDO
   !
   IF ( temp .lt. 10.d0 ) THEN
-     WRITE(name1,'(a,a1,a4,a13,f4.2)') TRIM(prefix), '.', cname, '_aniso_gap0_0', temp
-  ELSEIF ( temp .ge. 10.d0 ) THEN
-     WRITE(name1,'(a,a1,a4,a12,f5.2)') TRIM(prefix), '.', cname, '_aniso_gap0_', temp
+     WRITE(name1,'(a,a1,a4,a14,f4.2)') TRIM(prefix), '.', cname, '_aniso_gap0_00', temp
+  ELSEIF ( temp .ge. 10.d0 .AND. temp .lt. 100.d0  ) THEN
+     WRITE(name1,'(a,a1,a4,a13,f5.2)') TRIM(prefix), '.', cname, '_aniso_gap0_0', temp
+  ELSEIF ( temp .ge. 100.d0 ) THEN
+     WRITE(name1,'(a,a1,a4,a12,f6.2)') TRIM(prefix), '.', cname, '_aniso_gap0_', temp
   ENDIF
   !
   OPEN(iufilgap, file=name1, form='formatted')
@@ -281,34 +291,61 @@
   ! SP & RM: .cube file for VESTA plotting (only if iverbosity = 2)
   !
   IF ( iverbosity .eq. 2 ) THEN
-     !
-     DO ibnd = 1, nbndfs
-        IF ( temp .lt. 10.d0 ) THEN
-           WRITE(name1,'(a,a1,a4,a13,f4.2,a1,i1,a5)')TRIM(prefix), '.', cname, '_aniso_gap0_0', temp, '_', ibnd, '.cube'
-        ELSEIF ( temp .ge. 10.d0 ) THEN
-           WRITE(name1,'(a,a1,a4,a12,f5.2,a1,i1,a5)')TRIM(prefix), '.', cname, '_aniso_gap0_', temp, '_', ibnd, '.cube'
+    !
+    DO ibnd = 1, nbndfs
+      !
+      IF ( ibnd < 10 ) THEN
+        ! We make the assumption that there are no superconductor with Tc higher than 999 K.  
+        IF ( temp < 10.d0 ) THEN
+           WRITE(name1,'(a,a1,a4,a14,f4.2,a1,i1,a5)')TRIM(prefix), '.', cname, '_aniso_gap0_00', temp, '_', ibnd, '.cube'
+        ELSEIF ( temp < 100.d0 ) THEN
+           WRITE(name1,'(a,a1,a4,a13,f5.2,a1,i1,a5)')TRIM(prefix), '.', cname, '_aniso_gap0_0', temp, '_', ibnd, '.cube'
+        ELSEIF ( temp < 1000.d0 ) THEN
+           WRITE(name1,'(a,a1,a4,a12,f6.2,a1,i1,a5)')TRIM(prefix), '.', cname, '_aniso_gap0_', temp, '_', ibnd, '.cube'
         ENDIF
-        OPEN(iufilgapFS, file=name1, form='formatted')
-        WRITE(iufilgapFS,*) 'Cubfile created from EPW calculation'
-        WRITE(iufilgapFS,*) 'gap'
-        WRITE(iufilgapFS,'(i5,3f12.6)') 1, 0.0d0, 0.0d0, 0.0d0
-        WRITE(iufilgapFS,'(i5,3f12.6)') nkf1, (bg(i,1)/dble(nkf1),i=1,3)
-        WRITE(iufilgapFS,'(i5,3f12.6)') nkf2, (bg(i,2)/dble(nkf2),i=1,3)
-        WRITE(iufilgapFS,'(i5,3f12.6)') nkf3, (bg(i,3)/dble(nkf3),i=1,3)
-        WRITE(iufilgapFS,'(i5,4f12.6)') 1, 1.0d0, 0.0d0, 0.0d0, 0.0d0
-        WRITE(iufilgapFS,'(6f12.6)') ( Agap_tmp(ibnd,ixkff(ik)),ik=1,nkf1*nkf2*nkf3 )
-        CLOSE(iufilgapFS)
-     ENDDO
-     !
+      ELSEIF ( ibnd < 100 ) THEN
+        IF ( temp < 10.d0 ) THEN
+           WRITE(name1,'(a,a1,a4,a14,f4.2,a1,i2,a5)')TRIM(prefix), '.', cname, '_aniso_gap0_00', temp, '_', ibnd, '.cube'
+        ELSEIF ( temp < 100.d0 .and. temp > 9.9999d0 ) THEN
+           WRITE(name1,'(a,a1,a4,a13,f5.2,a1,i2,a5)')TRIM(prefix), '.', cname, '_aniso_gap0_0', temp, '_', ibnd, '.cube'
+        ELSEIF ( temp < 1000.d0 .and. temp > 99.9999d0 ) THEN
+           WRITE(name1,'(a,a1,a4,a12,f6.2,a1,i2,a5)')TRIM(prefix), '.', cname, '_aniso_gap0_', temp, '_', ibnd, '.cube'
+        ENDIF
+      ELSEIF ( ibnd < 1000 ) THEN
+        IF ( temp < 10.d0 ) THEN
+           WRITE(name1,'(a,a1,a4,a14,f4.2,a1,i3,a5)')TRIM(prefix), '.', cname, '_aniso_gap0_00', temp, '_', ibnd, '.cube'
+        ELSEIF ( temp < 100.d0 .and. temp > 9.9999d0  ) THEN
+           WRITE(name1,'(a,a1,a4,a13,f5.2,a1,i3,a5)')TRIM(prefix), '.', cname, '_aniso_gap0_0', temp, '_', ibnd, '.cube'
+        ELSEIF ( temp < 1000.d0 .and. temp > 99.9999d0 ) THEN
+           WRITE(name1,'(a,a1,a4,a12,f6.2,a1,i3,a5)')TRIM(prefix), '.', cname, '_aniso_gap0_', temp, '_', ibnd, '.cube'
+        ENDIF
+      ELSE
+        CALL errore( 'eliashberg_write', ' Too many bands ',1)
+      ENDIF
+      !
+      OPEN(iufilgapFS, file=name1, form='formatted')
+      WRITE(iufilgapFS,*) 'Cubfile created from EPW calculation'
+      WRITE(iufilgapFS,*) 'gap'
+      WRITE(iufilgapFS,'(i5,3f12.6)') 1, 0.0d0, 0.0d0, 0.0d0
+      WRITE(iufilgapFS,'(i5,3f12.6)') nkf1, (bg(i,1)/dble(nkf1),i=1,3)
+      WRITE(iufilgapFS,'(i5,3f12.6)') nkf2, (bg(i,2)/dble(nkf2),i=1,3)
+      WRITE(iufilgapFS,'(i5,3f12.6)') nkf3, (bg(i,3)/dble(nkf3),i=1,3)
+      WRITE(iufilgapFS,'(i5,4f12.6)') 1, 1.0d0, 0.0d0, 0.0d0, 0.0d0
+      WRITE(iufilgapFS,'(6f12.6)') ( Agap_tmp(ibnd,ixkff(ik)),ik=1,nkf1*nkf2*nkf3 )
+      CLOSE(iufilgapFS)
+    ENDDO
+    !
   ENDIF
   !
   ! SP & RM : Write on file the superconducting gap close to the Fermi surface along with
   !     Cartesian coordinate, band index, energy distance from Fermi level and gap value.
   !
   IF ( temp .lt. 10.d0 ) THEN
-     WRITE(name1,'(a,a1,a4,a15,f4.2)') TRIM(prefix), '.', cname, '_aniso_gap_FS_0', temp
-  ELSEIF ( temp .ge. 10.d0 ) THEN
-     WRITE(name1,'(a,a1,a4,a14,f5.2)') TRIM(prefix), '.', cname, '_aniso_gap_FS_', temp
+     WRITE(name1,'(a,a1,a4,a16,f4.2)') TRIM(prefix), '.', cname, '_aniso_gap_FS_00', temp
+  ELSEIF ( temp .ge. 10.d0 .AND. temp .lt. 100.d0) THEN
+     WRITE(name1,'(a,a1,a4,a15,f5.2)') TRIM(prefix), '.', cname, '_aniso_gap_FS_0', temp
+  ELSEIF ( temp .ge. 100.d0 ) THEN
+     WRITE(name1,'(a,a1,a4,a14,f6.2)') TRIM(prefix), '.', cname, '_aniso_gap_FS_', temp
   ENDIF
   OPEN(iufilgapFS, file=name1, form='formatted')
   WRITE(iufilgapFS,'(a78)') '#               k-point                  Band Enk-Ef [eV]        Delta(0) [eV]'

@@ -45,11 +45,10 @@
   USE start_k,       ONLY : nk1, nk2, nk3
   USE phcom,         ONLY : dpsi, dvpsi, evq, nq1, nq3, nq2 
   USE qpoint,        ONLY : igkq
-  USE control_lr,    ONLY : lgamma 
   USE qpoint,        ONLY : xq
   USE modes,         ONLY : nmodes
   USE lr_symm_base,  ONLY : minus_q, rtau, gi, gimq, irotmq, nsymq, invsymq
-  USE epwcom,        ONLY : epbread, epbwrite, epwread, lifc,  &
+  USE epwcom,        ONLY : epbread, epbwrite, epwread, lifc, etf_mem,  &
                             nbndsub, iswitch, kmaps, eig_read, dvscf_dir, lpolar
   USE elph2,         ONLY : epmatq, dynq, sumr, et_all, xk_all, et_mb, et_ks, &
                             zstar, epsi, cu, cuq, lwin, lwinq, bmat, igk_k_all, &
@@ -152,8 +151,6 @@
   ! 
   real(kind=DP), allocatable :: xqc_irr(:,:)
   !! The qpoints in the irr wedge
-  real(kind=DP), allocatable :: wqlist_irr(:)
-  !! The corresponding weigths
   real(kind=DP), allocatable :: xqc(:,:)
   !! The qpoints in the uniform mesh
   real(kind=DP), allocatable :: wqlist(:)
@@ -188,18 +185,16 @@
   !
   CALL start_clock ( 'elphon_wrap' )
   !
-  IF (lgamma) CALL errore('elphon_shuffle_wrap','EPW does not support Gamma only calculation ',1)
-  !
   ! READ qpoint list from stdin
   !
   IF (meta_ionode) READ(5,*) nqc_irr
   CALL mp_bcast (nqc_irr, meta_ionode_id, world_comm)
-  allocate ( xqc_irr(3,nqc_irr), wqlist_irr(nqc_irr) )
+  allocate ( xqc_irr(3,nqc_irr)  )
   allocate ( xqc(3,nq1*nq2*nq3), wqlist(nq1*nq2*nq3) )
   !  
   IF (meta_ionode) then
     DO iq = 1, nqc_irr
-      READ (5,*) xqc_irr (:,iq), wqlist_irr (iq)
+      READ (5,*) xqc_irr (:,iq)
     ENDDO
   ENDIF
   CALL mp_bcast (xqc_irr, meta_ionode_id, world_comm)
@@ -766,7 +761,17 @@
   !
   ! the electron-phonon wannier interpolation
   !
-  CALL ephwann_shuffle ( nqc, xqc )
+  IF(etf_mem == 0 .OR. etf_mem == 1 ) CALL ephwann_shuffle ( nqc, xqc )
+  IF(etf_mem == 2 ) THEN
+#if defined(__MPI)         
+    CALL ephwann_shuffle_mem ( nqc, xqc )
+#else
+    WRITE(stdout,'(/5x,a)') 'WARNING: etf_mem==2 only works with MPI'
+    WRITE(stdout,'(5x,a)')  '         Changing to etf_mem ==1 and continue ...'
+    etf_mem = 1
+    CALL ephwann_shuffle ( nqc, xqc )
+#endif
+  ENDIF        
   !
 5 format (8x,"q(",i5," ) = (",3f12.7," )") 
   !

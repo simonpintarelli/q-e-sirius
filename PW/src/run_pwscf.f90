@@ -151,7 +151,7 @@ SUBROUTINE run_pwscf ( exit_status )
      !
      ! ... ionic section starts here
      !
-     CALL start_clock( 'ions' )
+     CALL start_clock( 'ions' ); !write(*,*)' start ions' ; FLUSH(6)
      conv_ions = .TRUE.
      !
      ! ... recover from a previous run, if appropriate
@@ -214,7 +214,7 @@ SUBROUTINE run_pwscf ( exit_status )
      END IF
      call sirius_stop_timer(c_str("qe|run_pwscf|ions"))
      !
-     CALL stop_clock( 'ions' )
+     CALL stop_clock( 'ions' ); !write(*,*)' stop ions' ; FLUSH(6)
      !
      CALL qmmm_update_forces( force, rho%of_r, nspin, dfftp)
      !

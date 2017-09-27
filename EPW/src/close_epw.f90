@@ -14,16 +14,19 @@
   SUBROUTINE close_epw
   !------------------------------------------------------------------
   !
-  USE phcom,     ONLY : iuwfc, iudwf, iudrhous, iudvkb3, fildrho, iudrho
-  USE uspp,      ONLY : okvan      
+  USE phcom,     ONLY : iuwfc, iudwf, fildrho, iudrho
   USE mp_global, ONLY : me_pool,root_pool
+  USE io_epw,    ONLY : iunepmatwe
+  USE epwcom,    ONLY : etf_mem
   !
   implicit none
   !
+  IF (etf_mem == 1 .OR. etf_mem == 2) THEN
+    CLOSE (unit = iunepmatwe, status = 'delete')
+  ENDIF
+  !
   CLOSE (unit = iuwfc, status = 'keep')
   CLOSE (unit = iudwf, status = 'keep')
-  IF(okvan) CLOSE(unit = iudrhous, status = 'delete')
-  IF(okvan) CLOSE (unit = iudvkb3, status = 'delete')
   IF (me_pool == root_pool ) THEN
     IF (fildrho.ne.' ') CLOSE (unit = iudrho, status = 'keep')
   ENDIF

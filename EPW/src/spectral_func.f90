@@ -107,10 +107,8 @@
   !! Current frequency
   REAL(kind=DP) :: dw 
   !! Frequency intervals
-  REAL(kind=DP) :: dosef
-  !! Density of state N(Ef)
   REAL(kind=DP), PARAMETER :: eps2 = 0.01/ryd2mev
-  !! Tolerenc  
+  !! Tolerence 
   real(kind=DP) :: specfun_sum, esigmar0
   real(kind=DP) :: fermi(nw_specfun)
   real(kind=DP), external :: efermig, dos_ef, wgauss
@@ -156,13 +154,8 @@
      !
   ENDIF
   !
-  dosef = dos_ef (ngaussw, degaussw, ef0, etf, wkf, nkqf, nbndsub)
-  !   N(Ef) in the equation for lambda is the DOS per spin
-  dosef = dosef / two
-  !
   IF ( iq .eq. 1 ) THEN 
      WRITE (stdout, 100) degaussw * ryd2ev, ngaussw
-     WRITE (stdout, 101) dosef / ryd2ev, ef0 * ryd2ev
      WRITE (stdout,'(a)') ' '
   ENDIF
   !
@@ -368,7 +361,7 @@
         !
         ww = wmin_specfun + dble (iw-1) * dw
         fermi(iw) = wgauss(-ww/eptemp, -99) 
-        WRITE(stdout,'(2x,i7,2x,f12.4,2x,e12.5)') ik, ryd2ev * ww, a_all(iw,ik) / ryd2mev
+        !WRITE(stdout,'(2x,i7,2x,f12.4,2x,e12.5)') ik, ryd2ev * ww, a_all(iw,ik) / ryd2mev
         !
         specfun_sum = specfun_sum + a_all(iw,ik)* fermi(iw) * dw !/ ryd2mev
         !
@@ -513,7 +506,7 @@
   !! Tolerenc  
   real(kind=DP), external :: efermig, dos_ef, wgauss
   real(kind=DP) :: g2, ekk, ekq, wq, ef0, wgq, wgkq, ww, dw, weight
-  real(kind=DP) :: dosef, specfun_sum, esigmar0
+  real(kind=DP) :: specfun_sum, esigmar0
   real(kind=DP) :: fermi(nw_specfun)
   REAL(kind=DP), external ::  dos_ef_seq
   !
@@ -556,15 +549,8 @@
      !
   ENDIF
   !
-  IF (mpime .eq. ionode_id) THEN
-    !
-    dosef = dos_ef_seq (ngaussw, degaussw, ef0, etf_k, wkf, nkqf, nbndsub)/2
-  ENDIF
-  CALL mp_bcast (dosef, ionode_id, inter_pool_comm)
-  !
   IF ( ik .eq. 1 ) THEN 
     WRITE (stdout, 100) degaussw * ryd2ev, ngaussw
-    WRITE (stdout, 101) dosef / ryd2ev, ef0 * ryd2ev
     WRITE (stdout,'(a)') ' '
   ENDIF
   !
@@ -695,7 +681,7 @@
       OPEN(unit=iospectral_sup,file='specfun_sup.elself')
       WRITE(iospectral, '(/2x,a/)') '#Electronic spectral function (meV)'
       WRITE(iospectral_sup, '(/2x,a/)') '#KS eigenenergies + real and im part of electronic self-energy (meV)'
-      WRITE(iospectral, '(/2x,a/)') '#K-point    Energy[meV]     A(k,w)[meV^-1]'
+      WRITE(iospectral, '(/2x,a/)') '#K-point    Energy[eV]     A(k,w)[meV^-1]'
       WRITE(iospectral_sup, '(/2x,a/)') '#K-point    Band   e_nk[eV]   w[eV]   &
 &         Real Sigma[meV]  Im Sigma[meV]'
       !

@@ -107,6 +107,7 @@ MODULE cp_restart
       USE kernel_table,             ONLY : vdw_table_name, kernel_file_name
       USE london_module,            ONLY : scal6, lon_rcut, in_c6
       USE tsvdw_module,             ONLY : vdw_isolated, vdw_econv_thr
+      USE mytime,                   ONLY : f_wall
       !
       IMPLICIT NONE
       !
@@ -176,7 +177,7 @@ MODULE cp_restart
       REAL(DP)              :: nelec
       REAL(DP)              :: scalef
       LOGICAL               :: lsda
-      REAL(DP)              :: s0, s1, cclock
+      REAL(DP)              :: s0, s1
       INTEGER               :: nbnd_tot
       INTEGER               :: natomwfc, nbnd_
       REAL(DP), ALLOCATABLE :: mrepl(:,:)
@@ -185,6 +186,7 @@ MODULE cp_restart
       INTEGER               :: inlc
       CHARACTER(iotk_attlenx)  :: attr
       REAL(DP), ALLOCATABLE :: temp_vec(:), wfc_temp(:,:) ! BS 
+      !
       !
       k1  = 0
       k2  = 0
@@ -317,7 +319,7 @@ MODULE cp_restart
       !
       CALL errore( 'cp_writefile ', 'cannot open restart file for writing', ierr )
       !
-      s0 = cclock()
+      s0 = f_wall()
       !
       IF ( ionode ) THEN
 
@@ -843,7 +845,7 @@ MODULE cp_restart
       DEALLOCATE( tau  )
       DEALLOCATE( ityp )
       !
-      s1 = cclock() 
+      s1 = f_wall() 
       !
       IF ( ionode ) THEN
          !
@@ -966,7 +968,7 @@ MODULE cp_restart
       INTEGER,  ALLOCATABLE :: if_pos_(:,:) 
       CHARACTER(LEN=256)    :: psfile_(ntypx)
       CHARACTER(LEN=80)     :: pos_unit
-      REAL(DP)              :: s1, s0, cclock
+      REAL(DP)              :: s1, s0
       REAL(DP), ALLOCATABLE :: mrepl(:,:) 
       LOGICAL               :: exst, exist_wfc 
       CHARACTER(LEN=256)    :: tmp_dir_save
@@ -1006,7 +1008,7 @@ MODULE cp_restart
       CALL errore( 'cp_readfile', &
                    'cannot open restart file for reading', ierr )
       !
-      s0 = cclock()
+      s0 = f_wall()
       !
       IF ( ionode ) THEN
          !
@@ -1689,7 +1691,7 @@ MODULE cp_restart
 
       END IF
       !
-      s1 = cclock()
+      s1 = f_wall()
       !
       IF ( ionode ) THEN
          !

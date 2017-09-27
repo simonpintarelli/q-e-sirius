@@ -54,6 +54,12 @@
   !! parameter used in writing prefix.win file. 
   INTEGER :: ntempxx = 25
   !! Maximum number of wannier functions
+  INTEGER :: etf_mem
+  !! If 0, all in memory. If 1, less is stored in memory (read files). 
+  INTEGER :: scr_typ
+  !! If 0 calculates the Lindhard screening, if 1 the Thomas-Fermi screening
+  INTEGER :: bnd_cum
+  !! band index for which the cumulant calculation is done
   !
   ! Superconductivity
   INTEGER :: nswfc
@@ -140,6 +146,18 @@
   !! Value of the scissor shift in eV.
   REAL (KIND=DP) :: ncarrier
   !! Amount of carrier concentration in cm^-3 when doping a semiconductors
+  ! 
+  ! Plasmon
+  REAL (KIND=DP) :: nel
+  !! fractional number of electrons in the unit cell
+  REAL (KIND=DP) :: meff
+  !! Density-of-state effective mass (in unit of the electron mass)
+  REAL (KIND=DP) :: epsiHEG
+  !! Dielectric constant at zero doping. 
+  REAL (KIND=DP) :: fermi_diff
+  !! difference between Fermi energy and band edge (in eV)
+  REAL (KIND=DP) :: smear_rpa
+  !! smearing for the calculation of the Lindhard function (in eV)
   !
   !LOGICAL :: tphases
   !! tphases:  if .TRUE. set absolute reference for unitary gauge of the eigenvectors
@@ -147,6 +165,8 @@
   !! if .TRUE. calculate electron selfenergy due to e-p interaction
   LOGICAL :: phonselfen
   !! if .TRUE. calculate phonon selfenergy due to e-p interaction
+  LOGICAL :: plselfen
+  !! if .TRUE. calculate the electron-plason self-energy 
   LOGICAL :: epbread
   !! if .TRUE. read epmatq from files .epb
   LOGICAL :: epbwrite
@@ -158,8 +178,12 @@
   LOGICAL :: restart
   !! if .TRUE. restart a calculation stopped during the interpolation phase from reading 
   !! the XXX.restart file. 
-  LOGICAL :: specfun
+  LOGICAL :: specfun_el
   !! if .TRUE. calculate spectral electron function due to e-p interaction
+  LOGICAL :: specfun_ph
+  !! if .TRUE. calculate spectral phonon function due to e-p interaction
+  LOGICAL :: specfun_pl
+  !! if .TRUE. calculate plasmon spectral function
   LOGICAL :: wannierize
   !! if .TRUE. run the wannier90 code
   LOGICAL :: parallel_k
@@ -168,8 +192,6 @@
   !! if .TRUE. scatter the phonon q-points on the fine mesh among pools (not k)
   LOGICAL :: a2f
   !! if .TRUE. calculate Eliashberg spectral electron function from selfen_phon
-  LOGICAL :: etf_mem
-  !! If .true., the fine Bloch-space e-ph matrix elements are stored in memory
   LOGICAL :: write_wfn
   !! if .TRUE. write out UNK files in wannier90
   LOGICAL :: kmaps
@@ -196,8 +218,12 @@
   ! band_plot : if .true. write filrs to plot band structure and phonon dispersion
   LOGICAL :: lpolar 
   !! if .true. enable the correct Wannier interpolation in the case of polar material.  
+  LOGICAL :: lscreen
+  !! if .true. the e-ph matrix elements are screened by the RPA or TF dielectric function
   LOGICAL :: lifc
   !! if .true. reads interatomic force constants produced by q2r.x for phonon interpolation
+  LOGICAL :: cumulant
+  !! if .true. calculates the electron spectral function using the cumulant expansion method
   LOGICAL :: delta_approx
   !! if .true. the double delta approximation is used for the phonon self energy
   LOGICAL :: ep_coupling
@@ -206,6 +232,8 @@
   !! if .true. fermi energy is read from the input file
   LOGICAL :: system_2d
   !! if .true. the system is 2 dimensional (vaccum is in z-direction)
+  LOGICAL :: prtgkk
+  !! if .true. print the |g| vertex in [meV].
   !
   ! Superconductivity
   LOGICAL :: ephwrite

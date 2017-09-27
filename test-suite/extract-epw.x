@@ -31,6 +31,12 @@ eh1=`grep "highest occupied" $fname | awk '{print $7}'`
 el1=`grep "highest occupied" $fname | awk '{print $8}'`
 tf1=`grep " P = " $fname | head -1 | awk '{printf "%7.5f", $3}'`
 
+# PH
+diel=`grep -A 4 '  Dielectric constant in cartesian' $fname | grep -v '  Dielectric constant' | awk '{print $2; print $3; print $4 }'`
+born=`grep "     E[x-z]  ( " $fname | awk '{print $3; print $4; print $5}'`
+phfreq=`grep "     freq (.*THz" $fname | awk '{print $5; print $8}'`
+
+
 # EPW
 q1=`grep "   q(" $fname | awk '{print $6; print $7; print $8}'`
 dos1=`grep "DOS =" $fname | awk '{print $3}'`
@@ -39,9 +45,9 @@ rsig=`grep "Re\[Sigma\]=" $fname | awk '{print $7}'`
 isig=`grep "Im\[Sigma\]=" $fname | awk '{print $10}'` 
 z1=`grep " Z=" $fname | awk '{print $13}'`
 lam=`grep "lam= " $fname | awk '{print $15}'`
-lambda=`grep "  lambda(" $fname | awk '{print $4}'`
+lambda=`grep "     lambda___(" $fname | awk '{print $4}'`
 lambda_tr=`grep "  lambda_tr(" $fname | awk '{print $4}'`
-gamma=`grep " gamma=" $fname | awk '{print $6}'`
+gamma=`grep " gamma___=" $fname | awk '{print $6}'`
 omega=`grep " omega=" $fname | awk '{print $9}'`
 lam_tot=`grep " lambda :" $fname | awk '{print $3}'`
 lam_tr=`grep " lambda_tr :" $fname | awk '{print $3}'`
@@ -53,6 +59,7 @@ lam_kmax=`grep "lambda_k_max =" $fname | awk '{print $6}'`
 elph=`grep "Electron-phonon coupling strength =" $fname | awk '{print $5}'`
 allDyn=`grep "Estimated Allen-Dynes Tc =" $fname | awk '{print $5}'`
 bcsgap=`grep "Estimated BCS superconducting gap =" $fname | awk '{print $6}'`
+pi=`grep "Re[Pi]=" $fname | awk '{print $4; print $7; print $10}'`
 
 if test "$efm" != ""; then
         echo efm
@@ -200,3 +207,25 @@ if test "$tf1" != ""; then
         echo tf1
         for x in $tf1; do echo $x; done
 fi
+
+if test "$diel" != ""; then
+        echo diel
+        for x in $diel; do echo $x; done
+fi
+
+if test "$born" != ""; then
+        echo born
+        for x in $born; do echo $x; done
+fi
+
+if test "$phfreq" != ""; then
+        echo phfreq
+        for x in $phfreq; do echo $x; done
+fi
+
+if test "$pi" != ""; then
+        echo pi
+        for x in $pi; do echo $x; done
+fi
+
+

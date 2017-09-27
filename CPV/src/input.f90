@@ -182,7 +182,8 @@ MODULE input
      !
      ! ...  Other modules
      !
-     USE cp_main_variables,        ONLY : nprint_nfi
+     USE check_stop,         ONLY : max_seconds_ => max_seconds
+     USE cp_main_variables,  ONLY : nprint_nfi
      USE wave_base,          ONLY : frice_ => frice
      USE ions_base,          ONLY : fricp_ => fricp
      USE cell_base,          ONLY : frich_ => frich
@@ -209,10 +210,10 @@ MODULE input
         ortho_eps, ortho_max, ntyp, tolp, calculation, disk_io, dt,            &
         tcg, ndr, ndw, iprint, isave, tstress, k_points, tprnfor, verbosity,   &
         ampre, nstep, restart_mode, ion_positions, startingwfc,                &
-        orthogonalization, electron_velocities, nat, if_pos,                   &
+        orthogonalization, electron_velocities, nat, rd_if_pos,                &
         tefield, epol, efield, tefield2, epol2, efield2, remove_rigid_rot,     &
         iesr, saverho, rd_for, assume_isolated, wf_collect,                    &
-        memory, ref_cell, tcpbo
+        memory, ref_cell, tcpbo, max_seconds
      USE funct,              ONLY : dft_is_hybrid
      !
      IMPLICIT NONE
@@ -339,6 +340,8 @@ MODULE input
      trane_  = .FALSE.
      ampre_  = ampre
      taurdr_ = .FALSE.
+     !
+     max_seconds_ = max_seconds
      !
      SELECT CASE ( TRIM( restart_mode ) )
        !
@@ -716,7 +719,7 @@ MODULE input
      !
      USE input_parameters, ONLY: ibrav , celldm , trd_ht, dt,                 &
            rd_ht, a, b, c, cosab, cosac, cosbc, ntyp , nat ,                  &
-           na_inp , sp_pos , rd_pos , rd_vel, atom_mass, atom_label, if_pos,  &
+           na_inp , sp_pos , rd_pos , rd_vel, atom_mass, atom_label,rd_if_pos,&
            atomic_positions, sic, sic_epsilon, ecutwfc,                       &
            ecutrho, ecfixed, qcutz, q2sigma, tk_inp, wmass,                   &
            ion_radius, emass, emass_cutoff, temph, fnoseh, nr1b, nr2b, nr3b,  &
@@ -819,7 +822,7 @@ MODULE input
      ! ...  Set ions base module
 
      CALL ions_base_init( ntyp , nat , na_inp , sp_pos , rd_pos , rd_vel,  &
-                          atom_mass, atom_label, if_pos, atomic_positions, &
+                          atom_mass, atom_label, rd_if_pos, atomic_positions, &
                           alat_ , at, ion_radius, rd_for )
 
      ! ...   Set Values for the cutoff

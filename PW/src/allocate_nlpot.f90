@@ -20,6 +20,8 @@ SUBROUTINE allocate_nlpot
   !     nqxq          !  as above, for q-function interpolation table
   !
   !
+
+  USE control_flags, ONLY : tqr
   USE ions_base,        ONLY : nat, nsp, ityp
   USE cellmd,           ONLY : cell_factor
   USE gvect,            ONLY : ngm, gcutm, g
@@ -32,9 +34,9 @@ SUBROUTINE allocate_nlpot
   USE gvecw,            ONLY : gcutw, ecutwfc
   USE us,               ONLY : qrad, tab, tab_d2y, tab_at, dq, nqx, &
                                nqxq, spline_ps
-  USE uspp,             ONLY : indv, nhtol, nhtolm, ijtoh, qq, dvan, deeq, &
+  USE uspp,             ONLY : indv, nhtol, nhtolm, ijtoh, qq_at, qq_nt, dvan, deeq, &
                                vkb, indv_ijkb0, okvan, nkb, nkbus, nhtoj, &
-                               becsum, qq_so,dvan_so, deeq_nc
+                               becsum, ebecsum, qq_so,dvan_so, deeq_nc
   USE uspp_param,       ONLY : upf, lmaxq, lmaxkb, nh, nhm, nbetam
   USE spin_orb,         ONLY : lspinorb, fcoef
   !
@@ -75,8 +77,10 @@ SUBROUTINE allocate_nlpot
   IF (noncolin) THEN
      ALLOCATE (deeq_nc( nhm, nhm, nat, nspin))
   ENDIF
-  if (allocated(qq)) deallocate(qq)
-  ALLOCATE (qq(   nhm, nhm, nsp))
+  if (allocated(qq_at)) deallocate(qq_at)
+  ALLOCATE (qq_at( nhm, nhm, nat))
+  if (allocated(qq_nt)) deallocate(qq_nt)
+  ALLOCATE (qq_nt( nhm, nhm, nsp))
   IF (lspinorb) THEN
     if (allocated(qq_so)) deallocate(qq_so)
     ALLOCATE (qq_so(nhm, nhm, 4, nsp))
@@ -104,6 +108,7 @@ SUBROUTINE allocate_nlpot
   ALLOCATE (vkb( npwx,  nkb))
   if (allocated(becsum)) deallocate(becsum)
   ALLOCATE (becsum( nhm * (nhm + 1)/2, nat, nspin))
+  if (tqr) ALLOCATE (ebecsum( nhm * (nhm + 1)/2, nat, nspin))
   !
   ! Calculate dimensions for array tab (including a possible factor
   ! coming from cell contraction during variable cell relaxation/MD)

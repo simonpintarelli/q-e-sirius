@@ -110,7 +110,6 @@ SUBROUTINE f2libcpv(lib_comm,nim,npt,npl,nta,nbn,ndg,retval,infile)
   ! temporary moved to init_run
 !  CALL plugin_initialization()
   !
-  !
   CALL check_stop_init()
   !
   CALL cpr_loop( 1 )

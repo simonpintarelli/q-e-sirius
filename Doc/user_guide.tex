@@ -1,5 +1,5 @@
 \documentclass[12pt,a4paper]{article}
-\def\version{6.1}
+\def\version{6.2}
 \def\qe{{\sc Quantum ESPRESSO}}
 
 \usepackage{html}
@@ -35,6 +35,7 @@
   \includegraphics[width=5cm]{\qeImage} \\
   % title
   \Huge User's Guide for \\ \qe\ (v.\version)
+  \\ \Large (only partially updated)
 }
 
 \maketitle
@@ -46,6 +47,9 @@
 This guide gives a general overview of the contents and of the installation
 of \qe\ (opEn-Source Package for Research in Electronic Structure, Simulation,
 and Optimization), version \version.
+
+{\em Important notice: due to the lack of time and of manpower, this
+manual is only partially updated and may contain outdated information.}
 
 The \qe\ distribution contains the core packages \PWscf\ (Plane-Wave
 Self-Consistent Field) and \CP\ (Car-Parrinello) for the calculation
@@ -109,7 +113,7 @@ data is available for most packages in files \texttt{INPUT\_*.txt} and
 
 The \qe\ codes work on many different types of Unix machines,
 including parallel machines using both OpenMP and MPI
-(Message Passing Interface) and GPU-accelerated machines.
+(Message Passing Interface).
 \qe\ also runs on Mac OS X and MS-Windows machines:
 see section \ref{Sec:Installation}.
 
@@ -188,7 +192,7 @@ contributed in some way or another at some stage, follows:
   Uli Aschauer,  Francesca Baletto, Gerardo Ballabio, Mauro Boero,
   Scott Brozell, Claudia Bungaro, Paolo Cazzato, Gabriele Cipriani,
   Jiayu Dai, Cesar Da Silva, Alberto Debernardi, Gernot Deinzer,
-  Alin Marin Elena, Francesco Filipponi, 
+  Alin Marin Elena, Francesco Filipponi, Prasenjit Ghosh,
   Marco Govoni, Thomas Gruber, Martin Hilgeman, Yosuke Kanai, Konstantin Kudin,
   Nicolas Lacorne, Hyungjun Lee, Stephane Lefranc, Sergey Lisenkov, Kurt Maeder,
   Andrea Marini, Giuseppe Mattioli, Nicolas Mounet, William Parker,
@@ -222,10 +226,6 @@ accepted. Messages "waiting for moderator approval" are
 automatically deleted with no further processing (sorry, too
 much spam). In case of trouble, carefully check that your return
 e-mail is the correct one (i.e. the one you used to subscribe).
-
-The same \texttt{pw\_forum@pwscf.org} mailing-list is used to address
-specific inquiries related to QE-GPU. In this case please tag your message
-subject with ``[QE-GPU]'' to better identify your email.
 
 If you need to contact the developers for {\em specific} questions
 about coding, proposals, offers of help, etc., please send a message
@@ -302,9 +302,6 @@ and O.pbe-vbc.UPF from\\
 \end{quote}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{Installation}
-
-For machines with GPU acceleration, download the QE-GPU-\version.0.tar.gz and read
-the file \texttt{README.GPU} for information how to install the package.
 
 \subsection{Download}
 \label{SubSec:Download}
@@ -442,8 +439,7 @@ will (try to) detect compilers and libraries available on
 your machine, and set up things accordingly. Presently it is expected
 to work on most Linux 32- and 64-bit PCs (all Intel and AMD CPUs) and
 PC clusters, SGI Altix, IBM SP and BlueGene machines, NEC SX, Cray XT
-machines, Mac OS X, MS-Windows PCs, and (for experts!) on several
-GPU-accelerated hardware. Detailed installation instructions for some
+machines, Mac OS X, MS-Windows PCs. Detailed installation instructions for some
 specific HPC machines can be found in files \texttt{install/README.}{\em sys},
 where {\em sys} is the machine name.
 
@@ -964,8 +960,6 @@ for tests [...] I do have to unload some modules to make QE running
 properly. On another CRAY [...] there is also Intel compiler as option
 and the system is slightly different compared to the other.
 So my recipe should work, 99\% of the cases.
-I strongly suggest you to use PGI, also for a performance point of view.''
-(Info by Filippo Spiga, Sept. 2012)
 
 For Cray XT machines, use \texttt{./configure ARCH=crayxt4} or else
 \configure\ will not recognize the Cray-specific software environment.

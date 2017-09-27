@@ -22,7 +22,7 @@ subroutine electrons_sirius_v2()
                                    vtxc, etxc, etxcc, ewld, demet, epaw, &
                                    elondon, ef_up, ef_dw, exdm, ef
   use noncollin_module,     only : nspin_mag
-  use uspp,                 only : okvan, deeq, qq, becsum
+  use uspp,                 only : okvan, deeq, qq_nt, becsum
   use paw_variables,        only : okpaw, total_core_energy
   use force_mod,            only : force
   use wavefunctions_module, only : psic

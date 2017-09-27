@@ -77,7 +77,7 @@ SUBROUTINE setup()
   USE fixed_occ,          ONLY : f_inp, tfixed_occ, one_atom_occupations
   USE funct,              ONLY : set_dft_from_name
   USE mp_pools,           ONLY : kunit
-  USE mp_bands,           ONLY : intra_bgrp_comm
+  USE mp_bands,           ONLY : intra_bgrp_comm, nyfft
   USE spin_orb,           ONLY : lspinorb, domag
   USE noncollin_module,   ONLY : noncolin, npol, m_loc, i_cons, &
                                  angle1, angle2, bfield, ux, nspin_lsda, &
@@ -93,7 +93,7 @@ SUBROUTINE setup()
   USE funct,              ONLY : dft_is_meta, dft_is_hybrid, dft_is_gradient
   USE paw_variables,      ONLY : okpaw
   USE fcp_variables,      ONLY : lfcpopt, lfcpdyn
-  USE extfield,           ONLY : monopole
+  USE extfield,           ONLY : gate
   use sirius
   use input_parameters, only : use_sirius
   !
@@ -171,30 +171,21 @@ SUBROUTINE setup()
   nelec = ionic_charge - tot_charge
   !
 #if defined (__OLDXML)
-  IF ( lfcpopt .AND. restart ) THEN
-     CALL pw_readfile( 'fcpopt', ierr )
+  IF ( (lfcpopt .OR. lfcpdyn) .AND. restart ) THEN
+     CALL pw_readfile( 'ef', ierr )
      tot_charge = ionic_charge - nelec
   END IF
   !
-  IF ( lfcpdyn .AND. restart ) THEN
-
-     CALL pw_readfile( 'fcpdyn', ierr )
-     tot_charge = ionic_charge - nelec
-  END IF
 #else 
   IF ( lbands .OR. ( (lfcpopt .OR. lfcpdyn ) .AND. restart )) THEN 
      CALL pw_readschema_file( ierr , output_obj, parinfo_obj, geninfo_obj )
   END IF
   !
   ! 
-  IF (lfcpopt .AND. restart ) THEN  
-     CALL init_vars_from_schema( 'fcpopt', ierr,  output_obj, parinfo_obj, geninfo_obj)
+  IF ( (lfcpopt .OR. lfcpdyn) .AND. restart ) THEN  
+     CALL init_vars_from_schema( 'ef', ierr,  output_obj, parinfo_obj, geninfo_obj)
      tot_charge = ionic_charge - nelec
   END IF 
-  IF (lfcpdyn .AND. restart ) THEN    
-     CALL init_vars_from_schema( 'fcpdyn', ierr,  output_obj, parinfo_obj, geninfo_obj ) 
-     tot_charge = ionic_charge - nelec 
-  END IF
 #endif
   !
   ! ... magnetism-related quantities
@@ -469,8 +460,8 @@ SUBROUTINE setup()
     dfftp%nr2 = fft_dims(2)
     dfftp%nr3 = fft_dims(3)
   endif
-  CALL fft_type_allocate ( dfftp, at, bg, gcutm, intra_bgrp_comm )
-  CALL fft_type_allocate ( dffts, at, bg, gcutms, intra_bgrp_comm)
+  CALL fft_type_allocate ( dfftp, at, bg, gcutm, intra_bgrp_comm, nyfft=nyfft )
+  CALL fft_type_allocate ( dffts, at, bg, gcutms, intra_bgrp_comm, nyfft=nyfft)
   !
   !  ... generate transformation matrices for the crystal point group
   !  ... First we generate all the symmetry matrices of the Bravais lattice
@@ -561,7 +552,7 @@ SUBROUTINE setup()
      !
      ! ... eliminate rotations that are not symmetry operations
      !
-     CALL find_sym ( nat, tau, ityp, magnetic_sym, m_loc, monopole )
+     CALL find_sym ( nat, tau, ityp, magnetic_sym, m_loc, gate )
      !
      IF ( .NOT. allfrac ) CALL remove_sym ( dfftp%nr1, dfftp%nr2, dfftp%nr3 )
      !

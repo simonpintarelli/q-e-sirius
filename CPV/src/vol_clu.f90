@@ -21,7 +21,7 @@ SUBROUTINE vol_clu(rho_real,rho_g,s_fac,flag)
       USE electrons_base, ONLY: nspin
       USE ions_base,      ONLY: na, nsp, amass
       USE ions_positions, ONLY: tau0
-      USE gvect,          ONLY: g, gg, ngm, nl, nlm
+      USE gvect,          ONLY: g, gg, ngm
       USE gvecs,          ONLY: ngms
       USE cp_main_variables, only: drhor
       USE control_flags,  ONLY: tpre
@@ -37,6 +37,7 @@ SUBROUTINE vol_clu(rho_real,rho_g,s_fac,flag)
       USE io_global,      ONLY: ionode
       USE mp,             ONLY: mp_bcast, mp_sum
       USE mp_bands,       ONLY: intra_bgrp_comm
+      USE fft_rho
 
       implicit none
 
@@ -60,7 +61,7 @@ SUBROUTINE vol_clu(rho_real,rho_g,s_fac,flag)
 
       complex(kind=8) s_fac(ngms,nsp), ci
       complex(kind=8) sum_sf, aux, auxx, fact, rho_g(ngm,nspin) 
-      complex(kind=8), allocatable :: psi(:), rhofill(:), rhotmp(:,:)
+      complex(kind=8), allocatable :: rhofill(:), rhotmp(:,:)
 
       integer ir, ir1, ir2, ir3, is, iss, ia, flag, ierr
       integer i, j, k, l, ig, cnt, nmin, nmax, n_at
@@ -75,7 +76,6 @@ SUBROUTINE vol_clu(rho_real,rho_g,s_fac,flag)
       if (abisur) allocate(dxdyrho(dfftp%nnr))
       if (abisur) allocate(dxdzrho(dfftp%nnr))
       if (abisur) allocate(dydzrho(dfftp%nnr))
-      allocate(psi(dfftp%nnr))
 
       call start_clock( 'vol_clu' )
 
@@ -84,7 +84,7 @@ SUBROUTINE vol_clu(rho_real,rho_g,s_fac,flag)
 #if defined(__MPI)
       me = mpime + 1
       do ip=1,nproc
-         ppp(ip) =  dfftp%nnp  * ( dfftp%npp(ip) )
+         ppp(ip) =  dfftp%nnp  * ( dfftp%nr3p(ip) )
          if (ip.eq.1) then
             shift(ip)=0
          else
@@ -245,27 +245,7 @@ SUBROUTINE vol_clu(rho_real,rho_g,s_fac,flag)
       if (abisur)                                                       &
      &   call gradrho(nspin,rhotmp,drho,d2rho,dxdyrho,dxdzrho,dydzrho)
 
-      psi = (0.d0,0.d0)
-      if (nspin.eq.1) then
-         do ig = 1,ngm
-            psi(nl(ig)) = rhotmp(ig,1)
-            psi(nlm(ig))= conjg(rhotmp(ig,1))
-         end do
-         call invfft('Dense',psi, dfftp )
-         do ir = 1,dfftp%nnr
-            rho_gaus(ir) = real(psi(ir))
-         end do
-      else            
-        do ig = 1,ngm
-            psi(nl(ig)) = rhotmp(ig,1) + ci*rhotmp(ig,2)
-            psi(nlm(ig))= conjg(rhotmp(ig,1)) + ci*conjg(rhotmp(ig,2))
-         end do
-         call invfft('Dense',psi, dfftp )
-         do ir = 1,dfftp%nnr
-            rho_gaus(ir) = real(psi(ir))+aimag(psi(ir))
-         end do
-      end if
-      deallocate(psi)
+      CALL rho_g2r( rhotmp, rho_gaus )
       deallocate(rhotmp)
 
       e_j = 0.d0

@@ -31,7 +31,7 @@
   use phcom,      ONLY : nmodes
   use epwcom,     ONLY : nbndsub, lrepmatf, fsthick, &
                          eptemp, ngaussw, degaussw, shortrange, &
-                         nsmear, delta_smear, eps_acustic, &
+                         nsmear, delta_smear, eps_acustic, specfun_ph, &
                          efermi_read, fermi_energy, delta_approx
   use pwcom,      ONLY : nelec, ef, isk
   use elph2,      ONLY : epf17, ibndmax, ibndmin, etf, &
@@ -359,18 +359,19 @@
     !
     WRITE(stdout, 103) lambda_tot
     WRITE(stdout, 105) lambda_tr_tot
-    WRITE(stdout,'(5x,a/)') repeat('-',67)
     ! 
-    IF (me_pool == 0) &
+    IF (.NOT. specfun_ph) THEN
+      WRITE(stdout,'(5x,a/)') repeat('-',67)
       WRITE( stdout, '(/5x,a,i8,a,i8/)' ) &
           'Number of (k,k+q) pairs on the Fermi surface: ',fermicount, ' out of ', nkqtotf/2
+    ENDIF
     !
   ENDDO !smears
   !
 100 FORMAT(5x,'Gaussian Broadening: ',f10.6,' eV, ngauss=',i4)
 101 FORMAT(5x,'DOS =',f10.6,' states/spin/eV/Unit Cell at Ef=',f10.6,' eV')
-102 FORMAT(5x,'lambda( ',i3,' )=',f15.6,'   gamma=',f15.6,' meV','   omega=',f12.4,' meV')
-103 FORMAT(5x,'lambda( tot )=',f15.6)
+102 FORMAT(5x,'lambda___( ',i3,' )=',f15.6,'   gamma___=',f15.6,' meV','   omega=',f12.4,' meV')
+103 FORMAT(5x,'lambda___( tot )=',f15.6)
 104 FORMAT(5x,'lambda_tr( ',i3,' )=',f15.6,'   gamma_tr=',f15.6,' meV','   omega=',f12.4,' meV')
 105 FORMAT(5x,'lambda_tr( tot )=',f15.6)
   !
@@ -826,8 +827,8 @@ END SUBROUTINE selfen_phon_q
   ! 
 100 FORMAT(5x,'Gaussian Broadening: ',f10.6,' eV, ngauss=',i4)
 101 FORMAT(5x,'DOS =',f10.6,' states/spin/eV/Unit Cell at Ef=',f10.6,' eV')
-102 FORMAT(5x,'lambda( ',i3,' )=',f15.6,'   gamma=',f15.6,' meV','   omega=',f12.4,' meV')
-103 FORMAT(5x,'lambda( tot )=',f15.6)
+102 FORMAT(5x,'lambda___( ',i3,' )=',f15.6,'   gamma___=',f15.6,' meV','   omega=',f12.4,' meV')
+103 FORMAT(5x,'lambda___( tot )=',f15.6)
 104 FORMAT(5x,'lambda_tr( ',i3,' )=',f15.6,'   gamma_tr=',f15.6,' meV','   omega=',f12.4,' meV')
 105 FORMAT(5x,'lambda_tr( tot )=',f15.6)
   !

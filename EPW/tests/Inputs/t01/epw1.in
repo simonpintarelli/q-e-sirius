@@ -10,7 +10,7 @@
   epbwrite    = .true.
   epbread     = .false.
 
-  etf_mem     = .true.
+  etf_mem     = 0
 
   epwwrite    = .true.
   epwread     = .false.
@@ -25,12 +25,12 @@
   dis_froz_max= 7
   proj(1)     = 'f=0,0,0:l=-3'   
 
-  elecselfen  = .true.
-  nest_fn     = .true.  
-  phonselfen  = .false.
+  elecselfen  = .false.
+  nest_fn     = .false.  
+  phonselfen  = .true.
   a2f         = .false.
 
-  specfun      = .true.
+  specfun_el   = .true.
   wmin_specfun = -4
   wmax_specfun = 1
   nw_specfun   = 20
@@ -43,7 +43,6 @@
   degaussw    = 1.0 ! eV
 
   dvscf_dir   = './save/'
-  filukk      = './diam.ukk'
 
   nkf1        = 6
   nkf2        = 6
@@ -62,8 +61,7 @@
   nq3         = 3
  /
       4 cartesian
-  0.000000000000   0.000000000000   0.000000000000   0.0740741
- -0.333333333333   0.333333333333  -0.333333333333   0.5925926
-  0.000000000000   0.666666666667   0.000000000000   0.4444444
-  0.666666666667   0.000000000000   0.666666666667   0.8888889
-
+  0.000000000000   0.000000000000   0.000000000000   
+ -0.333333333333   0.333333333333  -0.333333333333   
+  0.000000000000   0.666666666667   0.000000000000   
+  0.666666666667   0.000000000000   0.666666666667   

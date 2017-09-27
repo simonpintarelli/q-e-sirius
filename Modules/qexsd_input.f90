@@ -170,12 +170,12 @@ MODULE qexsd_input
      ALLOCATE (inpOcc_objs(inpOcc_size))
      IF ( inpOcc_size .GT. 1) THEN 
         CALL qes_init_inputOccupations( inpOcc_objs(1),"input_occupations", 1, &
-                  REAL(spin_degeneracy,KIND=DP),nbnd-1, input_occupations(2:nbnd) ) 
+                  REAL(spin_degeneracy,KIND=DP),input_occupations(2:nbnd) ) 
         CALL qes_init_inputOccupations( inpOcc_objs(2),"input_occupations", 2, & 
-                  REAL(spin_degeneracy,KIND=DP) , nbnd-1,input_occupations_minority(2:nbnd))
+                  REAL(spin_degeneracy,KIND=DP) , input_occupations_minority(2:nbnd))
      ELSE 
         CALL qes_init_inputOccupations( inpOcc_objs(1),"input_occupations", 1,            &
-                                        REAL(spin_degeneracy,KIND=DP) , nbnd-1, input_occupations(2:nbnd) )   
+                                        REAL(spin_degeneracy,KIND=DP) , input_occupations(2:nbnd) )   
      END IF
   ELSE 
      ALLOCATE (inpOcc_objs(0))
@@ -450,7 +450,7 @@ MODULE qexsd_input
       isotropic=.TRUE.
       isotropic_ispresent=.TRUE.  
    END IF
-   IF (free_cell_ispresent) CALL  qes_init_integerMatrix(free_cell_obj,"free_cell",3,3,my_forceh)
+   IF (free_cell_ispresent) CALL  qes_init_integerMatrix(free_cell_obj,"free_cell",[3,3],my_forceh )
    !
    CALL qes_init_cell_control(obj,TAGNAME, PRESSURE = pressure, CELL_DYNAMICS=cell_dynamics, WMASS_ISPRESENT=.TRUE.,&
                               WMASS=wmass, CELL_FACTOR_ISPRESENT=.TRUE., CELL_FACTOR=cell_factor,&
@@ -541,7 +541,7 @@ MODULE qexsd_input
    ! 
    CHARACTER(LEN=*),PARAMETER                  :: TAGNAME="external_atomic_forces"
    !
-   CALL qes_init_matrix(obj,TAGNAME,ndim1_mat=3,ndim2_mat=nat,mat=extfor)
+   CALL qes_init_matrix(obj,TAGNAME,[3,nat],mat=extfor )
    END SUBROUTINE qexsd_init_external_atomic_forces
    !
    !     
@@ -557,7 +557,7 @@ MODULE qexsd_input
    CHARACTER(LEN=*),PARAMETER           :: TAGNAME = "free_positions" 
    REAL(DP),DIMENSION(:,:),ALLOCATABLE  :: free_positions
    ! 
-   CALL qes_init_integerMatrix(obj,TAGNAME,ndim1_int_mat=3,ndim2_int_mat=nat,int_mat=if_pos(:,1:nat))
+   CALL qes_init_integerMatrix(obj,TAGNAME,[3,nat], int_mat=if_pos )
    END SUBROUTINE qexsd_init_free_positions
    ! 
    !----------------------------------------------------------------------------------
@@ -577,7 +577,7 @@ MODULE qexsd_input
       xdim=3
       ydim=nat
    END IF
-   CALL qes_init_matrix(obj,TAGNAME,xdim,ydim,rd_vel)
+   CALL qes_init_matrix(obj,TAGNAME,[xdim,ydim],rd_vel )
    END SUBROUTINE qexsd_init_starting_atomic_velocities
    ! 
    !-------------------------------------------------------------------------------------
@@ -713,6 +713,53 @@ MODULE qexsd_input
    END SUBROUTINE qexsd_init_atomic_constraints
    !
    !------------------------------------------------------------------------------------------------------------ 
+   SUBROUTINE qexsd_init_occupations(obj, occupations, nspin) 
+   !------------------------------------------------------------------------------------------------------------
+     !
+     IMPLICIT NONE
+     TYPE(occupations_type),INTENT(OUT)        :: obj
+     CHARACTER(LEN=*),INTENT(IN)               :: occupations
+     INTEGER,INTENT(IN)                        :: nspin
+     ! 
+     INTEGER                                   :: spin_degeneracy
+     !   
+     IF (nspin .GT. 1) THEN 
+        spin_degeneracy = 1
+     ELSE 
+        spin_degeneracy = 2
+     END IF
+     CALL  qes_init_occupations(obj, "occupations", spin= spin_degeneracy, & 
+                              spin_ispresent =.FALSE., occupations = TRIM(occupations))
+   END SUBROUTINE qexsd_init_occupations
+   !
+   !---------------------------------------------------------
+   SUBROUTINE qexsd_init_smearing(obj, smearing, degauss)
+   !---------------------------------------------------------
+      !
+      IMPLICIT NONE
+      TYPE(smearing_type),INTENT(OUT)      :: obj
+      CHARACTER(LEN = * ), INTENT(IN)      :: smearing
+      REAL(DP),INTENT(IN)                  :: degauss 
+      ! 
+      CHARACTER(LEN=256)                   :: smearing_local 
+
+      SELECT CASE (TRIM  (smearing))
+        CASE ("gaussian", "gauss")
+            smearing_local="gaussian"
+        CASE ('methfessel-paxton', 'm-p', 'mp')
+            smearing_local="mp"
+        CASE ( 'marzari-vanderbilt', 'cold', 'm-v', 'mv') 
+            smearing_local="mv"
+        CASE ('fermi-dirac', 'f-d', 'fd') 
+            smearing_local="fd"
+        CASE default
+            smearing_local='not set'
+      END SELECT 
+      CALL qes_init_smearing(obj,"smearing",degauss=degauss,smearing=smearing_local)
+      !
+      END SUBROUTINE qexsd_init_smearing
+      !--------------------------------------------------------------------------------------------
+      !
 END MODULE qexsd_input          
 ! 
 #endif

@@ -22,7 +22,7 @@ subroutine electrons_sirius()
                                    vtxc, etxc, etxcc, ewld, demet, epaw, &
                                    elondon, ef_up, ef_dw, ef, exdm
   use noncollin_module,     only : nspin_mag
-  use uspp,                 only : okvan, deeq, qq, becsum
+  use uspp,                 only : okvan, deeq, qq_nt, becsum
   use paw_variables,        only : okpaw, total_core_energy
   use force_mod,            only : force
   use wavefunctions_module, only : psic
@@ -416,7 +416,7 @@ subroutine electrons_sirius()
   !  deeq(:, :, ia, :) = deeq(:, :, ia, :) * 2
   !enddo
   do iat = 1, nsp
-    call sirius_get_q_operator_matrix(iat, qq(1, 1, iat), nhm)
+    call sirius_get_q_operator_matrix(iat, qq_nt(1, 1, iat), nhm)
   enddo
 
   !! rho(r) is needed in stres_gradcorr
