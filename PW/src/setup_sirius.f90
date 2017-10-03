@@ -29,6 +29,7 @@ subroutine setup_sirius()
   real(8), allocatable :: dion(:, :), qij(:,:,:), vloc(:), wk_tmp(:), xk_tmp(:,:)
   integer, allocatable :: nk_loc(:)
   integer :: lmax_beta
+  logical(1) bool_var
   !
   ! create context of simulation
   call sirius_create_simulation_context(c_str(trim(adjustl(sirius_cfg))))
@@ -103,7 +104,8 @@ subroutine setup_sirius()
     call sirius_set_num_fv_states(nbnd)
   endif
 
-  call sirius_set_gamma_point(gamma_only)
+  bool_var = gamma_only
+  call sirius_set_gamma_point(bool_var)
 
   num_ranks_k = nproc_image / npool
   i = sqrt(dble(num_ranks_k) + 1d-10)
@@ -188,13 +190,14 @@ subroutine setup_sirius()
     call sirius_set_atom_type_radial_grid(c_str(atm(iat)), upf(iat)%mesh, upf(iat)%r(1))
 
     ! set beta-projectors
+    bool_var = upf(iat)%has_so
     if (upf(iat)%has_so) then
       call sirius_set_atom_type_beta_rf(c_str(atm(iat)), upf(iat)%nbeta, upf(iat)%lll(1), upf(iat)%jjj(1), &
-                                       &upf(iat)%kbeta(1), upf(iat)%beta(1, 1), upf(iat)%mesh, upf(iat)%has_so)
+                                       &upf(iat)%kbeta(1), upf(iat)%beta(1, 1), upf(iat)%mesh, bool_var)
     else
       tmp = 0.d0
       call sirius_set_atom_type_beta_rf(c_str(atm(iat)), upf(iat)%nbeta, upf(iat)%lll(1), tmp, &
-                                       &upf(iat)%kbeta(1), upf(iat)%beta(1, 1), upf(iat)%mesh, upf(iat)%has_so)
+                                       &upf(iat)%kbeta(1), upf(iat)%beta(1, 1), upf(iat)%mesh, bool_var)
     endif
     
     ! set the atomic radial functions
