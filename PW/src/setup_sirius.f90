@@ -253,19 +253,19 @@ subroutine setup_sirius()
     deallocate(vloc)
   enddo
     
-  tmp = 0.d0
-  do iat = 1, nsp
-    if (abs(starting_magnetization(iat)).lt.1.d0) then
-      tmp = max(tmp, 1 - abs(starting_magnetization(iat)))
-    endif
-  enddo
-  do iat = 1, nsp
-    if (starting_magnetization(iat).lt.0) then
-      starting_magnetization(iat) = starting_magnetization(iat) - tmp
-    else
-      starting_magnetization(iat) = starting_magnetization(iat) + tmp
-    endif
-  enddo
+  !tmp = 0.d0
+  !do iat = 1, nsp
+  !  if (abs(starting_magnetization(iat)).lt.1.d0) then
+  !    tmp = max(tmp, 1 - abs(starting_magnetization(iat)))
+  !  endif
+  !enddo
+  !do iat = 1, nsp
+  !  if (starting_magnetization(iat).lt.0) then
+  !    starting_magnetization(iat) = starting_magnetization(iat) - tmp
+  !  else
+  !    starting_magnetization(iat) = starting_magnetization(iat) + tmp
+  !  endif
+  !enddo
 
   ! add atoms to the unit cell
   ! WARNING: sirius accepts only fractional coordinates;
@@ -279,12 +279,12 @@ subroutine setup_sirius()
     ! reduce coordinates to [0, 1) interval
     call sirius_reduce_coordinates(v1(1), v2(1), vt(1))
     if (noncolin) then
-      v1(1) = starting_magnetization(iat) * sin(angle1(iat)) * cos(angle2(iat))
-      v1(2) = starting_magnetization(iat) * sin(angle1(iat)) * sin(angle2(iat))
-      v1(3) = starting_magnetization(iat) * cos(angle1(iat))
+      v1(1) = zv(iat) * starting_magnetization(iat) * sin(angle1(iat)) * cos(angle2(iat))
+      v1(2) = zv(iat) * starting_magnetization(iat) * sin(angle1(iat)) * sin(angle2(iat))
+      v1(3) = zv(iat) * starting_magnetization(iat) * cos(angle1(iat))
     else
       v1 = 0
-      v1(3) = starting_magnetization(iat)
+      v1(3) = zv(iat) * starting_magnetization(iat)
     endif
     call sirius_add_atom(c_str(atm(iat)), v2(1), v1(1))
   enddo
