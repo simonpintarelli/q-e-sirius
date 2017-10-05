@@ -38,7 +38,7 @@ subroutine electrons_sirius_v2()
   use constants, only : eps8
   use paw_init,             only : paw_atomic_becsum
   use paw_symmetry,         ONLY : PAW_symmetrize_ddd, PAW_symmetrize
-  use noncollin_module,     only : noncolin, magtot_nc, bfield
+  use noncollin_module,     only : noncolin, magtot_nc, i_cons, bfield, report
   use spin_orb,             only : domag
   use cell_base,            only : omega
   use symme,                only : sym_rho
@@ -276,7 +276,13 @@ subroutine electrons_sirius_v2()
     !!== If ( okpaw ) hwf_energy = hwf_energy + epaw
     !!== IF ( lda_plus_u ) hwf_energy = hwf_energy + eth
 
-    if (conv_elec) write(stdout, 9101)
+    !if (conv_elec) write(stdout, 9101)
+
+     IF ( ( MOD(iter,report) == 0 ) .OR. ( report /= 0 .AND. conv_elec ) ) THEN
+        !
+        IF ( (noncolin .AND. domag) .OR. i_cons==1 .OR. nspin==2) CALL report_mag()
+        !
+     END IF
     
     if (conv_elec.or.mod(iter, iprint).eq.0) then
        write(stdout, 9101)
