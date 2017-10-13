@@ -50,6 +50,7 @@ SUBROUTINE run_pwscf ( exit_status )
                                qmmm_update_positions, qmmm_update_forces
   USE qexsd_module,     ONLY:   qexsd_set_status
   USE input_parameters, ONLY : use_sirius, sirius_cfg
+  USE paw_variables,      ONLY : okpaw
   USE sirius
   USE klist,            ONLY : kset_id
   !
