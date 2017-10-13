@@ -26,7 +26,7 @@ SUBROUTINE init_run()
   USE fft_base,           ONLY : dffts
   USE funct,              ONLY : dft_is_hybrid
   USE recvec_subs,        ONLY : ggen
-  USE wannier_new,        ONLY : use_wannier    
+  USE wannier_new,        ONLY : use_wannier
   USE dfunct,             ONLY : newd
   USE esm,                ONLY : do_comp_esm, esm_init
   USE mp_bands,           ONLY : intra_bgrp_comm, inter_bgrp_comm, nbgrp, root_bgrp_id
@@ -135,7 +135,7 @@ SUBROUTINE init_run()
 #if defined(__HDF5)
   ! calls h5open_f mandatory in any application using hdf5
   CALL initialize_hdf5()
-#endif 
+#endif
   !
   if (.not.use_sirius) then
     CALL wfcinit()
@@ -143,10 +143,10 @@ SUBROUTINE init_run()
   !
   IF (use_wannier) CALL wannier_init()
   !
-#if defined(__MPI)
+!#if defined(__MPI)
   ! Cleanup PAW arrays that are only used for init
-  IF (okpaw) CALL paw_post_init() ! only parallel!
-#endif
+!  IF (okpaw) CALL paw_post_init() ! only parallel!
+!#endif
   !
   IF ( lmd ) CALL allocate_dyn_vars()
   IF( nbgrp > 1 ) THEN
@@ -179,7 +179,7 @@ SUBROUTINE pre_init()
      nh (nt) = 0
      !
      ! do not add any beta projector if pseudo in 1/r fmt (AF)
-     IF ( upf(nt)%tcoulombp ) CYCLE 
+     IF ( upf(nt)%tcoulombp ) CYCLE
      !
      DO nb = 1, upf(nt)%nbeta
         nh (nt) = nh (nt) + 2 * upf(nt)%lll(nb) + 1

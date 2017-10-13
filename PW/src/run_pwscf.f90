@@ -122,6 +122,12 @@ SUBROUTINE run_pwscf ( exit_status )
         call setup_sirius
         call sirius_stop_timer(c_str("qe|run_pwscf|setup_sirius"))
      endif
+
+#if defined(__MPI)
+     ! Cleanup PAW arrays that are only used for init
+     IF (okpaw) CALL paw_post_init() ! only parallel!
+#endif
+
      !
      ! ... electronic self-consistency or band structure calculation
      !
