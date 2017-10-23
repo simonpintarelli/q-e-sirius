@@ -53,6 +53,7 @@ SUBROUTINE run_pwscf ( exit_status )
   USE paw_variables,      ONLY : okpaw
   USE sirius
   USE klist,            ONLY : kset_id
+  USE paw_init,           ONLY : paw_post_init
   !
   IMPLICIT NONE
   INTEGER, INTENT(OUT) :: exit_status
