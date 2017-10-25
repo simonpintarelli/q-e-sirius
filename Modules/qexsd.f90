@@ -59,7 +59,6 @@ MODULE qexsd_module
   !
   LOGICAL          :: qexsd_use_large_indent = .FALSE.
   !
-  CHARACTER(iotk_attlenx) :: attr
   ! 
   TYPE (input_type)                :: qexsd_input_obj
   TYPE (general_info_type)         :: general_info
@@ -173,6 +172,8 @@ CONTAINS
       CALL qes_write_parallel_info(qexsd_xf,parallel_info)
       CALL qes_reset_parallel_info(parallel_info) 
       IF ( check_file_exst(input_xml_schema_file) )  THEN
+         CALL xml_addComment( XF = qexsd_xf, &
+                              COMMENT= "")
          CALL qexsd_cp_line_by_line(ounit ,input_xml_schema_file, spec_tag="input")
       ELSE IF ( TRIM(qexsd_input_obj%tagname) == "input") THEN 
          CALL qes_write_input(qexsd_xf, qexsd_input_obj)
@@ -278,8 +279,9 @@ CONTAINS
       integer :: iun, ierr
       character(256) :: str
       logical :: icopy, exists
+      integer, external  :: find_free_unit
 
-      call iotk_free_unit(iun)
+      iun =  find_free_unit()
       !
       INQUIRE(FILE=trim(filename), EXIST=exists)
       !

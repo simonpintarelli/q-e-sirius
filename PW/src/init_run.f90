@@ -33,7 +33,7 @@ SUBROUTINE init_run()
   USE mp,                 ONLY : mp_bcast
   USE tsvdw_module,       ONLY : tsvdw_initialize
   USE wavefunctions_module, ONLY : evc
-#if defined(__HDF5)
+#if defined(__HDF5) && defined(__OLDXML)
   USE hdf5_qe, ONLY : initialize_hdf5
 #endif
   USE input_parameters, ONLY : use_sirius
@@ -132,10 +132,10 @@ SUBROUTINE init_run()
     CALL newd()
   endif
   call sirius_stop_timer(c_str("qe|init_run|newd"))
-#if defined(__HDF5)
+#if defined(__HDF5) && defined(__OLDXML)
   ! calls h5open_f mandatory in any application using hdf5
   CALL initialize_hdf5()
-#endif
+#endif 
   !
   if (.not.use_sirius) then
     CALL wfcinit()

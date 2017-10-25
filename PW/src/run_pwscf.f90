@@ -228,6 +228,7 @@ SUBROUTINE run_pwscf ( exit_status )
      !
      ! ... exit condition (ionic convergence) is checked here
      !
+     IF ( lmd .OR. lbfgs ) CALL add_qexsd_step(idone)
      IF ( conv_ions ) EXIT main_loop
      !
      ! ... receive new positions from MM code in QM/MM run
@@ -245,7 +246,6 @@ SUBROUTINE run_pwscf ( exit_status )
         if (.not.use_sirius) then
           CALL update_pot()
         endif
-        CALL add_qexsd_step(idone)
         !
         ! ... re-initialize atomic position-dependent quantities
         !
