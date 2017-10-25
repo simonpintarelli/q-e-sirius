@@ -1,7 +1,11 @@
-#!/bin/bash                                                                                                           #
-# Copyright (C) 2001 Quantum ESPRESSO                                                                                 #
-# This program is free software; you can redistribute it and/or                                                       # modify it under the terms of the GNU General Public License
-# as published by the Free Software Foundation; either version 2                                                      # of the License. See the file `License' in the root directory
+#!/bin/bash
+#
+# Copyright (C) 2001 Quantum ESPRESSO
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation; either version 2
+# of the License. See the file `License' in the root directory
 # of the present distribution.
 
 include ./ENVIRONMENT
@@ -58,10 +62,10 @@ run-tests-ph-serial : prolog pseudo
 run-tests-ph-parallel : prolog pseudo
 	env QE_USE_MPI=1 ${TESTCODE_DIR}/bin/testcode.py --verbose --category=ph_all
 
-run-tests-epw-serial : clean prolog pseudo
+run-tests-epw-serial : prolog pseudo
 	env QE_USE_MPI=0 ${TESTCODE_DIR}/bin/testcode.py --verbose --category=epw_all
 
-run-tests-epw-parallel : clean prolog pseudo
+run-tests-epw-parallel : prolog pseudo
 	env QE_USE_MPI=1 ${TESTCODE_DIR}/bin/testcode.py --verbose --category=epw_all
 
 run-travis : clean prolog pseudo

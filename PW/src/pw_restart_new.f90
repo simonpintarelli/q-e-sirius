@@ -465,9 +465,6 @@ MODULE pw_restart_new
       USE mp_pools,             ONLY : intra_pool_comm, inter_pool_comm
       USE mp_bands,             ONLY : my_bgrp_id, root_bgrp, intra_bgrp_comm,&
                                        root_bgrp_id, nbgrp
-#if defined(__HDF5) 
-      USE hdf5_qe,              ONLY : hdf5_type
-#endif
       !
       IMPLICIT NONE
       !
@@ -480,9 +477,6 @@ MODULE pw_restart_new
       CHARACTER(LEN=256)    :: dirname
       CHARACTER(LEN=320)    :: filename
       CHARACTER(iotk_attlenx)  :: attr
-#if defined(__HDF5)
-      TYPE(hdf5_type)       :: gvecs_h5desc
-#endif
       !
       dirname = TRIM( tmp_dir ) // TRIM( prefix ) // '.save/'
       !
@@ -731,7 +725,7 @@ MODULE pw_restart_new
             GOTO 100
          END IF
          ! CALL qes_write_parallel_info ( 82, restart_parallel_info )
-      END IF  
+      END IF 
       ! 
       IF ( PRESENT ( restart_output ) ) THEN
          nodePointer => item ( getElementsByTagname(root, "output"),0)
@@ -1638,7 +1632,8 @@ MODULE pw_restart_new
        ELSE IF (band_structure%starting_k_points%nk_ispresent ) THEN 
            nks_start = band_structure%starting_k_points%nk
            IF ( nks_start > 0 ) THEN 
-              ALLOCATE (xk_start(3,nks_start), wk_start(nks_start))
+              IF ( .NOT. ALLOCATED(xk_start) ) ALLOCATE (xk_start(3,nks_start))
+              IF ( .NOT. ALLOCATED(wk_start) ) ALLOCATE (wk_start(nks_start))
               IF ( nks_start == size( band_structure%starting_k_points%k_point ) ) THEN 
                  DO ik =1, nks_start
                     xk_start(:,ik) = band_structure%starting_k_points%k_point(ik)%k_point(:) 
@@ -1847,9 +1842,9 @@ MODULE pw_restart_new
       CHARACTER(LEN=*), INTENT(IN)  :: dirname
       !
       CHARACTER(LEN=2), DIMENSION(2) :: updw = (/ 'up', 'dw' /)
-      CHARACTER(LEN=320)   :: filename
+      CHARACTER(LEN=320)   :: filename, msg
       INTEGER              :: i, ik, ik_g, ig, ipol, ik_s
-      INTEGER              :: npol_, npwx_g
+      INTEGER              :: npol_, npwx_g, nbnd_
       INTEGER              :: nupdwn(2), ike, iks, npw_g, ispin
       INTEGER, EXTERNAL    :: global_kpoint_index
       INTEGER, ALLOCATABLE :: ngk_g(:), mill_k(:,:)
@@ -1932,14 +1927,19 @@ MODULE pw_restart_new
          ENDIF
          !
          CALL read_wfc( iunpun, filename, root_bgrp, intra_bgrp_comm, &
-              ik_g, xk_, ispin, npol_, evc, npw_g, gamma_only, nbnd, &
+              ik_g, xk_, ispin, npol_, evc, npw_g, gamma_only, nbnd_, &
               igk_l2g_kdip(:), ngk(ik), b1, b2, b3, mill_k, scalef )
          !
          ! ... here one should check for consistency between what is read
          ! ... and what is expected
          !
+         IF ( nbnd_ < nbnd ) THEN
+            WRITE (msg,'("The number of bands for this run is",I6,", but only",&
+                 & I6," bands were read from file")')  nbnd, nbnd_  
+            CALL errore ('pw_restart - read_collected_to_evc', msg, 1 )
+         END IF
          CALL save_buffer ( evc, nwordwfc, iunwfc, ik )
-         !
+         ! 
       END DO k_points_loop
       !
       DEALLOCATE ( mill_k )
