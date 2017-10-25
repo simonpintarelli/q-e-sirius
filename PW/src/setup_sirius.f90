@@ -137,7 +137,6 @@ subroutine setup_sirius()
      call sirius_set_so_correction(.true.)
   else
      if (noncolin) then
-        write(*,*) "We should be here"
         call sirius_set_num_mag_dims(3)
      else
         if (nspin.eq.2) then
