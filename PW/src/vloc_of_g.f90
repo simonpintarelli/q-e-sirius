@@ -57,7 +57,7 @@ subroutine vloc_of_g (mesh, msh, rab, r, vloc_at, zp, tpiba2, ngl, &
   !
   real(DP), external :: qe_erf
   !
-  allocate ( aux(msh), aux1(msh) )
+  allocate (aux1(msh) )
   if (gl (1) < eps8) then
      !
      ! first the G=0 term
@@ -67,17 +67,16 @@ subroutine vloc_of_g (mesh, msh, rab, r, vloc_at, zp, tpiba2, ngl, &
         ! ... temporarily redefine term for ESM calculation
         !
         do ir = 1, msh
-           aux (ir) = r (ir) * (r (ir) * vloc_at (ir) + zp * e2    &
-                      * qe_erf (r (ir) ) )
+           aux1(ir) = r (ir) * (r (ir) * vloc_at (ir) + zp * e2 * qe_erf (r (ir) ) )
         enddo
      ELSE
         do ir = 1, msh
-           aux (ir) = r (ir) * (r (ir) * vloc_at (ir) + zp * e2)
+           aux1 (ir) = r (ir) * (r (ir) * vloc_at (ir) + zp * e2)
         enddo
      END IF
-     call simpson (msh, aux, rab, vlcp)
+     call simpson (msh, aux1, rab, vlcp)
      if (sirius_spline_integration) then
-       call sirius_integrate(0, msh, r(1), aux(1), vlcp)
+       call sirius_integrate(0, msh, r(1), aux1(1), vlcp)
      endif
      vloc (1) = vlcp        
      igl0 = 2
@@ -96,6 +95,11 @@ subroutine vloc_of_g (mesh, msh, rab, r, vloc_at, zp, tpiba2, ngl, &
   !    and here we perform the integral, after multiplying for the |G|
   !    dependent part
   !
+!$OMP PARALLEL DEFAULT(none) SHARED(igl0, ngl, gl, tpiba2, msh, aux1, fac, r, rab, &
+!$OMP                               do_comp_esm, esm_bc, sirius_spline_integration, vloc)&
+!$OMP                        PRIVATE(gx, ir, aux, vlcp)
+  allocate(aux(msh))
+!$OMP DO
   do igl = igl0, ngl
      gx = sqrt (gl (igl) * tpiba2)
      do ir = 1, msh
@@ -113,8 +117,11 @@ subroutine vloc_of_g (mesh, msh, rab, r, vloc_at, zp, tpiba2, ngl, &
      END IF
      vloc (igl) = vlcp
   enddo
+!$OMP END DO
+  deallocate(aux)
+!$OMP END PARALLEL
   vloc (:) = vloc(:) * fpi / omega
-  deallocate (aux, aux1)
+  deallocate (aux1)
 
 return
 end subroutine vloc_of_g
