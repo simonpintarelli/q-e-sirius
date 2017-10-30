@@ -113,7 +113,9 @@ We quote in particular:
  \item Andrea Dal Corso for the implementation of Ultrasoft, PAW,
   noncolinear, spin-orbit extensions to \PHonon;
   \item Mitsuaki Kawamura (U.Tokyo) for implementation of the optimized
-  tetrahedron method in phonon and electron-phonon calculations. 
+  tetrahedron method in phonon and electron-phonon calculations;
+  \item Thibault Sohier, Matteo Calandra, Francesco Mauri, for 
+	phonons in two-dimensional systems.
 \end{itemize}
 
 The \texttt{PlotPhon} and \texttt{QHA} packages were contribute by the
@@ -354,6 +356,17 @@ they are printed to a file \textit{prefix}\verb|.a2F.dat|.
 \end{enumerate}
 
 There is an example in \verb|PHonon/example/tetra_example/|.
+
+\subsection{Phonons for two-dimensional crystals}
+
+The extension of DFPT to two dimensional crystals,
+in particular gated two-dimensional heterostructure,
+s described in the following paper:
+
+T. Sohier, M. Calandra, and F. Mauri, Phys. Rev. B 96, 075448 (2017),
+https://doi.org/10.1103/PhysRevB.96.075448
+
+See example  \verb|PHonon/example/example17/|.
 
 \section{Parallelism}
 \label{Sec:para}
