@@ -79,19 +79,23 @@ subroutine stress ( sigma )
   !
   !   contribution from local  potential
   !
+  call sirius_start_timer(c_str("qe|stress_loc"))
   call stres_loc(sigmaloc) ! In ESM, sigmaloc has only short term.
   IF ( do_comp_esm .and. ( esm_bc .ne. 'pbc' ) ) THEN ! for ESM stress
      call esm_stres_loclong( sigmaloclong, rho%of_g ) ! long range part
      sigmaloc(:,:) = sigmaloc(:,:) + sigmaloclong(:,:)
   END IF
+  call sirius_stop_timer(c_str("qe|stress_loc"))
   !
   !  hartree contribution
   !
+  call sirius_start_timer(c_str("qe|stress_har"))
   IF ( do_comp_esm .and. ( esm_bc .ne. 'pbc' ) ) THEN ! for ESM stress
      call esm_stres_har( sigmahar, rho%of_g )
   ELSE
      call stres_har (sigmahar)
   END IF
+  call sirius_stop_timer(c_str("qe|stress_har"))
   !
   !  xc contribution (diagonal)
   !
