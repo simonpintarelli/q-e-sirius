@@ -39,9 +39,9 @@ SUBROUTINE hinit0()
   ! ... calculate the Fourier coefficients of the local part of the PP
   !
   call sirius_start_timer(c_str("qe|init_run|hinit0|init_vloc"))
-  if (.not.use_sirius) then
+  !if (.not.use_sirius) then
     CALL init_vloc()
-  endif
+  !endif
   call sirius_stop_timer(c_str("qe|init_run|hinit0|init_vloc"))
   !
   ! ... k-point independent parameters of non-local pseudopotentials
@@ -101,9 +101,9 @@ SUBROUTINE hinit0()
   ! ... calculate the total local potential
   !
   call sirius_start_timer(c_str("qe|init_run|hinit0|setlocal"))
-  if (.not.use_sirius) then
+  !if (.not.use_sirius) then
     CALL setlocal()
-  endif
+  !endif
   call sirius_stop_timer(c_str("qe|init_run|hinit0|setlocal"))
   !
   ! ... calculate the core charge (if any) for the nonlinear core correction
