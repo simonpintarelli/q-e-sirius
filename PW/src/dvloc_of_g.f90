@@ -16,6 +16,7 @@ subroutine dvloc_of_g (mesh, msh, rab, r, vloc_at, zp, tpiba2, ngl, gl, &
   USE kinds
   USE constants , ONLY : pi, fpi, e2, eps8
   USE esm, ONLY : do_comp_esm, esm_bc
+  USE input_parameters,     ONLY : sirius_spline_integration
   implicit none
   !
   !    first the dummy variables
@@ -80,6 +81,9 @@ subroutine dvloc_of_g (mesh, msh, rab, r, vloc_at, zp, tpiba2, ngl, gl, &
              * r (i) ) / gx**2)
      enddo
      call simpson (msh, aux, rab, vlcp)
+     if (sirius_spline_integration) then
+       call sirius_integrate(0, msh, r(1), aux(1), vlcp)
+     endif
      ! DV(g^2)/Dg^2 = (DV(g)/Dg)/2g
      vlcp = fpi / omega / 2.0d0 / gx * vlcp
 
