@@ -21,6 +21,7 @@ subroutine setup_sirius()
   use cell_base, only : omega
   use symm_base, only : nosym
   use spin_orb,  only : lspinorb
+  use esm,       only : esm_local, esm_bc, do_comp_esm
   implicit none
   !
   integer :: dims(3), i, ia, iat, rank, ierr, ijv, ik, li, lj, mb, nb, j, l,&
@@ -299,11 +300,13 @@ subroutine setup_sirius()
   !if (nosym) then
     call sirius_set_use_symmetry(0)
   !endif
+  
+  bool_var = do_comp_esm
+  call sirius_set_esm(bool_var, esm_bc)
 
   ! initialize global variables/indices/arrays/etc. of the simulation
   call sirius_initialize_simulation_context()
     
-
   ! get number of g-vectors of the dense fft grid
   call sirius_get_num_gvec(num_gvec)
 
