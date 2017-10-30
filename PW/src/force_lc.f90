@@ -62,11 +62,11 @@ subroutine force_lc (nat, tau, ityp, alat, omega, ngm, ngl, &
   ! F_loc = Omega \Sum_G n*(G) d V_loc(G)/d R_i
   !
 
-  if (use_sirius) then
-    call sirius_get_forces(c_str("vloc"), forcelc(1,1))
-    forcelc = forcelc * 2 ! convert to Ha
-    return
-  endif
+  !if (use_sirius) then
+  !  call sirius_get_forces(c_str("vloc"), forcelc(1,1))
+  !  forcelc = forcelc * 2 ! convert to Ha
+  !  return
+  !endif
 
   allocate (aux(dfftp%nnr))
   if ( nspin == 2) then
