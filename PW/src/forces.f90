@@ -181,7 +181,7 @@ SUBROUTINE forces()
   !
 
 
-  IF( do_comp_esm  .and. .not. use_sirius ) THEN
+  IF( do_comp_esm ) THEN
      CALL esm_force_ew( forceion )
   ELSE
      CALL force_ew( alat, nat, ntyp, ityp, zv, at, bg, tau, omega, g, &
