@@ -42,6 +42,7 @@ subroutine electrons_sirius_v2()
   use spin_orb,             only : domag
   use cell_base,            only : omega
   use symme,                only : sym_rho
+  use esm,                  only : do_comp_esm, esm_printpot, esm_ewald
   !
   implicit none
   integer iat, ia, i, j, num_gvec, num_fft_grid_points, ik, iter, ig, li, lj, ijv, ilast, ir, l, mb, nb, is, nk1
@@ -85,7 +86,8 @@ subroutine electrons_sirius_v2()
   call get_rhoc_from_sirius
   
   ! get local part of pseudopotential
-  call get_vloc_from_sirius
+  !call get_vloc_from_sirius
+  call put_vltot_to_sirius
   
   ! create ground-state class
   call sirius_create_ground_state(kset_id)
@@ -146,8 +148,12 @@ subroutine electrons_sirius_v2()
   !endif
 
   ! Ewald energy doesn't change during iterations
-  call sirius_get_energy_ewald(ewld)
-  ewld = ewld * 2.d0
+  if (do_comp_esm) then
+     ewld = esm_ewald()
+  else 
+    call sirius_get_energy_ewald(ewld)
+    ewld = ewld * 2.d0
+  endif
 
   do iter = 1, niter
     tr2_min = 0.d0
