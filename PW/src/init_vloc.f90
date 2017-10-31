@@ -20,11 +20,16 @@ subroutine init_vloc()
   USE ions_base,  ONLY : ntyp => nsp
   USE cell_base,  ONLY : omega, tpiba2
   USE vlocal,     ONLY : vloc
-  USE gvect,      ONLY : ngl, gl
+  USE gvect,      ONLY : ngl, gl, ngm, mill, igtongl
+  USE input_parameters, ONLY : use_sirius
+  use mp_bands, only : intra_bgrp_comm
+  use ions_base, only : atm
+  use sirius
   !
   implicit none
   !
-  integer :: nt
+  integer :: nt, i
+  real(8), allocatable :: tmp(:)
   ! counter on atomic types
   !
   call start_clock ('init_vloc')
@@ -53,9 +58,17 @@ subroutine init_vloc()
         !
         ! normal case
         !
-        call vloc_of_g (rgrid(nt)%mesh, msh (nt), rgrid(nt)%rab, rgrid(nt)%r, &
-            upf(nt)%vloc(1), upf(nt)%zp, tpiba2, ngl, gl, omega, vloc (1, nt) )
-        !
+        if (use_sirius) then
+          allocate(tmp(ngm))
+          call sirius_get_pw_coeffs_real(c_str(atm(nt)), c_str("vloc"), tmp(1), ngm, mill(1, 1), intra_bgrp_comm)
+          do i = 1, ngm
+            vloc(igtongl(i), nt) = tmp(i) * 2 ! convert to Ry
+          enddo
+          deallocate(tmp)
+        else
+          call vloc_of_g (rgrid(nt)%mesh, msh (nt), rgrid(nt)%rab, rgrid(nt)%r, &
+              upf(nt)%vloc(1), upf(nt)%zp, tpiba2, ngl, gl, omega, vloc (1, nt) )
+        endif
      END IF
   enddo
   call stop_clock ('init_vloc')

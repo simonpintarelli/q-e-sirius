@@ -83,11 +83,18 @@ subroutine electrons_sirius_v2()
   call sirius_create_potential()
   
   ! get core density as it is not computed by QE when SIRIUS is triggered
-  call get_rhoc_from_sirius
+  call get_rhoc_from_sirius()
   
   ! get local part of pseudopotential
   !call get_vloc_from_sirius
-  call put_vltot_to_sirius
+
+  ! WARNING: vloc was not initialized in hinit0 when sirius is enabled (it's slow)
+  !          do it here
+  call init_vloc()
+  call setlocal()
+
+  ! put local potential to sirius
+  call put_vltot_to_sirius()
   
   ! create ground-state class
   call sirius_create_ground_state(kset_id)

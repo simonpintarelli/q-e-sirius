@@ -37,10 +37,6 @@ subroutine setup_sirius()
   ! set up a type of calculation
   call sirius_set_esm_type(c_str("pseudopotential"))
 
-  !if (omega.lt.250) then
-  !  call sirius_set_processing_unit(c_str("cpu"))
-  !endif
-
   if (get_meta().ne.0.or.get_inlc().ne.0) then
     write(*,*)get_igcx()
     write(*,*)get_igcc()
@@ -260,20 +256,6 @@ subroutine setup_sirius()
     deallocate(vloc)
   enddo
     
-  !tmp = 0.d0
-  !do iat = 1, nsp
-  !  if (abs(starting_magnetization(iat)).lt.1.d0) then
-  !    tmp = max(tmp, 1 - abs(starting_magnetization(iat)))
-  !  endif
-  !enddo
-  !do iat = 1, nsp
-  !  if (starting_magnetization(iat).lt.0) then
-  !    starting_magnetization(iat) = starting_magnetization(iat) - tmp
-  !  else
-  !    starting_magnetization(iat) = starting_magnetization(iat) + tmp
-  !  endif
-  !enddo
-
   ! add atoms to the unit cell
   ! WARNING: sirius accepts only fractional coordinates;
   !          if QE stores coordinates in a different way, the conversion must be made here
