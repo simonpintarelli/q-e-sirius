@@ -56,6 +56,7 @@ SUBROUTINE move_ions ( idone )
                                      fcp_relax, fcp_relax_crit
   USE klist,                  ONLY : nelec
   USE dfunct,                 only : newd
+  USE input_parameters, ONLY : use_sirius
   !
   IMPLICIT NONE
   !
@@ -189,14 +190,14 @@ SUBROUTINE move_ions ( idone )
         !
         IF ( conv_ions ) THEN
            !
-           IF ( ( lsda .AND. ( absmag < eps6 ) .AND. lcheck_mag ) ) THEN
+           IF ( ( lsda .AND. ( absmag < eps6 ) .AND. lcheck_mag ) .and. .not.use_sirius ) THEN
               !
               ! ... lsda relaxation :  a final configuration with zero 
               ! ...                    absolute magnetization has been found.
               !                        A check on this configuration is needed
               restart_with_starting_magnetiz = .true.
               ! 
-           ELSE IF (lmovecell.and.lcheck_cell) THEN
+           ELSE IF (lmovecell.and.lcheck_cell .and. .not.use_sirius) THEN
               !
               !  After the cell relaxation we make a final calculation
               !  with the correct g vectors corresponding to the relaxed
