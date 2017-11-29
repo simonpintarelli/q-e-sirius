@@ -233,6 +233,7 @@ MODULE realus
       REAL(DP), ALLOCATABLE :: boxdist(:), xyz(:,:)
       REAL(DP)              :: mbr, mbx, mby, mbz, dmbx, dmby, dmbz, aux
       REAL(DP)              :: inv_nr1, inv_nr2, inv_nr3, boxradsq_ia, boxrad_ia
+      LOGICAL               :: tprint
       !
       initialisation_level = 3
       IF ( .not. okvan ) RETURN
@@ -385,6 +386,7 @@ MODULE realus
       ! collect the result of the qq_at matrix across processors 
       CALL mp_sum( qq_at, intra_bgrp_comm )
       ! and test that they don't differ too much from the result computed on the atomic grid
+      tprint = .true.
       do ia=1,nat
          nt = ityp(ia)
          ijh = 0
@@ -394,8 +396,13 @@ MODULE realus
                jl = nhtol (jh, nt)
                ijh=ijh+1
                if (abs(qq_at(ih,jh,ia)-qq_nt(ih,jh,nt)) .gt. eps6*10 ) then
-                  write(6,'(i3,4i3,i4,2f12.8)')  ia, ih,jh,il,jl, ijh,qq_at(ih,jh,ia), qq_nt(ih,jh,nt)
-                  call errore('real_space_q','integrated real space q too different from target qq',0)
+                  IF (tprint) THEN
+                     CALL infomsg('real_space_q',&
+                         'integrated real space q too different from target q')
+                     tprint = .false.
+                  END IF
+                  write(6,'(i3,4i3,i4,2f12.8)')  ia, ih,jh,il,jl, ijh, &
+                          qq_at(ih,jh,ia), qq_nt(ih,jh,nt)
                end if
             end do
          end do
@@ -1161,7 +1168,6 @@ MODULE realus
       USE uspp_param,       ONLY : upf, nh
       USE noncollin_module, ONLY : noncolin, nspin_mag, nspin_lsda
       USE spin_orb,         ONLY : domag
-      USE mp_pools,         ONLY : inter_pool_comm
       USE mp_bands,         ONLY : intra_bgrp_comm
       USE mp,               ONLY : mp_sum
 
@@ -1208,11 +1214,10 @@ MODULE realus
          !
       ENDDO
       !
-      ! ... check the integral of the total charge
+      ! ... check the total charge (must not be summed on k-points)
       !
        charge = sum( rho_1(:,1:nspin_lsda) )*omega / ( dfftp%nr1*dfftp%nr2*dfftp%nr3 )
        CALL mp_sum(  charge , intra_bgrp_comm )
-       CALL mp_sum(  charge , inter_pool_comm )
 #if defined (__DEBUG)
        write (stdout,*) 'charge before rescaling ', charge
 #endif

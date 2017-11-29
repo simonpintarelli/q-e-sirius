@@ -272,6 +272,8 @@ module funct
   !              tpss    J.Tao, J.P.Perdew, V.N.Staroverov, G.E. Scuseria, 
   !                      PRL 91, 146401 (2003)
   !              tb09    F Tran and P Blaha, Phys.Rev.Lett. 102, 226401 (2009) 
+  !              scan    J Sun, A Ruzsinszky and J Perdew, PRL 115, 36402 (2015)
+  !              scan0   K Hui and J-D. Chai, JCP 144, 44114 (2016)
   !              sogga   Y. Zhao and D. G. Truhlar, JCP 128, 184109 (2008)
   !              m06l    Y. Zhao and D. G. Truhlar, JCP 125, 194101 (2006)
   !              gau-pbe J.-W. Song, K. Yamashita, K. Hirao JCP 135, 071103 (2011)
@@ -342,7 +344,7 @@ module funct
 
   data nonlocc/'NONE', 'VDW1', 'VDW2', 'VV10', 'VDWX', 'VDWY', 'VDWZ' / 
 
-#ifdef __LIBXC
+#if defined(__LIBXC)
   integer :: libxc_major=0, libxc_minor=0, libxc_micro=0
   public :: libxc_major, libxc_minor, libxc_micro, get_libxc_version
 #endif
@@ -392,7 +394,9 @@ CONTAINS
     ! special cases : PZ  (LDA is equivalent to PZ)
     IF (('PZ' .EQ. TRIM(dftout) ).OR.('LDA' .EQ. TRIM(dftout) )) THEN
        dft_defined = set_dft_values(1,1,0,0,0,0)
-
+    ! speciale cases : PW ( LDA with PW correlation ) 
+    ELSE IF ( 'PW' .EQ. TRIM(dftout)) THEN 
+      dft_defined = set_dft_values(1,4,0,0,0,0)
     ! special cases : VWN-RPA
     else IF ('VWN-RPA' .EQ. TRIM(dftout) ) THEN
        dft_defined = set_dft_values(1,11,0,0,0,0)
@@ -408,7 +412,9 @@ CONTAINS
     else if ('PBE' .EQ. TRIM(dftout) ) then
     ! special case : PBE
        dft_defined = set_dft_values(1,4,3,4,0,0)
-       
+    !special case : B88
+    else if ('B88' .EQ. TRIM(dftout) ) then 
+       dft_defined = set_dft_values(1,1,1,0,0,0)    
     ! special case : BP = B88 + P86
     else if ('BP'.EQ. TRIM(dftout) ) then
        dft_defined = set_dft_values(1,1,1,1,0,0)
@@ -1022,7 +1028,11 @@ CONTAINS
   !
   shortname = 'no shortname'
   if (iexch==1.and.igcx==0.and.igcc==0) then
-     shortname = corr(icorr)
+     shortname = TRIM(corr(icorr))
+  else if ( iexch==4.and.icorr==0.and.igcx==0.and.igcc==0) then 
+     shortname = 'OEP'
+  else if (iexch==1.and.icorr==11.and.igcx==0.and.igcc==0) then
+     shortname = 'VWN-RPA'
   else if (iexch==1.and.icorr==3.and.igcx==1.and.igcc==3) then
      shortname = 'BLYP'
   else if (iexch==1.and.icorr==1.and.igcx==1.and.igcc==0) then
@@ -1045,6 +1055,10 @@ CONTAINS
      shortname = 'HSE'
   else if (iexch==1.and.icorr==4.and.igcx==20.and.igcc==4) then
      shortname = 'GAUPBE'
+  else if (iexch==1.and.icorr==4.and.igcx==21.and.igcc==4) then
+     shortname = 'PW86PBE'
+  else if (iexch==1.and.icorr==4.and.igcx==22.and.igcc==4) then 
+     shortname = 'B86BPBE'
   else if (iexch==1.and.icorr==4.and.igcx==11.and.igcc==4) then
      shortname = 'WC'
   else if (iexch==7.and.icorr==12.and.igcx==9.and. igcc==7) then
@@ -1057,10 +1071,14 @@ CONTAINS
      shortname = 'OLYP'
   else if (iexch==1.and.icorr==4.and.igcx==17.and.igcc==4) then
      shortname = 'SOGGA'
+  else if (iexch==1.and.icorr==4.and.igcx==23.and.igcc==1) then
+     shortname = 'OPTBK88'
+  else if (iexch==1.and.icorr==4.and.igcx==24.and.igcc==1) then
+     shortname = 'OPTB86B'  
   else if (iexch==1.and.icorr==4.and.igcx==25.and.igcc==0) then
      shortname = 'EV93'
   else if (iexch==5.and.icorr==0.and.igcx==0.and.igcc==0) then
-     shortname= 'HF'
+     shortname = 'HF'
   end if
 
   if (imeta == 1 ) then
@@ -1070,7 +1088,13 @@ CONTAINS
   else if (imeta == 3) then
      shortname = 'TB09'
   else if (imeta == 4) then
-     shortname = 'META'
+     if ( iexch == 1 .and. icorr == 1) then 
+        shortname = 'PZ+META'
+     else if (iexch==1.and.icorr==4.and.igcx==3.and.igcc==4) then 
+        shortname = 'PBE+META'
+     end if
+  else if (imeta == 5 ) then 
+    shortname = 'SCAN'      
   end if
 
   if ( inlc==1 ) then
@@ -2725,11 +2749,15 @@ subroutine tau_xc_spin (rhoup, rhodw, grhoup, grhodw, tauup, taudw, ex, ec,   &
   v2cup         = zero
   v2cdw         = zero
 
-  do ipol=1,3
-     grhoup2 = grhoup2 + grhoup(ipol)**2
-     grhodw2 = grhodw2 + grhodw(ipol)**2
-  end do
+  ! FIXME: for SCAN, this will be calculated later
+  if (imeta /= 4) then
 
+     do ipol=1,3
+        grhoup2 = grhoup2 + grhoup(ipol)**2
+        grhodw2 = grhodw2 + grhodw(ipol)**2
+     end do
+
+  end if
   
   if (imeta == 1) then
 
@@ -2751,6 +2779,14 @@ subroutine tau_xc_spin (rhoup, rhodw, grhoup, grhodw, tauup, taudw, ex, ec,   &
             &            ex, ec, v1xup, v1xdw, v2xup, v2xdw, v3xup, v3xdw,  &
             &            v1cup, v1cdw, v2cup(1), v2cdw(1), v3cup, v3cdw)
      
+  elseif (imeta == 5) then
+
+     ! FIXME: not the most efficient use of libxc 
+
+     call scanxc_spin(rhoup, rhodw, grhoup, grhodw, tauup, taudw,  &
+              &  ex, v1xup,v1xdw,v2xup,v2xdw,v3xup,v3xdw,          &
+              &  ec, v1cup,v1cdw,v2cup,v2cdw,v3cup,v3cdw )
+  
   else
   
      call errore('tau_xc_spin','This case not implemented',imeta)
@@ -3371,7 +3407,7 @@ subroutine evxc_t_vec(rho,rhoc,lsd,length,vxc,exc)
 end subroutine evxc_t_vec
 
 
-#ifdef __LIBXC
+#if defined(__LIBXC)
   subroutine get_libxc_version
      implicit none
      interface

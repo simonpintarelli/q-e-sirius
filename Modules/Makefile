@@ -45,7 +45,6 @@ ions_base.o \
 kernel_table.o \
 kind.o \
 libxc.o \
-libxc_funcs.o \
 mdiis.o \
 mm_dispersion.o \
 mp_bands.o \
@@ -76,6 +75,7 @@ read_ncpp.o \
 read_pseudo.o \
 read_upf_v1.o \
 read_upf_v2.o \
+read_upf_schema.o \
 read_uspp.o \
 recvec.o \
 recvec_subs.o \

@@ -26,7 +26,7 @@
   USE io_files,   ONLY : prefix
   USE epwcom,     ONLY : write_wfn
   USE noncollin_module, ONLY : noncolin
-  USE wannier,    ONLY : seedname2, wvfn_formatted, reduce_unk, ispinw, &
+  USE wannierEPW,    ONLY : seedname2, wvfn_formatted, reduce_unk, ispinw, &
                          ikstart, ikstop, iknum
   !
   IMPLICIT NONE
@@ -96,7 +96,7 @@ SUBROUTINE lib_dealloc
   !-----------------------------------------------------------------------
   !! Routine to de-allocate Wannier related matrices. 
   !
-  USE wannier
+  USE wannierEPW
   !
   implicit none
   IF (ALLOCATED(m_mat) )     DEALLOCATE(m_mat)
@@ -136,7 +136,7 @@ SUBROUTINE setup_nnkp (  )
   USE ions_base, ONLY : nat, tau, ityp, atm
   USE mp,        ONLY : mp_bcast
   USE wvfct,     ONLY : nbnd, npwx
-  USE wannier,   ONLY : num_nnmax, mp_grid, atcart, atsym, kpb, g_kpb, &
+  USE wannierEPW,   ONLY : num_nnmax, mp_grid, atcart, atsym, kpb, g_kpb, &
                         center_w, alpha_w, l_w, mr_w, r_w, zaxis,      &
                         xaxis, excluded_band, rlatt, glatt, gf,        &
                         csph, ig_, iknum, seedname2, kpt_latt, nnb,    &
@@ -172,8 +172,8 @@ SUBROUTINE setup_nnkp (  )
      proj_site_loc,proj_l_loc,proj_m_loc,proj_radial_loc,proj_z_loc, &
      proj_x_loc,proj_zona_loc,exclude_bands_loc,proj_s_loc,proj_s_qaxis_loc)
 
-     USE kinds,    ONLY : dp
-     USE wannier,  ONLY : num_nnmax
+     USE kinds,       ONLY : dp
+     USE wannierEPW,  ONLY : num_nnmax
 
      implicit none
 
@@ -495,7 +495,12 @@ SUBROUTINE run_wannier
   USE mp_world,  ONLY : world_comm
   USE cell_base, ONLY : celldm
   USE io_files,  ONLY : prefix
-  USE wannier
+  USE io_epw,    ONLY : QPeig_read
+  USE pwcom,     ONLY : nkstot
+  USE wannierEPW,ONLY : u_mat, lwindow, wann_centers, wann_spreads, eigval,  &
+                        n_wannier, spreads, nnb, rlatt, glatt, kpt_latt,     &
+                        iknum, seedname2, num_bands, u_mat_opt, atsym, a_mat,&
+                        atcart, m_mat, mp_grid
   USE epwcom,    ONLY : eig_read
   USE wvfct,     ONLY : nbnd
   USE constants_epw, ONLY : czero, bohr
@@ -504,6 +509,7 @@ SUBROUTINE run_wannier
   ! 
   integer             :: i, ik, ibnd, dummy1, dummy2, ios
   character (len=256) :: tempfile
+  character (len=80)  :: line
   !
   ALLOCATE(u_mat(n_wannier,n_wannier,iknum))
   ALLOCATE(u_mat_opt(num_bands,n_wannier,iknum))
@@ -514,38 +520,35 @@ SUBROUTINE run_wannier
   u_mat_opt = czero
   !
   IF (meta_ionode) THEN
-     ! read in external eigenvalues, e.g.  GW
-     IF (eig_read) then
-        WRITE (stdout,'(5x,a,i5,a,i5,a)') "Reading electronic eigenvalues (", &
-             nbnd, ",", iknum,")"
-        tempfile=trim(prefix)//'.eig'
-        OPEN(1, file=tempfile, form='formatted', action='read', iostat=ios)
-        IF (ios /= 0) CALL errore ('run_wannier','error opening' // tempfile, 1)
-        !
-        ! the form should be band, kpt, eigenvalue
-        !
-        DO ik = 1, iknum
-           DO ibnd = 1, nbnd
-              READ (1,*) dummy1, dummy2, eigval (ibnd,ik)
-              IF (dummy1.ne.ibnd) CALL errore('run_wannier', "Incorrect eigenvalue file", 1)
-              IF (dummy2.ne.ik) CALL errore('run_wannier', "Incorrect eigenvalue file", 1)
-           ENDDO
-        ENDDO
-        CLOSE(1)
-     ENDIF
-     !
+    ! read in external eigenvalues, e.g.  GW
+    IF (eig_read) then
+      WRITE (stdout,'(5x,a,i5,a,i5,a)') "Reading external electronic eigenvalues (", &
+           nbnd, ",", nkstot,")"
+      tempfile=trim(prefix)//'.eig'
+      OPEN(QPeig_read, file=tempfile, form='formatted', action='read', iostat=ios)
+      IF (ios /= 0) CALL errore ('run_wannier','error opening' // tempfile, 1)
+      READ (QPeig_read,'(a)') line
+      DO ik = 1, nkstot
+        ! We do not save the k-point for the moment ==> should be read and
+        ! tested against the current one  
+        READ (QPeig_read,'(a)') line
+        READ (QPeig_read,*) eigval (:,ik)
+      ENDDO
+      CLOSE(QPeig_read)
+    ENDIF
+
 ! SP : This file is not used for now. Only required to build the UNK file
 !      tempfile=trim(prefix)//'.mmn'
 !      OPEN(iummn, file=tempfile, iostat=ios, form='unformatted')
 !      WRITE(iummn) m_mat
 !      CLOSE(iummn)
 
-     CALL wannier_run(seedname2, mp_grid, iknum,   &                 ! input
-           rlatt, glatt, kpt_latt, num_bands,       &                 ! input
-           n_wannier, nnb, nat, atsym,              &                 ! input
-           atcart, .false., m_mat, a_mat, eigval,   &                 ! input
-           u_mat, u_mat_opt, lwindow, wann_centers, &                 ! output
-           wann_spreads, spreads)                                     ! output
+    CALL wannier_run(seedname2, mp_grid, iknum,   &                 ! input
+          rlatt, glatt, kpt_latt, num_bands,       &                 ! input
+          n_wannier, nnb, nat, atsym,              &                 ! input
+          atcart, .false., m_mat, a_mat, eigval,   &                 ! input
+          u_mat, u_mat_opt, lwindow, wann_centers, &                 ! output
+          wann_spreads, spreads)                                     ! output
 
   ENDIF
   !
@@ -594,7 +597,7 @@ SUBROUTINE compute_amn_para
   USE cell_base,       ONLY : tpiba2
   USE uspp,            ONLY : nkb, vkb
   USE becmod,          ONLY : becp, calbec, deallocate_bec_type, allocate_bec_type
-  USE wannier,         ONLY : csph, excluded_band, gf, num_bands, &
+  USE wannierEPW,      ONLY : csph, excluded_band, gf, num_bands, &
                               n_wannier, iknum, n_proj, a_mat,  spin_qaxis, &
                               spin_eig
   USE uspp_param,      ONLY : upf
@@ -790,7 +793,7 @@ SUBROUTINE compute_mmn_para
    USE uspp_param,      ONLY : upf, lmaxq, nh
    USE becmod,          ONLY : becp, calbec, allocate_bec_type, deallocate_bec_type
    USE noncollin_module,ONLY : noncolin, npol
-   USE wannier,         ONLY : m_mat, num_bands, nnb, iknum, g_kpb, kpb, ig_, &
+   USE wannierEPW,      ONLY : m_mat, num_bands, nnb, iknum, g_kpb, kpb, ig_, &
                                excluded_band
    USE constants_epw,   ONLY : czero, twopi
 #if defined(__NAG)
@@ -1179,7 +1182,7 @@ SUBROUTINE compute_pmn_para
   USE uspp_param,      ONLY : upf
   USE becmod,          ONLY : becp, deallocate_bec_type, allocate_bec_type
   USE uspp,            ONLY : nkb
-  USE wannier,         ONLY : n_wannier
+  USE wannierEPW,      ONLY : n_wannier
   !
   implicit none
   !  
@@ -1294,7 +1297,7 @@ SUBROUTINE write_filukk
    USE kinds,        ONLY : DP
    USE io_epw,       ONLY : iuukk
    USE wvfct,        ONLY : nbnd
-   USE wannier,      ONLY : n_wannier, iknum, u_mat, u_mat_opt, lwindow
+   USE wannierEPW,   ONLY : n_wannier, iknum, u_mat, u_mat_opt, lwindow
    USE epwcom,       ONLY : filukk
    USE constants_epw,ONLY : czero
    USE io_global,    ONLY : meta_ionode
@@ -1363,7 +1366,7 @@ SUBROUTINE phases_a_m
    USE io_global,       ONLY : meta_ionode
    USE klist,           ONLY : nkstot, xk, nks
    USE wvfct,           ONLY : nbnd
-   USE wannier,         ONLY : a_mat, m_mat, n_wannier, nnb, kpb, iknum
+   USE wannierEPW,      ONLY : a_mat, m_mat, n_wannier, nnb, kpb, iknum
    USE elph2,           ONLY : umat, umat_all
    USE constants_epw,   ONLY : czero, cone
 
@@ -1463,7 +1466,7 @@ SUBROUTINE generate_guiding_functions(ik)
    USE wvfct,          ONLY : npw
    USE gvect,          ONLY : g
    USE cell_base,      ONLY : tpiba
-   USE wannier,        ONLY : n_proj, gf, center_w, csph, alpha_w, &
+   USE wannierEPW,     ONLY : n_proj, gf, center_w, csph, alpha_w, &
                               r_w
    USE klist,          ONLY : xk, igk_k 
 
@@ -1527,7 +1530,7 @@ END SUBROUTINE generate_guiding_functions
 SUBROUTINE write_band
    USE wvfct,         ONLY : nbnd, et
    USE constants_epw, ONLY: ryd2ev
-   USE wannier
+   USE wannierEPW
 
    implicit none
 
@@ -1564,7 +1567,7 @@ SUBROUTINE write_plot
    USE control_flags,   ONLY : gamma_only
    USE wavefunctions_module, ONLY : evc, psic
    USE units_ph,        ONLY : lrwfc, iuwfc
-   USE wannier,         ONLY : reduce_unk, wvfn_formatted, ispinw, nexband, &
+   USE wannierEPW,      ONLY : reduce_unk, wvfn_formatted, ispinw, nexband, &
                                excluded_band 
    USE gvecs,           ONLY : nls, nlsm
    USE klist,           ONLY : xk, nks, igk_k
@@ -1712,7 +1715,7 @@ END SUBROUTINE write_plot
 SUBROUTINE ylm_expansion 
    USE kinds,         ONLY : DP
    USE random_numbers,ONLY : randy
-   USE wannier,       ONLY : n_proj , xaxis, zaxis, csph, l_w, mr_w
+   USE wannierEPW,       ONLY : n_proj , xaxis, zaxis, csph, l_w, mr_w
    USE matrix_inversion, ONLY: invmat
    implicit none
    ! local variables

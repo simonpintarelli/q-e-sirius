@@ -180,12 +180,13 @@ CONTAINS
          CALL qes_write_input(qexsd_xf, qexsd_input_obj)
       END IF
       ! 
-      !CALL qes_reset_input(qexsd_input_obj)     
       IF (ALLOCATED(steps) ) THEN 
          len_steps= step_counter 
-         DO i_step = 1, len_steps
-            CALL qes_write_step(qexsd_xf, steps(i_step) )
-         END DO 
+         IF (TRIM (steps(1)%tagname ) .EQ. 'step') THEN
+            DO i_step = 1, len_steps
+               CALL qes_write_step(qexsd_xf, steps(i_step) )
+            END DO 
+         END IF
       END IF
       ! 
     END SUBROUTINE qexsd_openschema
@@ -234,7 +235,7 @@ CONTAINS
       TYPE ( parallel_info_type )           :: obj
       !
       INTEGER                               :: nthreads=1
-#ifdef  __OMP 
+#if defined(__OMP) 
       INTEGER,EXTERNAL                      :: omp_get_max
       !     
       nthreads = omp_get_max()
@@ -1117,7 +1118,7 @@ CONTAINS
     LOGICAL                         :: demet_ispresent
     CHARACTER(LEN=*),PARAMETER      :: TAGNAME="total_energy"
     REAL(DP)                        :: etot_har,eband_har,vtxc_har,etxc_har,ewald_har,&
-                                       demet_har,ehart_har,efield_corr
+                                       demet_har,ehart_har,efield_corr, potst_contribution_har
 
     etot_har  = etot/e2
     eband_har = etot/e2
@@ -1130,6 +1131,11 @@ CONTAINS
     ELSE
        efield_corr=0.d0
     END IF
+    IF (PRESENT ( potentiostat_contr ) ) THEN
+       potst_contribution_har = potentiostat_contr/e2
+    ELSE 
+       potst_contribution_har = 0.d0
+    END IF 
 
     IF (degauss .GT. 0.D0) THEN 
        demet_ispresent=.TRUE.
@@ -1145,7 +1151,7 @@ CONTAINS
                                ewald=ewald_har, demet_ispresent=demet_ispresent,demet=demet_har, &
                                efieldcorr_ispresent=PRESENT(electric_field_corr), efieldcorr=efield_corr,&
                                POTENTIOSTAT_CONTR_ISPRESENT = PRESENT(potentiostat_contr), & 
-                               POTENTIOSTAT_CONTR = potentiostat_contr)
+                               POTENTIOSTAT_CONTR = potst_contribution_har)
 
     END SUBROUTINE qexsd_init_total_energy
     ! 
