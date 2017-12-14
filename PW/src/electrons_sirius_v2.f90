@@ -56,8 +56,7 @@ subroutine electrons_sirius_v2()
   real(8) vlat(3, 3), vlat_inv(3, 3), v2(3), bg_inv(3, 3), charge
   integer kmesh(3), kshift(3), printout, vt(3)
   integer, external :: global_kpoint_index
-  real(8), allocatable :: qij(:,:,:), deeq_tmp(:,:)
-  complex(8), allocatable :: vxcg(:)
+  real(8), allocatable :: qij(:,:,:)
   integer, allocatable :: nk_loc(:)
   real(8) :: etot_cmp_paw(nat,2,2), mag, d1, d2, descf, tr2_min
   !---------------
@@ -137,9 +136,6 @@ subroutine electrons_sirius_v2()
   call sirius_stop_timer(c_str("qe|electrons|init"))
 
   conv_elec = .false.
-
-  allocate(deeq_tmp(nhm, nhm))
-  allocate(vxcg(ngm))
 
   !if (nspin.gt.1.and.nspin_mag.eq.1) then
   !  write(*,*)'this case has to be checked'
@@ -346,9 +342,6 @@ subroutine electrons_sirius_v2()
 10 continue
 
   call sirius_stop_timer(c_str("qe|electrons|scf"))
-
-  deallocate(deeq_tmp)
-  deallocate(vxcg)
 
 
   !
