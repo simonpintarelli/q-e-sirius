@@ -24,7 +24,8 @@ MODULE pw_restart_new
                           qexsd_init_dipole_info, qexsd_init_total_energy,             &
                           qexsd_init_forces,qexsd_init_stress, qexsd_xf,               &
                           qexsd_init_outputElectricField,                              &
-                          qexsd_input_obj, qexsd_occ_obj, qexsd_smear_obj
+                          qexsd_input_obj, qexsd_occ_obj, qexsd_smear_obj,             &
+                          qexsd_init_outputPBC
   USE iotk_module
   USE io_global, ONLY : ionode, ionode_id
   USE io_files,  ONLY : iunpun, xmlpun_schema, prefix, tmp_dir
@@ -106,7 +107,8 @@ MODULE pw_restart_new
       USE xdm_module,           ONLY : xdm_a1=>a1i, xdm_a2=>a2i
       USE tsvdw_module,         ONLY : vdw_isolated, vdw_econv_thr
       USE input_parameters,     ONLY : verbosity, calculation, ion_dynamics, starting_ns_eigenvalue, &
-                                       vdw_corr, london, k_points, input_parameters_occupations => occupations
+                                       vdw_corr, london, k_points, assume_isolated, &  
+                                       input_parameters_occupations => occupations                                        
       USE bp,                   ONLY : lelfield, lberry, bp_mod_el_pol => el_pol, bp_mod_ion_pol => ion_pol
       !
       USE rap_point_group,      ONLY : elem, nelem, name_class
@@ -301,6 +303,15 @@ MODULE pw_restart_new
               nsp, nat, atm, ityp, Hubbard_U, Hubbard_J0,  &
               Hubbard_alpha, Hubbard_beta, Hubbard_J, starting_ns_eigenvalue, &
               U_projection, is_hubbard, upf(1:nsp)%psd, rho%ns, rho%ns_nc )
+         !
+!-------------------------------------------------------------------------------
+! ... PERIODIC BOUNDARY CONDITIONS 
+!-------------------------------------------------------------------------------
+         !
+         IF (TRIM( assume_isolated ) .EQ. "2D" ) THEN
+            output%boundary_conditions_ispresent=.TRUE.
+            CALL  qexsd_init_outputPBC(output%boundary_conditions, assume_isolated)
+          ENDIF
          !
 !-------------------------------------------------------------------------------
 ! ... MAGNETIZATION
@@ -506,7 +517,7 @@ MODULE pw_restart_new
       ! ... the igk_l2g_kdip local-to-global map yields the correspondence
       ! ... between the global order of k+G and the local index for k+G.
       !
-      ALLOCATE ( igk_l2g_kdip( npwx_g ) )
+      ALLOCATE ( igk_l2g_kdip( npwx ) )
       !
       ALLOCATE ( mill_k( 3, npwx ) )
       !
@@ -725,7 +736,7 @@ MODULE pw_restart_new
             GOTO 100
          END IF
          ! CALL qes_write_parallel_info ( 82, restart_parallel_info )
-      END IF 
+      END IF  
       ! 
       IF ( PRESENT ( restart_output ) ) THEN
          nodePointer => item ( getElementsByTagname(root, "output"),0)
@@ -768,7 +779,7 @@ MODULE pw_restart_new
       LOGICAL            :: lcell, lpw, lions, lspin, linit_mag, &
                             lxc, locc, lbz, lbs, lwfc, lheader,          &
                             lsymm, lrho, lefield, ldim, &
-                            lef, lexx, lesm
+                            lef, lexx, lesm, lpbc
       !
       LOGICAL            :: need_qexml, found, electric_field_ispresent
       INTEGER            :: tmp, iotk_err 
@@ -799,6 +810,7 @@ MODULE pw_restart_new
       lexx    = .FALSE.
       lesm    = .FALSE.
       lheader = .FALSE.
+      lpbc    = .FALSE.  
       !
      
          
@@ -870,6 +882,7 @@ MODULE pw_restart_new
          lsymm   = .TRUE.
          lefield = .TRUE.
          lrho    = .TRUE.
+         lpbc    = .TRUE. 
          need_qexml = .TRUE.
          !
       CASE( 'ef' )
@@ -887,6 +900,10 @@ MODULE pw_restart_new
          lesm       = .TRUE.
          need_qexml = .TRUE.
          !
+      CASE( 'boundary_conditions' )  
+         !
+         lpbc       = .TRUE.
+         need_qexml = .TRUE.
       END SELECT
       !
       !
@@ -954,6 +971,10 @@ MODULE pw_restart_new
       IF ( lef ) THEN
                CALL readschema_ef ( output_obj%band_structure) 
          !
+      END IF
+      ! 
+      IF ( lpbc ) THEN
+         CALL readschema_outputPBC ( output_obj%boundary_conditions)
       END IF
       !
       IF ( lexx .AND. output_obj%dft%hybrid_ispresent  ) CALL readschema_exx ( output_obj%dft%hybrid )
@@ -1584,7 +1605,23 @@ MODULE pw_restart_new
        nrot = symmetries_obj%nrot
        !
     END SUBROUTINE readschema_kdim    
-
+    !
+    ! --------- For 2D cutoff: to read the fact that 2D cutoff was used in scf from new xml----------------
+    !-----------------------------------------------------------------------------------------------------
+    SUBROUTINE readschema_outputPBC( boundary_conditions_obj )
+    !-----------------------------------------------------------------------------------------------------
+       !
+       USE Coul_cut_2D,       ONLY : do_cutoff_2D
+       !
+       IMPLICIT NONE
+       !
+       TYPE ( outputPBC_type ),INTENT(IN)    :: boundary_conditions_obj 
+       ! 
+       IF ( TRIM(boundary_conditions_obj%assume_isolated) .EQ. "2D" ) THEN
+          do_cutoff_2D=.TRUE.  
+       ENDIF
+       !
+    END SUBROUTINE readschema_outputPBC
     !-----------------------------------------------------------------------------------------------------
     SUBROUTINE readschema_brillouin_zone( symmetries_obj, band_structure )
     !-----------------------------------------------------------------------------------------------------
@@ -1728,13 +1765,13 @@ MODULE pw_restart_new
              smearing  = 'gaussian'
            CASE ( 'methfessel-paxton', 'm-p', 'mp', 'Methfessel-Paxton', 'M-P', 'MP' )
              ngauss = 1
-             smearing = 'Methfessel-Paxton'
+             smearing = 'mp'
            CASE ( 'marzari-vanderbilt', 'cold', 'm-v', 'mv', 'Marzari-Vanderbilt', 'M-V', 'MV')
              ngauss = -1
-             smearing  = 'Marzari-Vanderbilt'
+             smearing  = 'mv'
            CASE ( 'fermi-dirac', 'f-d', 'fd', 'Fermi-Dirac', 'F-D', 'FD')
              ngauss = -99
-             smearing = 'Fermi-Dirac'
+             smearing = 'fd'
         END SELECT
       END IF       
      !
@@ -1882,7 +1919,7 @@ MODULE pw_restart_new
       !
       ! ... the igk_l2g_kdip local-to-global map is needed to read wfcs
       !
-      ALLOCATE ( igk_l2g_kdip( npwx_g ) )
+      ALLOCATE ( igk_l2g_kdip( npwx ) )
       !
       ALLOCATE( mill_k ( 3,npwx ) )
       !

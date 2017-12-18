@@ -30,7 +30,6 @@ MODULE read_input
      USE read_cards_module,     ONLY : read_cards
      USE io_global,             ONLY : ionode, ionode_id, qestdin
      USE xml_input,             ONLY : xml_input_dump
-     USE read_xml_module,       ONLY : read_xml
      USE mp,                    ONLY : mp_bcast
      USE mp_images,             ONLY : intra_image_comm
      USE iotk_module,           ONLY : iotk_attlenx
@@ -38,7 +37,7 @@ MODULE read_input
      !
      IMPLICIT NONE
      !
-     CHARACTER(LEN=2), INTENT (IN) :: prog
+     CHARACTER(LEN=*), INTENT (IN) :: prog
      CHARACTER(LEN=*), INTENT (IN) :: input_file_
      !
      CHARACTER(LEN=iotk_attlenx) :: attr
@@ -46,7 +45,7 @@ MODULE read_input
      INTEGER :: ierr
      !
      IF ( ionode ) THEN
-        IF ( prog == 'CP' ) CALL xml_input_dump()
+        IF ( prog(1:2) == 'CP' ) CALL xml_input_dump()
         ierr = open_input_file( input_file_, xmlinput, attr) 
      END IF
      !
@@ -58,8 +57,9 @@ MODULE read_input
      !
      IF ( xmlinput ) THEN
         !
-        CALL mp_bcast( attr, ionode_id, intra_image_comm )
-        CALL read_xml ( prog, attr )
+        CALL errore('read_input', 'xml input disabled',1)
+        !!! CALL mp_bcast( attr, ionode_id, intra_image_comm )
+        !!! CALL read_xml ( prog, attr )
         !
      ELSE
         !
@@ -67,9 +67,9 @@ MODULE read_input
         !
         CALL read_namelists( prog, qestdin )
         !
-        ! ... Read CARDS 
+        ! ... Read CARDS (requires in input only first two letters of prog)
         !
-        CALL read_cards ( prog, qestdin )
+        CALL read_cards ( prog(1:2), qestdin )
         !
      END IF
      IF ( ionode) ierr = close_input_file( )

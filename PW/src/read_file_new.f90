@@ -36,9 +36,6 @@ SUBROUTINE read_file()
   USE klist,                ONLY : init_igk
   USE gvect,                ONLY : ngm, g
   USE gvecw,                ONLY : gcutw
-#if defined (__HDF5)
-  USE hdf5_qe
-#endif
   !
   IMPLICIT NONE 
   INTEGER :: ierr
@@ -55,9 +52,6 @@ SUBROUTINE read_file()
      'Reading data from directory:', TRIM( dirname )
   !
   CALL read_xml_file ( )
-#if defined(__HDF5)
-  CALL initialize_hdf5()
-#endif
   !
   ! ... Open unit iunwfc, for Kohn-Sham orbitals - we assume that wfcs
   ! ... have been written to tmp_dir, not to a different directory!
@@ -152,6 +146,7 @@ SUBROUTINE read_xml_file ( )
   USE kernel_table,         ONLY : initialize_kernel_table
   USE esm,                  ONLY : do_comp_esm, esm_init
   USE mp_bands,             ONLY : intra_bgrp_comm, nyfft
+  USE Coul_cut_2D,          ONLY : do_cutoff_2D, cutoff_fact 
   !
   IMPLICIT NONE
 
@@ -175,6 +170,9 @@ SUBROUTINE read_xml_file ( )
   CALL errore( 'read_xml_file ', 'problem reading file ' // &
              & TRIM( tmp_dir ) // TRIM( prefix ) // '.save', ierr )
   !
+  CALL init_vars_from_schema( 'boundary_conditions',   ierr , output_obj, parinfo_obj, geninfo_obj )
+  CALL errore( 'read_xml_file ', 'problem reading file ' // &
+             & TRIM( tmp_dir ) // TRIM( prefix ) // '.save', ierr )
   ! ... allocate space for atomic positions, symmetries, forces
   !
   IF ( nat < 0 ) CALL errore( 'read_xml_file', 'wrong number of atoms', 1 )
@@ -313,6 +311,9 @@ SUBROUTINE read_xml_file ( )
   ! ... re-calculate the local part of the pseudopotential vltot
   ! ... and the core correction charge (if any) - This is done here
   ! ... for compatibility with the previous version of read_file
+  !
+  !2D calculations: re-initialize cutoff fact before calculating potentials
+  IF(do_cutoff_2D) CALL cutoff_fact()
   !
   CALL init_vloc()
   CALL struc_fact( nat, tau, nsp, ityp, ngm, g, bg, dfftp%nr1, dfftp%nr2, &

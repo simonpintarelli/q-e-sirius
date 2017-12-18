@@ -1,7 +1,72 @@
-Known problems in 6.2 version:
+Problems fixed in development version:
+
+  * PWscf in "manypw" mode wasn't working due to a bad IF (Dec.12, 2017)
+
+Incompatible changes in development version:
+
+  * Development moved to GitLab
+
+New in 6.2.1 version:
+
+  * Spin-polarized SCAN meta-GGA; spin-unpolarized stress for meta-GGA
+    (Hsin-Yu Ho and Marcos Calegari Andrade)
+
+  * Interface with Grimme's DFT-D3, as repackaged by Bálint Aradi
+    (Miha Gunde and Layla Martins-Samos)
+  
+  * Phonons for two-dimensional systems (Thibault Sohier et al.)
+
+Problems fixed in 6.2.1 version:
+
+  * PWscf in "driver" mode with i-Pi wasn't working with k-points and
+    wasn't honoring options for interpolation - fixed by Przemyslaw Juda
+    (r14037)
+
+  * Restart in phonon wasn't working with tetrahedra (r14029)
+    and for USPP/PAW at q != 0 (r14034-14036)
+
+  * QM-MM interface with LAMMPS was broken in v.6.2 (r14006-14008)
+
+  * NASTY BUG IN META-GGA WITH LIBXC (tpss, tb09, scan): incorrect results -
+    fixed by Hsin-Yu Ho and Marcos Calegari Andrade (r14000, 14004-5, 14027)
+
+  * Electron-phonon with ibrav=0 not working due to a mismatch between
+    what is written and what is read in "fildyn" (r13999)
+
+  * Tetrahedra with "old" XML format working again (r13993)
+
+  * Option "-in file" for fermi_proj.x and fermi_velocity.x was not working
+    in serial execution; fermisurfer_example/ was missing (r13986). Also:
+    Fermi velocity in vfermi.frmsf was 4*celldm(1) times bigger than in
+    fermisurfer (reported by Victor Chang, fixed by Mitsuaki Kawamura, r14033)
+
+  * Inconsistent "short name" for DFT was breaking Perdew-Wang pseudopotentials
+    (r13975)
+
+  * Yet another problem with last scf step in vc-relax, present since v.6.1: 
+    if no atoms of a given kind were present, there was a division by zero
+    and a NaN in starting magnetization (reported by Malte Sachs) (r13971)
+
+  * FFT's for ARM libraries were broken (r13956,13959, courtesy Jason Wood)
+
+Known problems in 6.2.1 version:
+
+  * pw2bgw.x not working
+
+  * QM-MM not yet working; COUPLE interface not aligned with new parallelism
 
   * New format for charge density no longer allows to perform a non-scf
     calculation with k-points starting from a scf calculation at Gamma
+
+  * NEB with one k-point per pool requires "wf_collect=.false.", because
+    update_neb is not updated for the new format
+
+Incompatible changes in 6.2.1 version:
+
+  * __OPENMP with two underscores (set by configure) replaced by _OPENMP
+    with one underscore (automatically set by all OpenMP-aware compilers)
+
+  * "Old" xml input file deleted
 
 New in 6.2 version:
 
@@ -92,7 +157,7 @@ Incompatible changes in 6.2 version:
 
   * MAJOR restructuring of the distribution:
     - diagonalizers moved to KS_Solvers/
-    - general utility modules moved to UtilsXlib/
+    - general utility modules moved to UtilXlib/
   * MAJOR restructuring of parallel FFTs, affecting ordering of real-space
     arrays
   * Restructuring of C routines, introduction of ISO_C_BINDING:
@@ -104,9 +169,9 @@ Incompatible changes in 6.2 version:
     some variables in modules constants, cell_base
   * The new XML format with schema is now the default. Use configure option
     "--disable-xml", or add -D__OLDXML to MANUAL_FLAGS in make.inc, to revert
-    to the old xml format. IMPORTANT NOTICE: the format is incompatibile both
-    with the "old" format and with the previous "new" one: files may be in
-    different locations with different names and contain different data.
+    to the old xml format. IMPORTANT NOTICE: the new format is incompatibile 
+    both with the "old" format and with the previous "new" one: files may be
+    in different locations with different names and contain different data.
     IMPORTANT NOTICE 2: the "collected" format is now the default
     IMPORTANT NOTICE 3: the new format uses FoX instead of iotk
   * Hybrid functionals: ACE is now the default for scf calculations (it wasn't

@@ -27,6 +27,7 @@ subroutine stres_loc (sigmaloc)
   USE noncollin_module,     ONLY : nspin_lsda
   USE mp_bands,             ONLY : intra_bgrp_comm
   USE mp,                   ONLY : mp_sum
+  USE Coul_cut_2D,          ONLY : do_cutoff_2D, cutoff_stres_evloc, cutoff_stres_sigmaloc 
   use sirius
   use input_parameters, only : use_sirius
   !
@@ -69,6 +70,8 @@ subroutine stres_loc (sigmaloc)
              * vloc (igtongl (ng), nt) * fact
      enddo
   enddo
+  ! 2D:  add contribution from cutoff long-range part of Vloc
+  IF (do_cutoff_2D) call cutoff_stres_evloc ( psic, evloc )
   !
   !      WRITE( 6,*) ' evloc ', evloc, evloc*omega   ! DEBUG
   !
@@ -106,6 +109,7 @@ subroutine stres_loc (sigmaloc)
         enddo
      enddo
   enddo
+  IF (do_cutoff_2D) call cutoff_stres_sigmaloc( psic, sigmaloc) ! 2D: re-add LR Vloc to sigma here
   !
   do l = 1, 3
      sigmaloc (l, l) = sigmaloc (l, l) + evloc

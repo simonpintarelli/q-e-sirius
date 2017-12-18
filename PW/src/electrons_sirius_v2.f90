@@ -1,4 +1,4 @@
-subroutine electrons_sirius_v2()
+subroutine electrons_sirius_v2(scf_step)
   use sirius
   use ions_base,            only : nat, nsp, ityp
   use uspp_param,           only : upf, nhm, nh
@@ -45,6 +45,8 @@ subroutine electrons_sirius_v2()
   use esm,                  only : do_comp_esm, esm_printpot, esm_ewald
   !
   implicit none
+  integer, intent(in) :: scf_step
+  !
   integer iat, ia, i, j, num_gvec, num_fft_grid_points, ik, iter, ig, li, lj, ijv, ilast, ir, l, mb, nb, is, nk1
   real(8), allocatable :: tmp(:)
   real(8), allocatable :: bnd_occ(:,:), band_e(:,:), wk_tmp(:), xk_tmp(:,:)
@@ -98,27 +100,33 @@ subroutine electrons_sirius_v2()
   ! create ground-state class
   call sirius_create_ground_state(kset_id)
 
-  ! generate initial density from atomic densities rho_at
-  call sirius_generate_initial_density()
+  if (.false.) then !(scf_step.gt.1) then
+    !call sirius_load_potential()
+    !call sirius_load_density()
+    call put_potential_to_sirius
+  else
+    ! generate initial density from atomic densities rho_at
+    call sirius_generate_initial_density()
 
-  ! get initial density
-  call get_density_from_sirius
+    ! get initial density
+    call get_density_from_sirius
 
-  ! initialize effective potential from SIRIUS density
-  ! transform initial density to real space
-  do is = 1, nspin_mag
-     psic(:) = 0.d0
-     psic(nl(:)) = rho%of_g(:,is)
-     if (gamma_only) psic(nlm(:)) = conjg(rho%of_g(:,is))
-     call invfft('Dense', psic, dfftp)
-     rho%of_r(:,is) = dble(psic(:))
-  end do
-  call v_of_rho(rho, rho_core, rhog_core, ehart, etxc, vtxc, eth, etotefield, charge, v)
-  if (okpaw) then
-    call PAW_potential(rho%bec, ddd_paw, epaw, etot_cmp_paw)
-    call PAW_symmetrize_ddd(ddd_paw)
+    ! initialize effective potential from SIRIUS density
+    ! transform initial density to real space
+    do is = 1, nspin_mag
+       psic(:) = 0.d0
+       psic(nl(:)) = rho%of_g(:,is)
+       if (gamma_only) psic(nlm(:)) = conjg(rho%of_g(:,is))
+       call invfft('Dense', psic, dfftp)
+       rho%of_r(:,is) = dble(psic(:))
+    end do
+    call v_of_rho(rho, rho_core, rhog_core, ehart, etxc, vtxc, eth, etotefield, charge, v)
+    if (okpaw) then
+      call PAW_potential(rho%bec, ddd_paw, epaw, etot_cmp_paw)
+      call PAW_symmetrize_ddd(ddd_paw)
+    endif
+    call put_potential_to_sirius
   endif
-  call put_potential_to_sirius
 
   ! initialize subspace before calling "sirius_find_eigen_states"
   call sirius_initialize_subspace(kset_id)
@@ -165,7 +173,7 @@ subroutine electrons_sirius_v2()
     write(stdout, 9010)iter, ecutwfc, mixing_beta
 
     if (iter > 1) then
-       if (iter == 2) ethr = 1.d-2
+       !if (iter == 2) ethr = 1.d-2
        ethr = min(ethr, 0.1d0 * dr2 / max(1.d0, nelec))
        ethr = max(ethr, 1.d-13)
        !

@@ -22,6 +22,7 @@ subroutine vloc_of_g (mesh, msh, rab, r, vloc_at, zp, tpiba2, ngl, &
   USE kinds
   USE constants, ONLY : pi, fpi, e2, eps8
   USE esm, ONLY : do_comp_esm, esm_bc
+  USE Coul_cut_2D, ONLY: do_cutoff_2D, lz 
   USE input_parameters,     ONLY : sirius_spline_integration
   implicit none
   !
@@ -69,6 +70,20 @@ subroutine vloc_of_g (mesh, msh, rab, r, vloc_at, zp, tpiba2, ngl, &
         do ir = 1, msh
            aux1(ir) = r (ir) * (r (ir) * vloc_at (ir) + zp * e2 * qe_erf (r (ir) ) )
         enddo
+!	 TS This is necessary if we want to calculate the G=0 term correctly 
+!     when cutoff.
+! ==============================================
+
+     ELSE IF (do_cutoff_2D) THEN 
+        do ir = 1, msh
+            aux (ir) = r (ir) * (r (ir) * vloc_at (ir) + zp * e2    &
+                       * qe_erf (r (ir) ) )
+        enddo
+        IF (r(msh) > lz) THEN 
+           call errore('vloc_of_g','2D cutoff is smaller than pseudo cutoff radius: &
+                                             increase interlayer distance (or see Modules/read_pseudo.f90)',1)
+        END IF
+! ==============================================
      ELSE
         do ir = 1, msh
            aux1 (ir) = r (ir) * (r (ir) * vloc_at (ir) + zp * e2)
@@ -96,7 +111,7 @@ subroutine vloc_of_g (mesh, msh, rab, r, vloc_at, zp, tpiba2, ngl, &
   !    dependent part
   !
 !$OMP PARALLEL DEFAULT(none) SHARED(igl0, ngl, gl, tpiba2, msh, aux1, fac, r, rab, &
-!$OMP                               do_comp_esm, esm_bc, sirius_spline_integration, vloc)&
+!$OMP                               do_comp_esm, esm_bc, sirius_spline_integration, vloc, do_cutoff_2D)&
 !$OMP                        PRIVATE(gx, ir, aux, vlcp)
   allocate(aux(msh))
 !$OMP DO
@@ -109,11 +124,14 @@ subroutine vloc_of_g (mesh, msh, rab, r, vloc_at, zp, tpiba2, ngl, &
      if (sirius_spline_integration) then
        call sirius_integrate(0, msh, r(1), aux(1), vlcp)
      endif
+     ! if 2D cutoff calculation, do not re-add the FT of erf function
      IF ( ( .not. do_comp_esm ) .or. ( esm_bc .eq. 'pbc' ) ) THEN
         !
         !   here we re-add the analytic fourier transform of the erf function
         !
-        vlcp = vlcp - fac * exp ( - gl (igl) * tpiba2 * 0.25d0) / gl (igl)
+        IF (.not. do_cutoff_2D) THEN
+           vlcp = vlcp - fac * exp ( - gl (igl) * tpiba2 * 0.25d0) / gl (igl)
+        ENDIF
      END IF
      vloc (igl) = vlcp
   enddo

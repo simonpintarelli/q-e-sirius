@@ -52,6 +52,7 @@ compute_qdipol.o \
 compute_qdipol_so.o \
 compute_ux.o \
 coset.o \
+Coul_cut_2D.o \
 d_matrix.o \
 data_structure.o \
 deriv_drhoc.o \
@@ -206,6 +207,7 @@ stres_knl.o \
 stres_loc.o \
 stres_us.o \
 stres_nonloc_dft.o \
+stres_mgga.o \
 stress.o \
 struct_fact.o \
 sum_band.o \

@@ -100,55 +100,6 @@ ia32:path* | ia64:path* | x86_64:path* )
         try_ldflags_openmp="-fopenmp"
         try_ldflags_static="-static"
         ;;
-*:sunf95 )
-        try_fflags="-O4"
-        try_fflags_openmp="-openmp"
-        try_f90flags="\$(FFLAGS) -fpp"
-        try_fflags_noopt="-O0"
-        try_ldflags="-fast"
-        try_ldflags_static="-Bstatic"
-        imod="-M"
-        ;;
-*:openf95 )
-        try_fflags="-O3"
-        try_f90flags="\$(FFLAGS) -ftpp"
-        try_fflags_noopt="-O0"
-        try_ldflags=""
-        imod="-I"
-        ;;
-aix:*xlf* )
-        if test "$use_debug" -eq 1; then
-            try_fflags="-q64 -qalias=noaryovrlp -g -C \
--qarch=auto -qtune=auto -qdpc -Q -qalias=nointptr"
-        else
-            try_fflags="-q64 -qalias=noaryovrlp -O3 -qstrict \
--qarch=auto -qtune=auto -qdpc -Q -qalias=nointptr"
-        fi
-        try_fflags_openmp="-qsmp=omp"
-        try_f90flags="\$(FFLAGS) -qsuffix=cpp=f90 -qfree=f90"
-        try_fflags_noopt="-q64 -O0"
-        try_ldflags="-q64"
-        try_ldflags_openmp="-qsmp=omp"
-        # try_ldflags_static="-bstatic"
-        pre_fdflags="-WF,"
-        xlf_flags=1
-        ;;
-solaris:sunf95 )
-        try_fflags="-fast -O2 -fpp"
-        try_f90flags="\$(FFLAGS)"
-        try_fflags_noopt="-O0 "
-        try_ldflags=""
-        imod="-M"
-        ;;
-sparc:f90 )
-        try_fflags="-fast -O1 -nodepend -xvector=no -xchip=ultra3 \
--xarch=v8plusb -xlic_lib=sunperf"
-        try_f90flags="\$(FFLAGS)"
-        try_fflags_noopt="-O0 -xlic_lib=sunperf"
-        try_ldflags=""
-        imod="-M"
-        have_cpp=0
-        ;;
 crayxt*:cray* )
         try_fflags_nomain=""
         #NOTE: by default OpenMP is always ON (see crayftn man page)
@@ -156,7 +107,8 @@ crayxt*:cray* )
         try_fflags="-O2"
         #NOTE: add '-rm' to get messages from crayftn about why
         #      optimizations have not been applied
-        try_f90flags="-O3,fp3 -f free"
+        #      -x dir disable directives introduced by !DIR$
+        try_f90flags="-O3,fp3 -f free -x dir"
         try_fflags_noopt="-O0"
         try_ldflags_openmp="-homp"
         try_ldflags="-v"

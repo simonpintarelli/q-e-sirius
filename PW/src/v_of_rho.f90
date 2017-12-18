@@ -258,7 +258,7 @@ SUBROUTINE v_xc_meta( rho, rho_core, rhog_core, etxc, vtxc, v, kedtaur )
           !
           ! h contains D(rho*Exc)/D(|grad rho|) * (grad rho) / |grad rho|
           !
-          if (get_meta()==1) then  ! tpss functional
+          if (get_meta()==1 .OR.get_meta()==5 ) then  ! tpss, scan
             !
             h(:,k,1) = (v2xup * grhoup(:) + v2cup(:)) * e2
             h(:,k,2) = (v2xdw * grhodw(:) + v2cdw(:)) * e2
@@ -551,6 +551,7 @@ SUBROUTINE v_h( rhog, ehart, charge, v )
   USE mp,        ONLY: mp_sum
   USE martyna_tuckerman, ONLY : wg_corr_h, do_comp_mt
   USE esm,       ONLY: do_comp_esm, esm_hartree, esm_bc
+  USE Coul_cut_2D, ONLY : do_cutoff_2D, cutoff_2D, cutoff_hartree  
   !
   IMPLICIT NONE
   !
@@ -593,28 +594,32 @@ SUBROUTINE v_h( rhog, ehart, charge, v )
      ehart     = 0.D0
      aux1(:,:) = 0.D0
      !
+     IF (do_cutoff_2D) THEN  !TS
+        CALL cutoff_hartree(rhog, aux1, ehart)
+     ELSE
 !$omp parallel do private( fac, rgtot_re, rgtot_im ), reduction(+:ehart)
-     DO ig = gstart, ngm
-        !
-        fac = 1.D0 / gg(ig)
-        !
-        rgtot_re = REAL(  rhog(ig,1) )
-        rgtot_im = AIMAG( rhog(ig,1) )
-        !
-        IF ( nspin == 2 ) THEN
+        DO ig = gstart, ngm
            !
-           rgtot_re = rgtot_re + REAL(  rhog(ig,2) )
-           rgtot_im = rgtot_im + AIMAG( rhog(ig,2) )
+           fac = 1.D0 / gg(ig) 
            !
-        END IF
-        !
-        ehart = ehart + ( rgtot_re**2 + rgtot_im**2 ) * fac
-        !
-        aux1(1,ig) = rgtot_re * fac
-        aux1(2,ig) = rgtot_im * fac
-        !
-     ENDDO
+           rgtot_re = REAL(  rhog(ig,1) )
+           rgtot_im = AIMAG( rhog(ig,1) )
+           !
+           IF ( nspin == 2 ) THEN
+              !
+              rgtot_re = rgtot_re + REAL(  rhog(ig,2) )
+              rgtot_im = rgtot_im + AIMAG( rhog(ig,2) )
+              !
+           END IF
+           !
+           ehart = ehart + ( rgtot_re**2 + rgtot_im**2 ) * fac
+           !
+           aux1(1,ig) = rgtot_re * fac
+           aux1(2,ig) = rgtot_im * fac
+           !
+        ENDDO
 !$omp end parallel do
+     ENDIF
      !
      fac = e2 * fpi / tpiba2
      !

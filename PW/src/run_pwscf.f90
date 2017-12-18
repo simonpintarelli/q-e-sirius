@@ -127,7 +127,7 @@ SUBROUTINE run_pwscf ( exit_status )
 
 #if defined(__MPI)
      ! Cleanup PAW arrays that are only used for init
-     IF (okpaw) CALL paw_post_init() ! only parallel!
+     !IF (okpaw) CALL paw_post_init() ! only parallel!
 #endif
 
      !
@@ -138,7 +138,10 @@ SUBROUTINE run_pwscf ( exit_status )
         CALL non_scf ()
      ELSE
         if (use_sirius) then
-          CALL electrons_sirius_v2()
+          CALL electrons_sirius_v2(idone)
+          call sirius_create_storage_file()
+          call sirius_save_potential()
+          call sirius_save_density()
         else
           CALL electrons()
         endif
@@ -243,9 +246,11 @@ SUBROUTINE run_pwscf ( exit_status )
         ! ... update the wavefunctions, charge density, potential
         ! ... update_pot initializes structure factor array as well
         !
-        if (.not.use_sirius) then
+        !if (.not.use_sirius) then
+          call sirius_start_timer(c_str("qe|run_pwscf|update_pot"))
           CALL update_pot()
-        endif
+          call sirius_stop_timer(c_str("qe|run_pwscf|update_pot"))
+        !endif
         !
         ! ... re-initialize atomic position-dependent quantities
         !

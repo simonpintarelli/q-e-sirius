@@ -48,7 +48,8 @@ subroutine stress ( sigma )
   real(DP) :: sigmakin (3, 3), sigmaloc (3, 3), sigmahar (3, 3), &
        sigmaxc (3, 3), sigmaxcc (3, 3), sigmaewa (3, 3), sigmanlc (3, 3), &
        sigmabare (3, 3), sigmah (3, 3), sigmael( 3, 3), sigmaion(3, 3), &
-       sigmalon ( 3 , 3 ), sigmad3(3, 3), sigmaxdm(3, 3), sigma_nonloc_dft (3 ,3), sigmaexx(3,3), sigma_ts(3,3)
+       sigmalon ( 3 , 3 ), sigmad3(3, 3), sigmaxdm(3, 3), sigma_ts(3,3), &
+       sigma_nonloc_dft (3 ,3), sigmaexx(3,3)
   real(DP) :: sigmaloclong(3,3)  ! for ESM stress
   integer :: l, m
   !
@@ -61,10 +62,7 @@ subroutine stress ( sigma )
   !
   WRITE( stdout, '(//5x,"Computing stress (Cartesian axis) and pressure"/)')
 
-  IF ( dft_is_meta() ) THEN
-     CALL infomsg ('stress','Meta-GGA and stress not implemented')
-     RETURN
-  ELSE IF ( noncolin .AND. dft_is_gradient() ) then
+  IF ( noncolin .AND. dft_is_gradient() ) then
      CALL infomsg('stres', 'noncollinear stress + GGA not implemented')
      RETURN
   ELSE IF ( lelfield .AND. okvan ) THEN
@@ -117,6 +115,10 @@ subroutine stress ( sigma )
                           ngm, g, alat, omega, sigmaxc)
     call sirius_stop_timer(c_str("qe|stress_xc|gradcorr"))
   endif
+  !
+  !  add meta-GGA contribution 
+  !
+  call stres_mgga ( sigmaxc )
   !
   ! core correction contribution
   !

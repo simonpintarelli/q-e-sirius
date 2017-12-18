@@ -207,6 +207,8 @@ SUBROUTINE iosys()
                             nwan_             => nwan, &
                             print_wannier_coeff_    => print_wannier_coeff
 
+  USE Coul_cut_2D,  ONLY :  do_cutoff_2D 
+
   USE realus,                ONLY : real_space_ => real_space
 
   USE read_pseudo_mod,       ONLY : readpp
@@ -1375,6 +1377,7 @@ SUBROUTINE iosys()
   do_makov_payne  = .false.
   do_comp_mt      = .false.
   do_comp_esm     = .false.
+  do_cutoff_2D    = .false.
   !
   SELECT CASE( trim( assume_isolated ) )
       !
@@ -1396,6 +1399,11 @@ SUBROUTINE iosys()
       !
       do_comp_esm    = .true.
       !
+    CASE( '2D' )
+      !
+      do_cutoff_2D   = .true.
+      !
+
   END SELECT
   !
   IF ( do_comp_mt .AND. lstres ) THEN
@@ -1558,6 +1566,23 @@ SUBROUTINE iosys()
   !
   CALL init_dofree ( cell_dofree )
   !
+  !
+  ! ... Initialize temporary directory(-ies)
+  !
+  CALL check_tempdir ( tmp_dir, exst, parallelfs )
+  IF ( .NOT. exst .AND. restart ) THEN
+     CALL infomsg('iosys', 'restart disabled: needed files not found')
+     restart = .false.
+  ELSE IF ( .NOT. exst .AND. (lbands .OR. .NOT. lscf) ) THEN
+     CALL errore('iosys', 'bands or non-scf calculation not possible: ' // &
+                          'needed files are missing', 1)
+  ELSE IF ( exst .AND. .NOT.restart ) THEN
+     CALL clean_tempdir ( tmp_dir )
+  END IF
+  IF ( TRIM(wfc_dir) /= TRIM(tmp_dir) ) &
+     CALL check_tempdir( wfc_dir, exst, parallelfs )
+  !
+
   ! ... read pseudopotentials (also sets DFT and a few more variables)
   ! ... returns values read from PP files into ecutwfc_pp, ecutrho_pp
   !
@@ -1671,21 +1696,6 @@ SUBROUTINE iosys()
   !
   CALL pw_init_qexsd_input(qexsd_input_obj, obj_tagname="input")
   CALL deallocate_input_parameters ()  
-  !
-  ! ... Initialize temporary directory(-ies)
-  !
-  CALL check_tempdir ( tmp_dir, exst, parallelfs )
-  IF ( .NOT. exst .AND. restart ) THEN
-     CALL infomsg('iosys', 'restart disabled: needed files not found')
-     restart = .false.
-  ELSE IF ( .NOT. exst .AND. (lbands .OR. .NOT. lscf) ) THEN
-     CALL errore('iosys', 'bands or non-scf calculation not possible: ' // &
-                          'needed files are missing', 1)
-  ELSE IF ( exst .AND. .NOT.restart ) THEN
-     CALL clean_tempdir ( tmp_dir )
-  END IF
-  IF ( TRIM(wfc_dir) /= TRIM(tmp_dir) ) &
-     CALL check_tempdir( wfc_dir, exst, parallelfs )
   !
   max_seconds_ = max_seconds
   !
