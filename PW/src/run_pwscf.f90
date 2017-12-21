@@ -61,11 +61,13 @@ SUBROUTINE run_pwscf ( exit_status )
   LOGICAL, external :: matches
   !! checks if first string is contained in the second
   INTEGER :: idone
+  logical(1) flg
   ! counter of electronic + ionic steps done in this run
   !
   if (use_sirius) then
      ! initialize platform-specific stuff (libraries, environment, etc.)
-     CALL sirius_initialize(call_mpi_init=0)
+     flg=.false.
+     CALL sirius_initialize(call_mpi_init=flg)
   endif
   call sirius_start_timer(c_str("qe|run_pwscf"))
   exit_status = 0
@@ -284,7 +286,8 @@ SUBROUTINE run_pwscf ( exit_status )
   if (use_sirius) then
      call sirius_print_timers()
      call sirius_clear()
-     call sirius_finalize(0)
+     flg=.false.
+     call sirius_finalize(call_mpi_fin=flg)
   endif
   !
   RETURN
