@@ -100,9 +100,13 @@ subroutine electrons_sirius_v2(scf_step)
   ! create ground-state class
   call sirius_create_ground_state(kset_id)
 
-  if (.false.) then !(scf_step.gt.1) then
+  if (.false.) then !if (scf_step.gt.1) then
     !call sirius_load_potential()
     !call sirius_load_density()
+    if (okpaw) then
+      call PAW_potential(rho%bec, ddd_paw, epaw, etot_cmp_paw)
+      call PAW_symmetrize_ddd(ddd_paw)
+    endif
     call put_potential_to_sirius
   else
     ! generate initial density from atomic densities rho_at

@@ -193,13 +193,6 @@ SUBROUTINE run_pwscf ( exit_status )
      IF ( lstres ) CALL stress ( sigma )
      call sirius_stop_timer(c_str("qe|run_pwscf|stress"))
 
-     if (use_sirius) then
-        call sirius_delete_ground_state()
-        call sirius_delete_kset(kset_id)
-        call sirius_delete_density()
-        call sirius_delete_potential()
-        call sirius_delete_simulation_context()
-     endif
      !
      ! ... send out forces to MM code in QM/MM run
      !
@@ -267,6 +260,15 @@ SUBROUTINE run_pwscf ( exit_status )
      ethr = 1.0D-6
      call clean_pw(.false.)
      call close_files(.false.)
+
+     if (use_sirius) then
+        call sirius_clear
+        !call sirius_delete_ground_state()
+        !call sirius_delete_kset(kset_id)
+        !call sirius_delete_density()
+        !call sirius_delete_potential()
+        !call sirius_delete_simulation_context()
+     endif
      !
   END DO main_loop
   !

@@ -110,7 +110,7 @@ subroutine stress ( sigma )
     !
     !  xc contribution: add gradient corrections (non diagonal)
     !
-    call stres_gradcorr ( rho%of_r, rho%of_g, rho_core, rhog_core, tau, nspin, &
+    call stres_gradcorr ( rho%of_r, rho%of_g, rho_core, rhog_core, rho%kin_r, nspin, &
                           dfftp%nr1, dfftp%nr2, dfftp%nr3, dfftp%nnr, nl, &
                           ngm, g, alat, omega, sigmaxc)
     call sirius_stop_timer(c_str("qe|stress_xc|gradcorr"))
