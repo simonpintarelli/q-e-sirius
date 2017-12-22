@@ -25,7 +25,7 @@ subroutine setup_sirius()
   implicit none
   !
   integer :: dims(3), i, ia, iat, rank, ierr, ijv, ik, li, lj, mb, nb, j, l,&
-       ilast, ir, num_gvec, num_ranks_k, vt(3), iwf
+       ilast, ir, num_gvec, num_ranks_k, vt(3), iwf, num_kp
   real(8) :: a1(3), a2(3), a3(3), vlat(3, 3), vlat_inv(3, 3), v1(3), v2(3), bg_inv(3, 3), tmp
   real(8), allocatable :: dion(:, :), qij(:,:,:), vloc(:), wk_tmp(:), xk_tmp(:,:)
   integer, allocatable :: nk_loc(:)
@@ -37,66 +37,66 @@ subroutine setup_sirius()
   ! set up a type of calculation
   call sirius_set_esm_type(c_str("pseudopotential"))
 
-  if (get_meta().ne.0.or.get_inlc().ne.0) then
-    write(*,*)get_igcx()
-    write(*,*)get_igcc()
-    write(*,*)get_meta()
-    write(*,*)get_inlc()
-    stop ("interface for this XC functional is not implemented")
-  endif
+  !if (get_meta().ne.0.or.get_inlc().ne.0) then
+  !  write(*,*)get_igcx()
+  !  write(*,*)get_igcc()
+  !  write(*,*)get_meta()
+  !  write(*,*)get_inlc()
+  !  stop ("interface for this XC functional is not implemented")
+  !endif
 
-  !== write(*,*)"xc_funtionals:", get_iexch(), get_icorr()
+  !!== write(*,*)"xc_funtionals:", get_iexch(), get_icorr()
 
-  if (get_iexch().ne.0.and.get_igcx().eq.0) then
-    select case(get_iexch())
-    case(0)
-    case(1)
-      call sirius_add_xc_functional(c_str("XC_LDA_X"))
-    case default
-      stop ("interface for this exchange functional is not implemented")
-    end select
-  endif
+  !if (get_iexch().ne.0.and.get_igcx().eq.0) then
+  !  select case(get_iexch())
+  !  case(0)
+  !  case(1)
+  !    call sirius_add_xc_functional(c_str("XC_LDA_X"))
+  !  case default
+  !    stop ("interface for this exchange functional is not implemented")
+  !  end select
+  !endif
 
-  if (get_iexch().ne.0.and.get_igcx().ne.0) then
-    select case(get_igcx())
-    case(0)
-    case(2)
-      call sirius_add_xc_functional(c_str("XC_GGA_X_PW91"))
-    case(3)
-      call sirius_add_xc_functional(c_str("XC_GGA_X_PBE"))
-    case default
-      write(*,*)get_igcx()
-      stop ("interface for this gradient exchange functional is not implemented")
-    end select
-  endif
+  !if (get_iexch().ne.0.and.get_igcx().ne.0) then
+  !  select case(get_igcx())
+  !  case(0)
+  !  case(2)
+  !    call sirius_add_xc_functional(c_str("XC_GGA_X_PW91"))
+  !  case(3)
+  !    call sirius_add_xc_functional(c_str("XC_GGA_X_PBE"))
+  !  case default
+  !    write(*,*)get_igcx()
+  !    stop ("interface for this gradient exchange functional is not implemented")
+  !  end select
+  !endif
 
-  if (get_icorr().ne.0.and.get_igcc().eq.0) then
-    select case(get_icorr())
-    case(0)
-    case(1)
-      call sirius_add_xc_functional(c_str("XC_LDA_C_PZ"))
-    case(4)
-      call sirius_add_xc_functional(c_str("XC_LDA_C_PW"))
-    case default
-      stop ("interface for this correlation functional is not implemented")
-    end select
-  endif
+  !if (get_icorr().ne.0.and.get_igcc().eq.0) then
+  !  select case(get_icorr())
+  !  case(0)
+  !  case(1)
+  !    call sirius_add_xc_functional(c_str("XC_LDA_C_PZ"))
+  !  case(4)
+  !    call sirius_add_xc_functional(c_str("XC_LDA_C_PW"))
+  !  case default
+  !    stop ("interface for this correlation functional is not implemented")
+  !  end select
+  !endif
 
-  if (get_icorr().ne.0.and.get_igcc().ne.0) then
-    select case(get_igcc())
-    case(0)
-    case(2)
-      call sirius_add_xc_functional(c_str("XC_GGA_C_PW91"))
-    case(4)
-      call sirius_add_xc_functional(c_str("XC_GGA_C_PBE"))
-    case default
-      stop ("interface for this gradient correlation functional is not implemented")
-    end select
-  endif
+  !if (get_icorr().ne.0.and.get_igcc().ne.0) then
+  !  select case(get_igcc())
+  !  case(0)
+  !  case(2)
+  !    call sirius_add_xc_functional(c_str("XC_GGA_C_PW91"))
+  !  case(4)
+  !    call sirius_add_xc_functional(c_str("XC_GGA_C_PBE"))
+  !  case default
+  !    stop ("interface for this gradient correlation functional is not implemented")
+  !  end select
+  !endif
   
   ! set number of first-variational states
   if (noncolin) then
-    call sirius_set_num_fv_states(nbnd / 2)
+    call sirius_set_num_fv_states(nbnd / 2 + 1) 
   else
     call sirius_set_num_fv_states(nbnd)
   endif
@@ -339,16 +339,24 @@ subroutine setup_sirius()
   nk_loc(rank) = nks
   call mp_sum(nk_loc, inter_pool_comm)
   if (nspin.eq.2) then
-    nk_loc(:) = nk_loc(:) / 2
+    nk_loc(:) = nk_loc(:)
   endif
+
+  if (nspin.eq.2) then
+    num_kp = nkstot / 2
+  else
+    num_kp = nkstot
+  endif
+  call sirius_create_kset(num_kp, xk_tmp(1, 1), wk_tmp(1), 1, kset_id)
+
 
   ! create a set of k-points
   ! WARNING: k-points must be provided in fractional coordinates of the reciprocal lattice
-  if (nspin.eq.2) then
-    call sirius_create_kset(nkstot / 2, xk_tmp(1, 1), wk_tmp(1), 1, kset_id, nk_loc(0))
-  else
-    call sirius_create_kset(nkstot, xk_tmp(1, 1), wk_tmp(1), 1, kset_id, nk_loc(0))
-  endif
+  !if (nspin.eq.2) then
+  !  call sirius_create_kset(nkstot / 2, xk_tmp(1, 1), wk_tmp(1), 1, kset_id, nk_loc(0))
+  !else
+  !  call sirius_create_kset(nkstot, xk_tmp(1, 1), wk_tmp(1), 1, kset_id, nk_loc(0))
+  !endif
   deallocate(wk_tmp)
   deallocate(xk_tmp)
   deallocate(nk_loc)

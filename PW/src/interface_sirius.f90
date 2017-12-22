@@ -10,26 +10,26 @@ subroutine get_band_energies_from_sirius
   integer, external :: global_kpoint_index
   !
   real(8), allocatable :: band_e(:,:), tmp(:)
-  integer :: ik, nk1
+  integer :: ik, nk, nb, nfv
   
   allocate(band_e(nbnd, nkstot))
   
+  ! get band energies
   if (nspin.ne.2) then
-  
-    ! get band energies
+    ! non-magnetic or non-collinear case
     do ik = 1, nkstot
-      call sirius_get_band_energies(kset_id, ik, band_e(1, ik))
+      call sirius_get_band_energies(kset_id, ik, band_e(1, ik), nbnd)
     end do
-  
   else
-  
-    nk1 = nkstot / 2
-    allocate(tmp(nbnd * 2))
+    ! collinear magnetic case
+    nb = nbnd * 2
+    nk = nkstot / 2
+    allocate(tmp(nb))
     ! get band energies
-    do ik = 1, nk1
-      call sirius_get_band_energies(kset_id, ik, tmp(1))
+    do ik = 1, nk
+      call sirius_get_band_energies(kset_id, ik, tmp(1), nb)
       band_e(1 : nbnd, ik) = tmp(1 : nbnd)
-      band_e(1 : nbnd, nk1 + ik) = tmp(nbnd + 1 : 2 * nbnd)
+      band_e(1 : nbnd, nk + ik) = tmp(nbnd + 1 : 2 * nbnd)
     end do
   
     deallocate(tmp)
@@ -60,7 +60,7 @@ subroutine put_band_occupancies_to_sirius
   !
   real(8), allocatable :: bnd_occ(:, :), tmp(:)
   real(8) :: maxocc
-  integer :: ik, ierr, nk1
+  integer :: ik, ierr, nk, nb
   
   ! compute occupancies
   allocate(bnd_occ(nbnd, nkstot))
@@ -78,15 +78,16 @@ subroutine put_band_occupancies_to_sirius
   if (nspin.ne.2) then
     ! set band occupancies
     do ik = 1, nkstot
-      call sirius_set_band_occupancies(kset_id, ik, bnd_occ(1, ik))
+      call sirius_set_band_occupancies(kset_id, ik, bnd_occ(1, ik), nbnd)
     enddo
   else 
-    nk1 = nkstot / 2
-    allocate(tmp(nbnd * 2))
-    do ik = 1, nk1
+    nk = nkstot / 2
+    nb = nbnd * 2
+    allocate(tmp(nb))
+    do ik = 1, nk
       tmp(1 : nbnd) = bnd_occ(1 : nbnd, ik)
-      tmp(nbnd + 1 : 2 * nbnd) = bnd_occ(1 : nbnd, ik + nk1)
-      call sirius_set_band_occupancies(kset_id, ik, tmp(1))
+      tmp(nbnd + 1 : nb) = bnd_occ(1 : nbnd, ik + nk)
+      call sirius_set_band_occupancies(kset_id, ik, tmp(1), nb)
     enddo
     deallocate(tmp)
   endif

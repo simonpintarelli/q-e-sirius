@@ -221,15 +221,18 @@ subroutine electrons_sirius_v2(scf_step)
     endif
 
     call sirius_get_evalsum(eband)
-    call sirius_get_energy_veff(deband)
-    call sirius_get_energy_bxc(etmp)
-    deband = deband + etmp
-    call sirius_get_energy_vloc(etmp)
     eband = eband * 2.d0
-    deband = -(deband - etmp) * 2.d0
-    if (okpaw) then
-      deband = deband - sum(ddd_paw(:, :, :) * rho%bec(:, :, :))
-    endif
+
+    !call sirius_get_energy_veff(deband)
+    !call sirius_get_energy_bxc(etmp)
+    !deband = deband + etmp
+    !call sirius_get_energy_vloc(etmp)
+    !deband = -(deband - etmp) * 2.d0
+    !if (okpaw) then
+    !  deband = deband - sum(ddd_paw(:, :, :) * rho%bec(:, :, :))
+    !endif
+
+    deband = delta_e()
 
     ! transform density to real-space  
     do is = 1, nspin_mag
@@ -489,6 +492,42 @@ subroutine electrons_sirius_v2(scf_step)
 9110 format(/'     convergence has been achieved in ',i3,' iterations' )
 9120 format(/'     convergence NOT achieved after ',i3,' iterations: stopping' )
     contains
+     !-----------------------------------------------------------------------
+     FUNCTION delta_e()
+       !-----------------------------------------------------------------------
+       ! ... delta_e = - \int rho%of_r(r)  v%of_r(r)
+       !               - \int rho%kin_r(r) v%kin_r(r) [for Meta-GGA]
+       !               - \sum rho%ns       v%ns       [for LDA+U]
+       !               - \sum becsum       D1_Hxc     [for PAW]
+       USE funct,  ONLY : dft_is_meta
+       IMPLICIT NONE
+       REAL(8) :: delta_e, delta_e_hub
+       !
+       delta_e = - SUM( rho%of_r(:,:)*v%of_r(:,:) )
+       !
+       IF ( dft_is_meta() ) &
+          delta_e = delta_e - SUM( rho%kin_r(:,:)*v%kin_r(:,:) )
+       !
+       delta_e = omega * delta_e / ( dfftp%nr1*dfftp%nr2*dfftp%nr3 )
+       !
+       CALL mp_sum( delta_e, intra_bgrp_comm )
+       !
+       if (lda_plus_u) then
+         if (noncolin) then
+           delta_e_hub = - SUM (rho%ns_nc(:,:,:,:)*v%ns_nc(:,:,:,:))
+           delta_e = delta_e + delta_e_hub
+         else
+           delta_e_hub = - SUM (rho%ns(:,:,:,:)*v%ns(:,:,:,:))
+           if (nspin==1) delta_e_hub = 2.d0 * delta_e_hub
+           delta_e = delta_e + delta_e_hub
+         endif
+       end if
+       !
+       IF (okpaw) delta_e = delta_e - SUM(ddd_paw(:,:,:)*rho%bec(:,:,:))
+       !
+       RETURN
+       !
+     END FUNCTION delta_e
      FUNCTION delta_escf()
        !-----------------------------------------------------------------------
        !
