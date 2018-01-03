@@ -101,7 +101,7 @@
       USE control_flags,      ONLY: iprint, iverbosity, thdyn, tpre, trhor, ndr
       USE ions_base,          ONLY: nat
       USE gvect,              ONLY: ngm,  gstart, ig_l2g
-      USE gvecs,              ONLY: ngms, nls, nlsm
+      USE gvecs,              ONLY: ngms
       USE smallbox_gvec,      ONLY: ngb
       USE gvecw,              ONLY: ngw
       USE uspp,               ONLY: nkb
@@ -131,6 +131,7 @@
 #endif      
       USE io_files,           ONLY: tmp_dir, prefix
       USE fft_rho
+      USE fft_helper_subroutines, ONLY: c2psi_gamma
       !
       IMPLICIT NONE
       INTEGER nfi
@@ -289,11 +290,7 @@
             !
             i = iwf
             !
-            psis = 0.D0
-            DO ig=1,ngw
-               psis(nlsm(ig))=CONJG(c_bgrp(ig,i))
-               psis(nls(ig))=c_bgrp(ig,i)
-            END DO
+            CALL c2psi_gamma( dffts, psis, c_bgrp(:,i) )
             !
             CALL invfft('Wave',psis, dffts )
             !
@@ -421,7 +418,7 @@
          !
          IMPLICIT NONE
          !
-         INTEGER :: from, i, eig_index, eig_offset, ii, right_nnr, tg_nr3
+         INTEGER :: from, i, eig_index, eig_offset, ii, tg_nr3
          !
 #if defined(__INTEL_COMPILER)
 #if __INTEL_COMPILER  >= 1300
@@ -438,57 +435,15 @@
          !
          tmp_rhos = 0_DP
 
-         CALL tg_get_nnr( dffts, right_nnr )
-
          do i = 1, nbsp_bgrp, 2 * fftx_ntgrp(dffts)
-
-            !
-            !  Initialize wave-functions in Fourier space (to be FFTed)
-            !  The size of psis is nnr: which is equal to the total number
-            !  of local fourier coefficients.
-            !
 
 #if defined(__MPI)
             !
-            !  Loop for all local g-vectors (ngw)
-            !  ci_bgrp: stores the Fourier expansion coefficients
-            !     the i-th column of c_bgrp corresponds to the i-th state (in
-            !     this band group)
-            !  nlsm and nls matrices: hold conversion indices form 3D to
-            !     1-D vectors. Columns along the z-direction are stored contigiously
-            !
-            !  The outer loop goes through i : i + 2*NOGRP to cover
-            !  2*NOGRP eigenstates at each iteration
-            !
-            eig_offset = 0
-
-            do eig_index = 1, 2 * fftx_ntgrp(dffts), 2   
-               !
-               !  here we pack 2*nogrp electronic states in the psis array
-               !  note that if nogrp == nproc_bgrp each proc perform a full 3D
-               !  fft and the scatter phase is local (without communication)
-               !
-               IF ( ( i + eig_index - 1 ) <= nbsp_bgrp ) THEN
-                  !
-                  !  The  eig_index loop is executed only ONCE when NOGRP=1.
-                  !
-                  CALL c2psi( psis( eig_offset * right_nnr + 1 ), right_nnr, &
-                       c_bgrp( 1, i+eig_index-1 ), c_bgrp( 1, i+eig_index ), ngw, 2 )
-                  !
-               ENDIF
-               !
-               eig_offset = eig_offset + 1
-               !
-            end do
-
-            !
-            !  2*NOGRP bands are transformed at the same time
-            !
+            CALL c2psi_gamma_tg(dffts, psis, c_bgrp, i, nbsp_bgrp )
 
             CALL invfft ('tgWave', psis, dffts )
 #else
-
-            CALL c2psi( psis, dffts%nnr, c_bgrp( 1, i ), c_bgrp( 1, i+1 ), ngw, 2 )
+            CALL c2psi_gamma( psis, c_bgrp( 1, i ), c_bgrp( 1, i+1 ), dffts )
 
             CALL invfft('Wave', psis, dffts )
 
@@ -574,10 +529,11 @@
       !     in: charge density on G-space    out: gradient in R-space
       !
       USE kinds,              ONLY: DP
-      use gvect,              ONLY: g, ngm, nl, nlm
+      use gvect,              ONLY: g, ngm
       use cell_base,          ONLY: tpiba
       USE fft_interfaces,     ONLY: invfft
       USE fft_base,           ONLY: dfftp
+      USE fft_helper_subroutines, ONLY: fftx_oned2threed
 !
       implicit none
 ! input
@@ -592,25 +548,26 @@
 #endif
 #endif
       complex(DP), allocatable :: v(:)
+      complex(DP), allocatable :: drho(:,:)
       complex(DP) :: ci
       integer     :: iss, ig, ir
 !
 !
       allocate( v( dfftp%nnr ) ) 
+      allocate( drho( ngm, 3 ) ) 
       !
       ci = ( 0.0d0, 1.0d0 )
       do iss = 1, nspin
+
 !$omp parallel default(shared), private(ig)
 !$omp do
-         do ig = 1, dfftp%nnr
-            v( ig ) = ( 0.0d0, 0.0d0 )
-         end do
-!$omp do
          do ig=1,ngm
-            v(nl (ig))=      ci*tpiba*g(1,ig)*rhog(ig,iss)
-            v(nlm(ig))=CONJG(ci*tpiba*g(1,ig)*rhog(ig,iss))
+            drho(ig,1) = ci*tpiba*g(1,ig)*rhog(ig,iss)
+            drho(ig,2) = ci*tpiba*g(2,ig)*rhog(ig,iss)
+            drho(ig,3) = ci*tpiba*g(3,ig)*rhog(ig,iss)
          end do
 !$omp end parallel
+         CALL fftx_oned2threed( dfftp, v, drho(:,1) )
          !
          call invfft( 'Dense', v, dfftp )
          !
@@ -619,18 +576,9 @@
          do ir=1,dfftp%nnr
             gradr(ir,1,iss)=DBLE(v(ir))
          end do
-!$omp do
-         do ig=1,dfftp%nnr
-            v(ig)=(0.0d0,0.0d0)
-         end do
-!$omp do
-         do ig=1,ngm
-            v(nl(ig))= tpiba*(      ci*g(2,ig)*rhog(ig,iss)-           &
-     &                                 g(3,ig)*rhog(ig,iss) )
-            v(nlm(ig))=tpiba*(CONJG(ci*g(2,ig)*rhog(ig,iss)+           &
-     &                                 g(3,ig)*rhog(ig,iss)))
-         end do
 !$omp end parallel
+
+         CALL fftx_oned2threed( dfftp, v, drho(:,2), drho(:,3) )
          !
          call invfft( 'Dense', v, dfftp )
          !
@@ -641,6 +589,7 @@
          end do
       end do
       !
+      deallocate( drho )
       deallocate( v )
 !
       RETURN
@@ -702,13 +651,14 @@ SUBROUTINE drhov(irb,eigrb,rhovan,drhovan,rhog,rhor,drhog,drhor)
       USE uspp_param,               ONLY: nhm, nh, nvb
       USE electrons_base,           ONLY: nspin
       USE smallbox_gvec,            ONLY: ngb, npb, nmb
-      USE gvect,                    ONLY: ngm, nlm, nl
+      USE gvect,                    ONLY: ngm
       USE cell_base,                ONLY: ainv
       USE qgb_mod,                  ONLY: qgb, dqgb
       USE fft_interfaces,           ONLY: fwfft, invfft
       USE fft_base,                 ONLY: dfftb, dfftp
       USE mp_global,                ONLY: my_bgrp_id, nbgrp, inter_bgrp_comm
       USE mp,                       ONLY: mp_sum
+      USE fft_helper_subroutines,   ONLY: fftx_add_threed2oned_gamma
 
       IMPLICIT NONE
 ! input
@@ -891,10 +841,7 @@ SUBROUTINE drhov(irb,eigrb,rhovan,drhovan,rhog,rhor,drhog,drhor)
                END DO
 !
                CALL fwfft( 'Dense', v, dfftp )
-!
-               DO ig=1,ngm
-                  drhog(ig,iss,i,j) = drhog(ig,iss,i,j) + v(nl(ig))
-               END DO
+               CALL fftx_add_threed2oned_gamma( dfftp, v, drhog(:,iss,i,j) )
 !
             ENDDO
          ENDDO
@@ -967,19 +914,10 @@ SUBROUTINE drhov(irb,eigrb,rhovan,drhovan,rhog,rhor,drhog,drhor)
                   drhor(ir,isup,i,j) = drhor(ir,isup,i,j) + DBLE(v(ir))
                   drhor(ir,isdw,i,j) = drhor(ir,isdw,i,j) +AIMAG(v(ir))
                ENDDO
-
 !
                CALL fwfft('Dense', v, dfftp )
+               CALL fftx_add_threed2oned_gamma( dfftp, v, drhog(:,isup,i,j), drhog(:,isdw,i,j) )
 
-               DO ig=1,ngm
-                  fp=v(nl(ig))+v(nlm(ig))
-                  fm=v(nl(ig))-v(nlm(ig))
-                  drhog(ig,isup,i,j) = drhog(ig,isup,i,j) +             &
-     &                 0.5d0*CMPLX( DBLE(fp),AIMAG(fm),kind=DP)
-                  drhog(ig,isdw,i,j) = drhog(ig,isdw,i,j) +             &
-     &                 0.5d0*CMPLX(AIMAG(fp),-DBLE(fm),kind=DP)
-               END DO
-!
             END DO
          END DO
       ENDIF
@@ -1008,13 +946,14 @@ SUBROUTINE rhov(irb,eigrb,rhovan,rhog,rhor)
       USE uspp,                     ONLY: deeq
       USE electrons_base,           ONLY: nspin
       USE smallbox_gvec,                    ONLY: npb, nmb, ngb
-      USE gvect,                    ONLY: ngm, nl, nlm
+      USE gvect,                    ONLY: ngm
       USE cell_base,                ONLY: omega
       USE small_box,                ONLY: omegab
       USE control_flags,            ONLY: iprint, iverbosity, tpre
       USE qgb_mod,                  ONLY: qgb
       USE fft_interfaces,           ONLY: fwfft, invfft
       USE fft_base,                 ONLY: dfftb, dfftp, dfftb
+      USE fft_helper_subroutines,   ONLY: fftx_add_threed2oned_gamma
 !
       IMPLICIT NONE
       !
@@ -1211,11 +1150,8 @@ SUBROUTINE rhov(irb,eigrb,rhovan,rhog,rhor)
          !
          !  rhog(g) = total (smooth + US) charge density in G-space
          !
-         DO ig = 1, ngm
-            rhog(ig,iss)=rhog(ig,iss)+v(nl(ig))
-         END DO
+         CALL fftx_add_threed2oned_gamma( dfftp, v, rhog(:,iss) )
 
-!
          IF( iverbosity > 1 ) WRITE( stdout,'(a,2f12.8)')                          &
      &        ' rhov: n_v(g=0) = ',omega*DBLE(rhog(1,iss))
 !
@@ -1310,13 +1246,7 @@ SUBROUTINE rhov(irb,eigrb,rhovan,rhog,rhor)
      &           omega*(rhog(1,isdw)+AIMAG(v(1)))
          ENDIF
 !
-         DO ig=1,ngm
-            fp=  v(nl(ig)) + v(nlm(ig))
-            fm=  v(nl(ig)) - v(nlm(ig))
-            rhog(ig,isup)=rhog(ig,isup) + 0.5d0*CMPLX(DBLE(fp),AIMAG(fm),kind=DP)
-            rhog(ig,isdw)=rhog(ig,isdw) + 0.5d0*CMPLX(AIMAG(fp),-DBLE(fm),kind=DP)
-         END DO
-
+         CALL fftx_add_threed2oned_gamma( dfftp, v, rhog(:,isup), rhog(:,isdw) )
 !
          IF( iverbosity > 1 ) THEN
             WRITE( stdout,'(a,2f12.8,/,a,2f12.8)')                 &

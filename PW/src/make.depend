@@ -79,10 +79,12 @@ addusdens.o : ../../Modules/control_flags.o
 addusdens.o : ../../Modules/fft_base.o
 addusdens.o : ../../Modules/ions_base.o
 addusdens.o : ../../Modules/kind.o
+addusdens.o : ../../Modules/mp_pools.o
 addusdens.o : ../../Modules/noncol.o
 addusdens.o : ../../Modules/recvec.o
 addusdens.o : ../../Modules/uspp.o
 addusdens.o : ../../Modules/wavefunctions.o
+addusdens.o : ../../UtilXlib/mp.o
 addusdens.o : realus.o
 addusforce.o : ../../FFTXlib/fft_interfaces.o
 addusforce.o : ../../Modules/cell_base.o
@@ -91,6 +93,7 @@ addusforce.o : ../../Modules/fft_base.o
 addusforce.o : ../../Modules/ions_base.o
 addusforce.o : ../../Modules/kind.o
 addusforce.o : ../../Modules/mp_bands.o
+addusforce.o : ../../Modules/mp_pools.o
 addusforce.o : ../../Modules/noncol.o
 addusforce.o : ../../Modules/recvec.o
 addusforce.o : ../../Modules/uspp.o
@@ -103,8 +106,10 @@ addusstress.o : ../../Modules/control_flags.o
 addusstress.o : ../../Modules/fft_base.o
 addusstress.o : ../../Modules/ions_base.o
 addusstress.o : ../../Modules/kind.o
+addusstress.o : ../../Modules/mp_pools.o
 addusstress.o : ../../Modules/recvec.o
 addusstress.o : ../../Modules/uspp.o
+addusstress.o : ../../UtilXlib/mp.o
 addusstress.o : pwcom.o
 addusstress.o : realus.o
 addusstress.o : scf_mod.o
@@ -350,7 +355,6 @@ data_structure.o : ../../UtilXlib/mp.o
 data_structure.o : pwcom.o
 deriv_drhoc.o : ../../Modules/constants.o
 deriv_drhoc.o : ../../Modules/kind.o
-divide.o : ../../UtilXlib/mp.o
 divide_class.o : ../../Modules/constants.o
 divide_class.o : ../../Modules/kind.o
 divide_class_so.o : ../../Modules/constants.o
@@ -712,6 +716,7 @@ gradcorr.o : ../../Modules/kind.o
 gradcorr.o : ../../Modules/noncol.o
 gradcorr.o : ../../Modules/recvec.o
 gradcorr.o : ../../Modules/wavefunctions.o
+gradcorr.o : exx.o
 gradcorr.o : pwcom.o
 gweights.o : ../../Modules/kind.o
 h_1psi.o : ../../Modules/control_flags.o
@@ -960,6 +965,7 @@ interpolate.o : ../../Modules/control_flags.o
 interpolate.o : ../../Modules/fft_base.o
 interpolate.o : ../../Modules/kind.o
 interpolate.o : ../../Modules/recvec.o
+interpolate.o : exx.o
 io_rho_xml.o : ../../Modules/cell_base.o
 io_rho_xml.o : ../../Modules/control_flags.o
 io_rho_xml.o : ../../Modules/funct.o
@@ -995,13 +1001,13 @@ ldaU.o : ../../Modules/parameters.o
 ldaU.o : atomic_wfc_mod.o
 loc_scdm.o : ../../FFTXlib/fft_interfaces.o
 loc_scdm.o : ../../Modules/cell_base.o
+loc_scdm.o : ../../Modules/constants.o
+loc_scdm.o : ../../Modules/control_flags.o
 loc_scdm.o : ../../Modules/fft_base.o
 loc_scdm.o : ../../Modules/io_global.o
-loc_scdm.o : ../../Modules/ions_base.o
 loc_scdm.o : ../../Modules/kind.o
 loc_scdm.o : ../../Modules/mp_bands.o
 loc_scdm.o : ../../Modules/noncol.o
-loc_scdm.o : ../../Modules/xc_vdW_DF.o
 loc_scdm.o : ../../UtilXlib/mp.o
 loc_scdm.o : exx.o
 loc_scdm.o : pwcom.o
@@ -1061,6 +1067,7 @@ memory_report.o : ../../Modules/ions_base.o
 memory_report.o : ../../Modules/kind.o
 memory_report.o : ../../Modules/mp_bands.o
 memory_report.o : ../../Modules/mp_images.o
+memory_report.o : ../../Modules/mp_pools.o
 memory_report.o : ../../Modules/noncol.o
 memory_report.o : ../../Modules/recvec.o
 memory_report.o : ../../Modules/uspp.o
@@ -1148,6 +1155,7 @@ newd.o : ../../Modules/fft_base.o
 newd.o : ../../Modules/ions_base.o
 newd.o : ../../Modules/kind.o
 newd.o : ../../Modules/mp_bands.o
+newd.o : ../../Modules/mp_pools.o
 newd.o : ../../Modules/noncol.o
 newd.o : ../../Modules/recvec.o
 newd.o : ../../Modules/uspp.o
@@ -1712,6 +1720,7 @@ run_driver.o : ../../Modules/check_stop.o
 run_driver.o : ../../Modules/command_line_options.o
 run_driver.o : ../../Modules/control_flags.o
 run_driver.o : ../../Modules/fsockets.o
+run_driver.o : ../../Modules/io_files.o
 run_driver.o : ../../Modules/io_global.o
 run_driver.o : ../../Modules/ions_base.o
 run_driver.o : ../../Modules/mp_global.o
@@ -2134,6 +2143,7 @@ update_pot.o : paw_onecenter.o
 update_pot.o : pwcom.o
 update_pot.o : scf_mod.o
 us_exx.o : ../../FFTXlib/fft_interfaces.o
+us_exx.o : ../../FFTXlib/fft_types.o
 us_exx.o : ../../Modules/becmod.o
 us_exx.o : ../../Modules/cell_base.o
 us_exx.o : ../../Modules/constants.o
@@ -2216,7 +2226,6 @@ vloc_psi.o : ../../Modules/fft_base.o
 vloc_psi.o : ../../Modules/kind.o
 vloc_psi.o : ../../Modules/mp_bands.o
 vloc_psi.o : ../../Modules/noncol.o
-vloc_psi.o : ../../Modules/recvec.o
 vloc_psi.o : ../../Modules/wavefunctions.o
 vloc_psi.o : ../../UtilXlib/parallel_include.o
 vloc_psi.o : pwcom.o

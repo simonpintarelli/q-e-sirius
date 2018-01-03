@@ -269,11 +269,12 @@
       USE kinds,              ONLY: DP
       use control_flags, only: iprint, tpre
       use gvect, only: g
-      use gvect, only: ngm, nl, nlm
+      use gvect, only: ngm
       use cell_base, only: ainv, tpiba, omega
       use cp_main_variables, only: drhog
       USE fft_interfaces, ONLY: fwfft, invfft
       USE fft_base,       ONLY: dfftp
+      USE fft_helper_subroutines, ONLY: fftx_threed2oned, fftx_oned2threed
 !                 
       implicit none  
 ! input                   
@@ -281,13 +282,15 @@
       real(DP)    :: gradr( dfftp%nnr, 3, nspin ), rhor( dfftp%nnr, nspin ), dexc( 3, 3 )
       complex(DP) :: rhog( ngm, nspin )
 !
-      complex(DP), allocatable:: v(:)
+      complex(DP), allocatable:: v(:), vp(:), vm(:)
       complex(DP), allocatable:: x(:), vtemp(:)
       complex(DP) ::  ci, fp, fm
       integer :: iss, ig, ir, i,j
 !
       allocate(v(dfftp%nnr))
       allocate(x(ngm))
+      allocate(vp(ngm))
+      allocate(vm(ngm))
       allocate(vtemp(ngm))
       !
       ci=(0.0d0,1.0d0)
@@ -302,15 +305,16 @@
             v(ir)=CMPLX(gradr(ir,1,iss),0.d0,kind=DP)
          end do
          call fwfft('Dense',v, dfftp )
+         CALL fftx_threed2oned( dfftp, v, vp )
          do ig=1,ngm
-            x(ig)=ci*tpiba*g(1,ig)*v(nl(ig))
+            x(ig)=ci*tpiba*g(1,ig)*vp(ig)
          end do
 !
          if(tpre) then
             do i=1,3
                do j=1,3
                   do ig=1,ngm
-                     vtemp(ig) = omega*ci*CONJG(v(nl(ig)))*             &
+                     vtemp(ig) = omega*ci*CONJG(vp(ig))*             &
      &                    tpiba*(-rhog(ig,iss)*g(i,ig)*ainv(j,1)+      &
      &                    g(1,ig)*drhog(ig,iss,i,j))
                   end do
@@ -323,29 +327,20 @@
             v(ir)=CMPLX(gradr(ir,2,iss),gradr(ir,3,iss),kind=DP)
          end do
          call fwfft('Dense',v, dfftp )
+         CALL fftx_threed2oned( dfftp, v, vp, vm )
 !
          do ig=1,ngm
-            fp=v(nl(ig))+v(nlm(ig))
-            fm=v(nl(ig))-v(nlm(ig))
-            x(ig) = x(ig) +                                             &
-     &           ci*tpiba*g(2,ig)*0.5d0*CMPLX( DBLE(fp),AIMAG(fm),kind=DP)
-            x(ig) = x(ig) +                                             &
-     &           ci*tpiba*g(3,ig)*0.5d0*CMPLX(AIMAG(fp),-DBLE(fm),kind=DP)
+            x(ig) = x(ig) + ci*tpiba*g(2,ig)*vp(ig)
+            x(ig) = x(ig) + ci*tpiba*g(3,ig)*vm(ig)
          end do
 !
          if(tpre) then
             do i=1,3
                do j=1,3
                   do ig=1,ngm
-                     fp=v(nl(ig))+v(nlm(ig))
-                     fm=v(nl(ig))-v(nlm(ig))
-                     vtemp(ig) = omega*ci*                              &
-     &                    (0.5d0*CMPLX(DBLE(fp),-AIMAG(fm),kind=DP)*              &
-     &                    tpiba*(-rhog(ig,iss)*g(i,ig)*ainv(j,2)+      &
-     &                    g(2,ig)*drhog(ig,iss,i,j))+                  &
-     &                    0.5d0*CMPLX(AIMAG(fp),DBLE(fm),kind=DP)*tpiba*          &
-     &                    (-rhog(ig,iss)*g(i,ig)*ainv(j,3)+            &
-     &                    g(3,ig)*drhog(ig,iss,i,j)))
+                     vtemp(ig) = omega*ci*( &
+     &                    CONJG(vp(ig))*tpiba*(-rhog(ig,iss)*g(i,ig)*ainv(j,2)+g(2,ig)*drhog(ig,iss,i,j))+ &
+     &                    CONJG(vm(ig))*tpiba*(-rhog(ig,iss)*g(i,ig)*ainv(j,3)+g(3,ig)*drhog(ig,iss,i,j))  )
                   end do
                   dexc(i,j) = dexc(i,j) + 2.0d0*DBLE(SUM(vtemp))
                end do
@@ -354,13 +349,7 @@
 !     _________________________________________________________________
 !     second part xc-potential: 1 inverse fft
 !
-         do ig=1,dfftp%nnr
-            v(ig)=(0.0d0,0.0d0)
-         end do
-         do ig=1,ngm
-            v(nl(ig))=x(ig)
-            v(nlm(ig))=CONJG(x(ig))
-         end do
+         CALL fftx_oned2threed( dfftp, v, x )
          call invfft('Dense',v, dfftp )
          do ir=1,dfftp%nnr
             rhor(ir,iss)=rhor(ir,iss)-DBLE(v(ir))
@@ -370,6 +359,8 @@
       deallocate(vtemp)
       deallocate(x)
       deallocate(v)
+      deallocate(vp)
+      deallocate(vm)
 !
       return
    end subroutine gradh
