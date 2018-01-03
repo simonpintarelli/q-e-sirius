@@ -16,7 +16,7 @@ MODULE loc_scdm
   USE kinds,                ONLY : DP
   USE io_global,            ONLY : stdout
   USE exx,                  ONLY : dfftt, x_nbnd_occ, locbuff, locmat, nkqs
-  USE exx,                  ONLY : exx_fft
+  USE exx,                  ONLY : gt
 
   IMPLICIT NONE
   SAVE
@@ -140,7 +140,7 @@ implicit none
   Gorbt = (Zero,Zero) 
   DO jbnd = 1, NBands 
     buffer(:) = abs(dble(orbt(:,jbnd,NKK))) + (Zero,One)*Zero  
-    CALL fwfft( 'CustomWave' , buffer, dfftt )
+    CALL fwfft( 'Wave' , buffer, dfftt )
     DO ig = 1, npwx
       Gorbt(ig,jbnd) = buffer(dfftt%nl(ig))
     ENDDO
@@ -269,7 +269,7 @@ IMPLICIT NONE
   allocate( temp(dfftp%nnr))
   temp(:) = rho%of_r(:,1)
   IF ( nspin == 2 ) temp(:) = temp(:) + rho%of_r(:,2) 
-  Call exx_interpolate(temp, den, -1)
+  Call fft_interpolate_real(dfftp, temp, dfftt, den)
   deallocate( temp ) 
 
 #if defined (__MPI)
@@ -294,7 +294,7 @@ IMPLICIT NONE
   ThrDen = scdm_den 
 
 ! gradient on the exx grid 
-  Call exx_gradient( nxxs, den , dfftt%ngm, exx_fft%gt, dfftt%nl, grad_den )
+  Call exx_gradient( nxxs, den , dfftt%ngm, gt, dfftt%nl, grad_den )
   charge  = Zero
   GrdAve = Zero 
   do ir = 1, ir_end 

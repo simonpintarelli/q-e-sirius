@@ -303,6 +303,31 @@ CONTAINS
      END IF
   END SUBROUTINE
 
+  SUBROUTINE c2psi_k( desc, psi, c, igk, ngk)
+     !
+     !  Copy wave-functions from 1D array (c/evc) ordered according (k+G) index igk 
+     !  to 3D array (psi) in Fourier space
+     !
+     USE fft_param
+     USE fft_types,      ONLY : fft_type_descriptor
+     TYPE(fft_type_descriptor), INTENT(in) :: desc
+     complex(DP), INTENT(OUT) :: psi(:)
+     complex(DP), INTENT(IN) :: c(:)
+     INTEGER, INTENT(IN) :: igk(:), ngk
+     ! local variables
+     integer :: ig
+     !
+     !  nl array: hold conversion indices form 3D to 1-D vectors. 
+     !     Columns along the z-direction are stored contigiously
+     !  c array: stores the Fourier expansion coefficients of the wave function
+     !     Loop for all local g-vectors (npw
+     psi = 0.0d0
+     do ig = 1, ngk
+        psi( desc%nl( igk( ig ) ) ) = c( ig )
+     end do
+     !
+  END SUBROUTINE
+
   SUBROUTINE fftx_oned2threed( desc, psi, c, ca )
      !
      !  Copy charge density from 1D array (c) to 3D array (psi) in Fourier
@@ -348,8 +373,8 @@ CONTAINS
      USE fft_param
      USE fft_types,      ONLY : fft_type_descriptor
      TYPE(fft_type_descriptor), INTENT(in) :: desc
-     complex(DP), INTENT(OUT) :: vout1(:)
-     complex(DP), OPTIONAL, INTENT(OUT) :: vout2(:)
+     complex(DP), INTENT(INOUT) :: vout1(:)
+     complex(DP), OPTIONAL, INTENT(INOUT) :: vout2(:)
      complex(DP), INTENT(IN) :: vin(:)
      COMPLEX(DP) :: fp, fm
      INTEGER :: ig

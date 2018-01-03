@@ -218,7 +218,7 @@ CONTAINS
       psic(:) = ( 0.D0, 0.D0 )
       psic(dfftp%nl(:)) = rho_s%of_g(:,is)
       IF ( gamma_only ) psic(dfftp%nlm(:)) = CONJG( rho_s%of_g(:,is) )
-      CALL invfft ('Dense', psic, dfftp)
+      CALL invfft ('Rho', psic, dfftp)
       rho_s%of_r(:,is) = psic(:)
    END DO
 
@@ -229,7 +229,7 @@ CONTAINS
          psic(:) = ( 0.D0, 0.D0 )
          psic(dfftp%nl(:)) = rho_s%kin_g(:,is)
          IF ( gamma_only ) psic(dfftp%nlm(:)) = CONJG( rho_s%kin_g(:,is) )
-         CALL invfft ('Dense', psic, dfftp)
+         CALL invfft ('Rho', psic, dfftp)
          rho_s%kin_r(:,is) = psic(:)
       END DO
    end if
@@ -335,7 +335,7 @@ CONTAINS
          psic(:) = ( 0.D0, 0.D0 )
          psic(dfftp%nl(:)) = rhoin%of_g(:,is)
          IF ( gamma_only ) psic(dfftp%nlm(:)) = CONJG( rhoin%of_g(:,is) )
-         CALL invfft ('Dense', psic, dfftp)
+         CALL invfft ('Rho', psic, dfftp)
          rhoin%of_r(:,is) = psic(:)
       END DO
       !
@@ -347,7 +347,7 @@ CONTAINS
             psic(:) = ( 0.D0, 0.D0 )
             psic(dfftp%nl(:)) = rhoin%kin_g(:,is)
             IF ( gamma_only ) psic(dfftp%nlm(:)) = CONJG( rhoin%kin_g(:,is) )
-            CALL invfft ('Dense', psic, dfftp)
+            CALL invfft ('Rho', psic, dfftp)
             rhoin%kin_r(:,is) = psic(:)
          END DO
       end if
