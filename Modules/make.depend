@@ -86,14 +86,13 @@ fft_base.o : ../FFTXlib/fft_smallbox_type.o
 fft_base.o : ../FFTXlib/fft_types.o
 fft_base.o : ../FFTXlib/stick_base.o
 fft_base.o : ../UtilXlib/parallel_include.o
-fft_custom.o : ../FFTXlib/fft_support.o
+fft_custom.o : ../FFTXlib/fft_ggen.o
 fft_custom.o : ../FFTXlib/fft_types.o
 fft_custom.o : ../UtilXlib/mp.o
 fft_custom.o : ../UtilXlib/parallel_include.o
 fft_custom.o : cell_base.o
 fft_custom.o : constants.o
 fft_custom.o : control_flags.o
-fft_custom.o : io_global.o
 fft_custom.o : kind.o
 fft_rho.o : ../FFTXlib/fft_interfaces.o
 fft_rho.o : control_flags.o
@@ -342,6 +341,7 @@ read_uspp.o : uspp.o
 recips.o : kind.o
 recvec.o : ../UtilXlib/mp.o
 recvec.o : kind.o
+recvec_subs.o : ../FFTXlib/fft_ggen.o
 recvec_subs.o : ../UtilXlib/mp.o
 recvec_subs.o : constants.o
 recvec_subs.o : fft_base.o
@@ -377,10 +377,11 @@ tsvdw.o : mp_bands.o
 tsvdw.o : mp_images.o
 tsvdw.o : uspp.o
 upf.o : ../UtilXlib/mp.o
+upf.o : emend_upf.o
 upf.o : io_files.o
 upf.o : io_global.o
 upf.o : kind.o
-upf.o : mp_world.o
+upf.o : mp_images.o
 upf.o : pseudo_types.o
 upf.o : radial_grids.o
 upf.o : read_upf_schema.o

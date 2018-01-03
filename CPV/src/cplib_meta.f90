@@ -14,16 +14,18 @@
 !          contribution from metaGGA
       use kinds, only: dp
       use gvect,     only : g
-      use gvecs,                  only : ngms, nlsm, nls
+      use gvecs,                  only : ngms
       use gvecw,                  only : ngw
       use cell_base,              only : tpiba2
       USE metagga,                ONLY : kedtaus
       USE fft_interfaces,         ONLY : fwfft, invfft
       USE fft_base,               ONLY : dffts
+      USE fft_helper_subroutines, ONLY : c2psi_gamma, fftx_psi2c_gamma
 !
       implicit none
 !
       complex(dp) c(ngw), ca(ngw), df(ngw), da(ngw),psi(dffts%nnr)
+      complex(dp), allocatable ::  dc(:), dca(:)
       integer iss1, iss2
       real(dp) fi, fip
 ! local variables
@@ -32,30 +34,32 @@
 !
 !
       ci=(0.0d0,1.0d0)
+      allocate( dc( ngw ) )
+      allocate( dca( ngw ) )
 !
          do ipol = 1, 3
-            psi(:)=(0.d0,0.d0)
-            do ig=1,ngw
-               psi(nls(ig))=g(ipol,ig)* (ci*c(ig) - ca(ig))
-               psi(nlsm(ig))=g(ipol,ig)* (CONJG(ci*c(ig) + ca(ig)))
-            end do
-            call invfft('Wave',psi,dffts )
+            
+            dc(:)  = ci*g(ipol,1:ngw)*c(:)
+            dca(:) = ci*g(ipol,1:ngw)*ca(:)
+            CALL c2psi_gamma( dffts, psi, dc, dca )
+            CALL invfft( 'Wave', psi, dffts )
+
 !           on smooth grids--> grids for charge density
+
             do ir=1, dffts%nnr
                psi(ir) = CMPLX (kedtaus(ir,iss1)*DBLE(psi(ir)), &
                                 kedtaus(ir,iss2)*AIMAG(psi(ir)),kind=DP)
             end do
             call fwfft('Wave',psi, dffts )
+            CALL fftx_psi2c_gamma( dffts, psi, dc, dca )
             do ig=1,ngw
-               fp= (psi(nls(ig)) + psi(nlsm(ig)))
-               fm= (psi(nls(ig)) - psi(nlsm(ig)))
-               df(ig)= df(ig) - ci*fi*tpiba2*g(ipol,ig) * &
-                       CMPLX(DBLE(fp), AIMAG(fm),kind=DP)
-               da(ig)= da(ig) - ci*fip*tpiba2*g(ipol,ig)* &
-                       CMPLX(AIMAG(fp),-DBLE(fm),kind=DP)
+               df(ig)= df(ig) - ci*fi *tpiba2*g(ipol,ig) * dc(ig)
+               da(ig)= da(ig) - ci*fip*tpiba2*g(ipol,ig) * dca(ig) 
             end do
          end do
 
+      deallocate( dc )
+      deallocate( dca )
 !
       return
     end subroutine dforce_meta
@@ -79,12 +83,14 @@
                           dkedtaus
       USE fft_interfaces, ONLY: fwfft, invfft
       USE fft_base,       ONLY: dffts, dfftp
+      USE fft_helper_subroutines, ONLY : c2psi_gamma
       USE fft_rho
       
       implicit none
 
       complex(dp) :: c(ngw,nx)
       complex(dp), allocatable :: psis( : )
+      complex(dp), allocatable :: dc( : ), dca( : )
 
 ! local variables
       integer iss, isup, isdw, iss1, iss2, ios, i, ir, ig
@@ -93,6 +99,8 @@
       complex(dp) ci,fp,fm
 !
       ALLOCATE( psis( dffts%nnr ) )
+      ALLOCATE( dc( ngw ) )
+      ALLOCATE( dca( ngw ) )
 !
       ci=(0.0d0,1.0d0)
       kedtaur(:,:)=0.d0
@@ -123,13 +131,14 @@
 
          do ipol = 1, 3
             psis( : ) = (0.d0,0.d0)
+            ! gradient of wfc in real space
             do ig=1,ngw
-               psis(nls(ig))=tpiba*g(ipol,ig)* (ci*c(ig,i) - c(ig,i+1))
-               psis(nlsm(ig))=tpiba*g(ipol,ig)*CONJG(ci*c(ig,i)+c(ig,i+1))
+               dc( ig )  = ci * tpiba * g(ipol,ig) * c(ig,i)
+               dca( ig ) = ci * tpiba * g(ipol,ig) * c(ig,i+1)
             end do
-                  ! gradient of wfc in real space
+            CALL c2psi_gamma( dffts, psis, dc, dca )
             call invfft('Wave',psis, dffts )
-            !           on smooth grids--> grids for charge density
+            ! on smooth grids--> grids for charge density
             do ir=1, dffts%nnr
                kedtaus(ir,iss1)=kedtaus(ir,iss1)+0.5d0*sa1*DBLE(psis(ir))**2
                kedtaus(ir,iss2)=kedtaus(ir,iss2)+0.5d0*sa2*AIMAG(psis(ir))**2
@@ -175,6 +184,8 @@
          !
       end do
 
+      DEALLOCATE( dca )
+      DEALLOCATE( dc )
       DEALLOCATE( psis )
 
 !     kinetic energy density (kedtau) in g-space (kedtaug)

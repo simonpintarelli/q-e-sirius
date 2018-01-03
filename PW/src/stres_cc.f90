@@ -17,7 +17,7 @@ subroutine stres_cc (sigmaxcc)
   USE cell_base,            ONLY : alat, omega, tpiba, tpiba2
   USE fft_base,             ONLY : dfftp
   USE fft_interfaces,       ONLY : fwfft
-  USE gvect,                ONLY : ngm, gstart, nl, g, gg, ngl, gl,igtongl, mill
+  USE gvect,                ONLY : ngm, gstart, g, gg, ngl, gl,igtongl, mill
   USE ener,                 ONLY : etxc, vtxc
   USE lsda_mod,             ONLY : nspin
   USE scf,                  ONLY : rho, rho_core, rhog_core
@@ -87,9 +87,9 @@ subroutine stres_cc (sigmaxcc)
         
         ! diagonal term
         if (gstart==2) sigmadiag = sigmadiag + &
-             CONJG(psic (nl(1) ) ) * strf (1,nt) * rho_core_g(1)
+             CONJG(psic (dfftp%nl(1) ) ) * strf (1,nt) * rho_core_g(1)
         do ng = gstart, ngm
-           sigmadiag = sigmadiag + CONJG(psic (nl (ng) ) ) * &
+           sigmadiag = sigmadiag + CONJG(psic (dfftp%nl (ng) ) ) * &
                 strf (ng,nt) * rho_core_g(ng) * fact
         enddo
         
@@ -115,7 +115,7 @@ subroutine stres_cc (sigmaxcc)
         do ng = gstart, ngm
            do l = 1, 3
               do m = 1, 3
-                 sigmaxcc (l, m) = sigmaxcc (l, m) + CONJG(psic (nl (ng) ) ) &
+                 sigmaxcc (l, m) = sigmaxcc (l, m) + CONJG(psic (dfftp%nl (ng) ) ) &
                       * strf (ng, nt) * rho_core_g (ng) * tpiba * &
                       g (l, ng) * g (m, ng) / sqrt (gg (ng) ) * fact
               enddo

@@ -15,12 +15,14 @@ MODULE recvec_subs
 
 !  ... Most important dependencies: next three modules
    USE gvect,              ONLY : ig_l2g, g, gg, ngm, ngm_g, gcutm, &
-                                  mill,  nl, gstart
-   USE gvecs,              ONLY : ngms, gcutms, ngms_g, nls
+                                  mill,  gstart
+   USE gvecs,              ONLY : ngms, gcutms, ngms_g
    USE fft_base,           ONLY : dfftp, dffts
 !
    USE kinds,              ONLY : DP
    USE constants,          ONLY : eps8
+
+   USE fft_ggen
 
    PRIVATE
    SAVE
@@ -41,6 +43,7 @@ CONTAINS
    !     between the fft mesh points and the array of g vectors.
    !
    USE mp, ONLY: mp_rank, mp_size, mp_sum
+   USE fft_types, ONLY: fft_stick_index
    !
    IMPLICIT NONE
    !
@@ -65,7 +68,6 @@ CONTAINS
    ! when no_global_sort is present (and it is true) only g vectors for the current processor are stored
    INTEGER, ALLOCATABLE :: igsrt(:)
    !
-   INTEGER :: m1, m2, mc
    INTEGER :: ni, nj, nk, i, j, k, ipol, ng, igl, indsw
    INTEGER :: mype, npe
    LOGICAL :: global_sort
@@ -139,12 +141,7 @@ CONTAINS
          IF ( gamma_only .and. i == 0 .and. j < 0) CYCLE jloop
 
          IF( .NOT. global_sort ) THEN
-            m1 = mod (i, dfftp%nr1) + 1
-            IF (m1 < 1) m1 = m1 + dfftp%nr1
-            m2 = mod (j, dfftp%nr2) + 1
-            IF (m2 < 1) m2 = m2 + dfftp%nr2
-            mc = m1 + (m2 - 1) * dfftp%nr1x
-            IF ( dfftp%isind ( mc ) == 0) CYCLE jloop
+            IF ( fft_stick_index( dfftp, i, j ) == 0) CYCLE jloop
          END IF
 
          kloop: DO k = -nk, nk
@@ -199,6 +196,8 @@ CONTAINS
       DO ng = 1, mype
          ngm_offset = ngm_offset + ngmpe( ng )
       END DO
+      DEALLOCATE( ngmpe )
+      !
    END IF
 
    ngm = 0
@@ -211,12 +210,7 @@ CONTAINS
       k = mill_g(3, ng)
 
       IF( dfftp%lpara .AND. global_sort ) THEN
-         m1 = mod (i, dfftp%nr1) + 1
-         IF (m1 < 1) m1 = m1 + dfftp%nr1
-         m2 = mod (j, dfftp%nr2) + 1
-         IF (m2 < 1) m2 = m2 + dfftp%nr2
-         mc = m1 + (m2 - 1) * dfftp%nr1x
-         IF ( dfftp%isind ( mc ) == 0) CYCLE ngloop
+         IF ( fft_stick_index( dfftp, i, j ) == 0) CYCLE ngloop
       END IF
 
       ngm = ngm + 1
@@ -237,6 +231,8 @@ CONTAINS
       IF (ngm > ngm_save) CALL errore ('ggen 2', 'too many g-vectors', ngm)
    ENDDO ngloop
 
+   DEALLOCATE( mill_g )
+
    !write (6,*) ' ngm, ngms', ngm,ngm_save, ngms, ngms_save
    IF (ngm /= ngm_save) &
       CALL errore ('ggen', 'g-vectors (ngm) missing !', abs(ngm - ngm_save))
@@ -253,99 +249,14 @@ CONTAINS
    !
    !     Now set nl and nls with the correct fft correspondence
    !
-   DO ng = 1, ngm
-      n1 = nint (sum(g (:, ng) * at (:, 1))) + 1
-      mill (1,ng) = n1 - 1
-      n1s = n1
-      IF (n1<1) n1 = n1 + dfftp%nr1
-      IF (n1s<1) n1s = n1s + dffts%nr1
-
-      n2 = nint (sum(g (:, ng) * at (:, 2))) + 1
-      mill (2,ng) = n2 - 1
-      n2s = n2
-      IF (n2<1) n2 = n2 + dfftp%nr2
-      IF (n2s<1) n2s = n2s + dffts%nr2
-
-      n3 = nint (sum(g (:, ng) * at (:, 3))) + 1
-      mill (3,ng) = n3 - 1
-      n3s = n3
-      IF (n3<1) n3 = n3 + dfftp%nr3
-      IF (n3s<1) n3s = n3s + dffts%nr3
-
-      IF (n1>dfftp%nr1 .or. n2>dfftp%nr2 .or. n3>dfftp%nr3) &
-         CALL errore('ggen','Mesh too small?',ng)
-
-      IF ( dfftp%lpara) THEN
-         nl (ng) = n3 + ( dfftp%isind ( n1+(n2-1)*dfftp%nr1x) - 1) * dfftp%nr3x
-         IF (ng <= ngms) &
-         nls (ng)= n3s+ ( dffts%isind (n1s+(n2s-1)*dffts%nr1x) -1) * dffts%nr3x
-      ELSE
-         nl (ng) = n1 + (n2-1) * dfftp%nr1x + (n3-1) * dfftp%nr1x * dfftp%nr2x
-         IF (ng <= ngms) &
-         nls (ng)= n1s+ (n2s-1)* dffts%nr1x + (n3s-1)* dffts%nr1x * dffts%nr2x
-      ENDIF
-   ENDDO
-   !
-   DEALLOCATE( mill_g )
-
-   IF ( gamma_only) CALL index_minusg()
-
-   IF( ALLOCATED( ngmpe ) ) DEALLOCATE( ngmpe )
+   CALL fft_set_nl( dfftp, at, g, mill  )
+   CALL fft_set_nl( dffts, at, g )
+   IF( gamma_only ) THEN
+     CALL fft_set_nlm( dfftp, mill  )
+     CALL fft_set_nlm( dffts, mill  )
+   END IF
 
    END SUBROUTINE ggen
-   !
-   !-----------------------------------------------------------------------
-   SUBROUTINE index_minusg()
-   !----------------------------------------------------------------------
-   !
-   !     compute indices nlm and nlms giving the correspondence
-   !     between the fft mesh points and -G (for gamma-only calculations)
-   !
-   USE gvect,    ONLY : ngm, nlm, mill
-   USE gvecs,    ONLY : nlsm, ngms
-   USE fft_base, ONLY : dfftp, dffts
-   !
-   IMPLICIT NONE
-   !
-   INTEGER :: n1, n2, n3, n1s, n2s, n3s, ng
-   !
-   DO ng = 1, ngm
-      n1 = -mill (1,ng) + 1
-      n1s = n1
-      IF (n1 < 1) THEN
-         n1 = n1 + dfftp%nr1
-         n1s = n1s + dffts%nr1
-      END IF
-
-      n2 = -mill (2,ng) + 1
-      n2s = n2
-      IF (n2 < 1) THEN
-         n2 = n2 + dfftp%nr2
-         n2s = n2s + dffts%nr2
-      END IF
-      n3 = -mill (3,ng) + 1
-      n3s = n3
-      IF (n3 < 1) THEN
-         n3 = n3 + dfftp%nr3
-         n3s = n3s + dffts%nr3
-      END IF
-
-      IF (n1>dfftp%nr1 .or. n2>dfftp%nr2 .or. n3>dfftp%nr3) THEN
-         CALL errore('index_minusg','Mesh too small?',ng)
-      ENDIF
-
-      IF ( dfftp%lpara ) THEN
-         nlm(ng) = n3 + (dfftp%isind (n1 + (n2-1)*dfftp%nr1x) - 1) * dfftp%nr3x
-         IF (ng<=ngms) &
-         nlsm(ng) = n3s + (dffts%isind (n1s+(n2s-1)*dffts%nr1x)-1) * dffts%nr3x
-      ELSE
-         nlm(ng) = n1 + (n2-1) * dfftp%nr1x + (n3-1) * dfftp%nr1x * dfftp%nr2x
-         IF (ng<=ngms) &
-         nlsm(ng)= n1s+ (n2s-1)* dffts%nr1x + (n3s-1)* dffts%nr1x * dffts%nr2x
-      ENDIF
-   ENDDO
-
-   END SUBROUTINE index_minusg
    !
 !=----------------------------------------------------------------------=
    END MODULE recvec_subs
@@ -356,7 +267,7 @@ SUBROUTINE gshells ( vc )
    !----------------------------------------------------------------------
    !
    ! calculate number of G shells: ngl, and the index ng = igtongl(ig)
-   ! that gives the shell index ng for (lacal) G-vector of index ig
+   ! that gives the shell index ng for (local) G-vector of index ig
    !
    USE kinds,              ONLY : DP
    USE gvect,              ONLY : gg, ngm, gl, ngl, igtongl

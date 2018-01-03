@@ -18,7 +18,7 @@ subroutine force_cc (forcecc)
   USE cell_base,            ONLY : alat, omega, tpiba, tpiba2
   USE fft_base,             ONLY : dfftp
   USE fft_interfaces,       ONLY : fwfft
-  USE gvect,                ONLY : ngm, gstart, nl, g, gg, ngl, gl, igtongl, mill
+  USE gvect,                ONLY : ngm, gstart, g, gg, ngl, gl, igtongl, mill
   USE ener,                 ONLY : etxc, vtxc
   USE lsda_mod,             ONLY : nspin
   USE scf,                  ONLY : rho, rho_core, rhog_core
@@ -114,7 +114,7 @@ subroutine force_cc (forcecc)
                       + g (3, ig) * tau (3, na) ) * tpi
                  do ipol = 1, 3
                     forcecc (ipol, na) = forcecc (ipol, na) + tpiba * omega * &
-                         rho_core_g(ig) * CONJG(psic (nl (ig) ) ) * &
+                         rho_core_g(ig) * CONJG(psic (dfftp%nl (ig) ) ) * &
                          CMPLX( sin (arg), cos (arg) ,kind=DP) * g (ipol, ig) * fact
                  enddo
               enddo

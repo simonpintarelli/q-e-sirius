@@ -9,7 +9,6 @@ subroutine electrons_sirius_v2(scf_step)
   use io_global,            only : stdout
   use control_flags,        only : conv_elec, ethr, gamma_only, iprint, iverbosity, mixing_beta, niter,&
                                    nmix, llondon, lxdm, lmd
-  use gvect,                only : nl,nlm
   use scf,                  only : scf_type, rho, rho_core, rhog_core, create_scf_type, open_mix_file, scf_type_copy,&
                                    bcast_scf_type, close_mix_file, destroy_scf_type, v, vltot, vxc, v_of_0, vnew
   use io_files,             only : iunmix
@@ -119,8 +118,8 @@ subroutine electrons_sirius_v2(scf_step)
     ! transform initial density to real space
     do is = 1, nspin_mag
        psic(:) = 0.d0
-       psic(nl(:)) = rho%of_g(:,is)
-       if (gamma_only) psic(nlm(:)) = conjg(rho%of_g(:,is))
+       psic(dfftp%nl(:)) = rho%of_g(:,is)
+       if (gamma_only) psic(dfftp%nlm(:)) = conjg(rho%of_g(:,is))
        call invfft('Dense', psic, dfftp)
        rho%of_r(:,is) = dble(psic(:))
     end do
@@ -237,8 +236,8 @@ subroutine electrons_sirius_v2(scf_step)
     ! transform density to real-space  
     do is = 1, nspin_mag
        psic(:) = 0.d0
-       psic(nl(:)) = rho%of_g(:,is)
-       if (gamma_only) psic(nlm(:)) = conjg(rho%of_g(:,is))
+       psic(dfftp%nl(:)) = rho%of_g(:,is)
+       if (gamma_only) psic(dfftp%nlm(:)) = conjg(rho%of_g(:,is))
        call invfft('Dense', psic, dfftp)
        rho%of_r(:,is) = dble(psic(:))
     end do

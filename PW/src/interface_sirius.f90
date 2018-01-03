@@ -253,7 +253,7 @@ end subroutine put_density_to_sirius
 
 subroutine put_potential_to_sirius
   use scf,                  only : v, vltot, vxc
-  use gvect,                only : mill, ngm, nl
+  use gvect,                only : mill, ngm
   use mp_bands,             only : intra_bgrp_comm
   use lsda_mod,             only : nspin
   use noncollin_module,     only : nspin_mag
@@ -281,7 +281,7 @@ subroutine put_potential_to_sirius
     call fwfft('Dense', psic, dfftp)
     ! convert to Hartree
     do ig = 1, ngm
-      v%of_g(ig, 1) = psic(nl(ig)) * 0.5d0
+      v%of_g(ig, 1) = psic(dfftp%nl(ig)) * 0.5d0
     enddo
     ! set effective potential
     call sirius_set_pw_coeffs(c_str("veff"), v%of_g(1, 1), ngm, mill(1, 1), intra_bgrp_comm)
@@ -294,7 +294,7 @@ subroutine put_potential_to_sirius
       call fwfft('Dense', psic, dfftp)
       ! convert to Hartree
       do ig = 1, ngm
-         v%of_g(ig, is) = psic(nl(ig)) * 0.5d0
+         v%of_g(ig, is) = psic(dfftp%nl(ig)) * 0.5d0
       enddo
     enddo
 
@@ -315,7 +315,7 @@ subroutine put_potential_to_sirius
       call fwfft('Dense', psic, dfftp)
       ! convert to Hartree
       do ig = 1, ngm
-        v%of_g(ig, is) = psic(nl(ig)) * 0.5d0
+        v%of_g(ig, is) = psic(dfftp%nl(ig)) * 0.5d0
       enddo
       if (is.eq.2) label="bx"
       if (is.eq.3) label="by"
@@ -339,7 +339,7 @@ subroutine put_potential_to_sirius
   allocate(vxcg(ngm))
   ! convert to Hartree
   do ig = 1, ngm
-     vxcg(ig) = psic(nl(ig)) * 0.5d0
+     vxcg(ig) = psic(dfftp%nl(ig)) * 0.5d0
   end do
   ! set XC potential
   call sirius_set_pw_coeffs(c_str("vxc"), vxcg(1), ngm, mill(1, 1), intra_bgrp_comm)
@@ -389,7 +389,7 @@ end subroutine put_potential_to_sirius
 
 subroutine put_vltot_to_sirius
   use scf,       only : vltot
-  use gvect, only : nl, nlm, mill, ngm
+  use gvect, only : mill, ngm
   use wavefunctions_module, only : psic
   use fft_interfaces,       only : fwfft, invfft
   use fft_base,             only : dfftp
@@ -406,7 +406,7 @@ subroutine put_vltot_to_sirius
   call fwfft('Dense', psic, dfftp)
   ! convert to Hartree
   do ig = 1, ngm
-    vg(ig) = psic(nl(ig)) * 0.5d0 ! convert to Ha
+    vg(ig) = psic(dfftp%nl(ig)) * 0.5d0 ! convert to Ha
   enddo
   ! set local potential
   call sirius_set_pw_coeffs(c_str("vloc"), vg(1), ngm, mill(1, 1), intra_bgrp_comm)
@@ -419,7 +419,7 @@ subroutine get_rhoc_from_sirius
   use scf,       only : rho_core, rhog_core
   use control_flags, only : gamma_only
   use wavefunctions_module, only : psic
-  use gvect, only : nl, nlm, mill, ngm
+  use gvect, only : mill, ngm
   use scf, only : rho_core, rhog_core
   use mp_bands, only : intra_bgrp_comm
   use ions_base, only : ntyp => nsp
@@ -433,8 +433,8 @@ subroutine get_rhoc_from_sirius
   if (any(upf(1:ntyp)%nlcc)) then
     call sirius_get_pw_coeffs(c_str("rhoc"), rhog_core(1), ngm, mill(1, 1), intra_bgrp_comm)
     psic(:) = (0.d0, 0.d0)
-    psic(nl(:)) = rhog_core(:)
-    if (gamma_only) psic(nlm(:)) = conjg(rhog_core(:))
+    psic(dfftp%nl(:)) = rhog_core(:)
+    if (gamma_only) psic(dfftp%nlm(:)) = conjg(rhog_core(:))
     call invfft ('Dense', psic, dfftp)
     rho_core(:) = psic(:)
   else 
@@ -470,7 +470,7 @@ end subroutine get_rhoc_from_sirius
 
 subroutine get_vloc_from_sirius
   use wavefunctions_module, only : psic
-  use gvect, only : nl, nlm, mill, ngm, gg
+  use gvect, only : mill, ngm, gg
   use scf, only: vltot, v_of_0
   use fft_interfaces, only : fwfft, invfft
   use fft_base, only : dfftp
@@ -486,8 +486,8 @@ subroutine get_vloc_from_sirius
   allocate(vpw(ngm))
   call sirius_get_pw_coeffs(c_str("vloc"), vpw(1), ngm, mill(1, 1), intra_bgrp_comm)
   psic(:) = 0.d0
-  psic(nl(:)) = vpw(:)
-  if (gamma_only) psic(nlm(:)) = conjg(vpw(:))
+  psic(dfftp%nl(:)) = vpw(:)
+  if (gamma_only) psic(dfftp%nlm(:)) = conjg(vpw(:))
   call invfft('Dense', psic, dfftp)
   vltot(:) = dble(psic(:)) * 2 ! convert to Ry
   v_of_0=0.d0

@@ -58,7 +58,6 @@ data_structure.o \
 deriv_drhoc.o \
 divide_class.o \
 divide_class_so.o \
-divide.o \
 divide_et_impera.o \
 dqvan2.o \
 drhoc.o \
@@ -245,7 +244,6 @@ wannier_check.o \
 wannier_clean.o \
 wannier_occ.o \
 wannier_enrg.o \
-electrons_sirius.o \
 electrons_sirius_v2.o \
 setup_sirius.o \
 interface_sirius.o

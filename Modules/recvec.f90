@@ -30,11 +30,6 @@
      REAL(DP) :: ecutrho = 0.0_DP ! energy cut-off for charge density 
      REAL(DP) :: gcutm = 0.0_DP   ! ecutrho/(2 pi/a)^2, cut-off for |G|^2
 
-     ! nl  = fft index for G-vectors (with gamma tricks, only for G>)
-     ! nlm = as above, for G< (used only with gamma tricks)
-
-     INTEGER, ALLOCATABLE :: nl(:), nlm(:)
-
      INTEGER :: gstart = 2 ! index of the first G vector whose module is > 0
                            ! Needed in parallel execution: gstart=2 for the
                            ! proc that holds G=0, gstart=1 for all others
@@ -108,10 +103,6 @@
        ALLOCATE( g(3, ngm) )
        if (allocated(mill)) deallocate(mill)
        ALLOCATE( mill(3, ngm) )
-       if (allocated(nl)) deallocate(nl)
-       ALLOCATE( nl (ngm) )
-       if (allocated(nlm)) deallocate(nlm)
-       ALLOCATE( nlm(ngm) )
        if (allocated(ig_l2g)) deallocate(ig_l2g)
        ALLOCATE( ig_l2g(ngm) )
        if (allocated(igtongl)) deallocate(igtongl)
@@ -122,7 +113,6 @@
      END SUBROUTINE gvect_init
 
      SUBROUTINE deallocate_gvect()
-       ! IF( ASSOCIATED( gl ) ) DEALLOCATE( gl )
        IF( ALLOCATED( gg ) ) DEALLOCATE( gg )
        IF( ALLOCATED( g ) )  DEALLOCATE( g )
        IF( ALLOCATED( mill_g ) ) DEALLOCATE( mill_g )
@@ -133,8 +123,6 @@
        IF( ALLOCATED( eigts1 ) ) DEALLOCATE( eigts1 )
        IF( ALLOCATED( eigts2 ) ) DEALLOCATE( eigts2 )
        IF( ALLOCATED( eigts3 ) ) DEALLOCATE( eigts3 )
-       IF( ALLOCATED( nl ) ) DEALLOCATE( nl )
-       IF( ALLOCATED( nlm ) ) DEALLOCATE( nlm )
      END SUBROUTINE deallocate_gvect
 
      SUBROUTINE deallocate_gvect_exx()
@@ -143,8 +131,6 @@
        IF( ALLOCATED( mill ) ) DEALLOCATE( mill )
        IF( ALLOCATED( igtongl ) ) DEALLOCATE( igtongl )
        IF( ALLOCATED( ig_l2g ) ) DEALLOCATE( ig_l2g )
-       IF( ALLOCATED( nl ) ) DEALLOCATE( nl )
-       IF( ALLOCATED( nlm ) ) DEALLOCATE( nlm )
      END SUBROUTINE deallocate_gvect_exx
 !=----------------------------------------------------------------------------=!
    END MODULE gvect
@@ -165,11 +151,6 @@
      INTEGER :: ngms_g=0  ! global number of smooth vectors (summed on procs) 
                           ! in serial execution this is equal to ngms
      INTEGER :: ngsx = 0  ! local number of smooth vectors, max across procs
-
-     ! nl  = fft index for smooth vectors (with gamma tricks, only for G>)
-     ! nlm = as above, for G< (used only with gamma tricks)
-
-     INTEGER, ALLOCATABLE :: nls(:), nlsm(:)
 
      REAL(DP) :: ecuts = 0.0_DP   ! energy cut-off = 4*ecutwfc
      REAL(DP) :: gcutms= 0.0_DP   ! ecuts/(2 pi/a)^2, cut-off for |G|^2
@@ -200,19 +181,16 @@
        !
        !  allocate arrays 
        !
-       if (allocated(nls)) deallocate(nls)
-       ALLOCATE( nls (ngms) )
-       if (allocated(nlsm)) deallocate(nlsm)
-       ALLOCATE( nlsm(ngms) )
+       !if (allocated(nls)) deallocate(nls)
+       !ALLOCATE( nls (ngms) )
+       !if (allocated(nlsm)) deallocate(nlsm)
+       !ALLOCATE( nlsm(ngms) )
+       ! ALLOCATE( nls (ngms) )
+       ! ALLOCATE( nlsm(ngms) )
        !
        RETURN 
        !
      END SUBROUTINE gvecs_init
-
-     SUBROUTINE deallocate_gvecs()
-       IF( ALLOCATED( nls ) ) DEALLOCATE( nls )
-       IF( ALLOCATED( nlsm ) ) DEALLOCATE( nlsm )
-     END SUBROUTINE deallocate_gvecs
 
 !=----------------------------------------------------------------------------=!
    END MODULE gvecs

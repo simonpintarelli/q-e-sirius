@@ -16,8 +16,7 @@ subroutine interpolate (v, vs, iflag)
   !     V and Vs are real and in real space . V and Vs may coincide
   !
   USE kinds, ONLY: DP
-  USE gvect,  ONLY: nl, nlm
-  USE gvecs,ONLY: ngms, nls, nlsm, doublegrid
+  USE gvecs,ONLY: ngms, doublegrid
   USE control_flags, ONLY: gamma_only
   USE fft_base,      ONLY : dfftp, dffts
   USE fft_interfaces,ONLY : fwfft, invfft
@@ -48,11 +47,11 @@ subroutine interpolate (v, vs, iflag)
         CALL fwfft ('Dense', aux, dfftp)
         auxs (:) = (0.d0, 0.d0)
         do ig = 1, ngms
-           auxs (nls (ig) ) = aux (nl (ig) )
+           auxs (dffts%nl (ig) ) = aux (dfftp%nl (ig) )
         enddo
         if (gamma_only) then
            do ig = 1, ngms
-              auxs (nlsm(ig) ) = aux (nlm(ig) )
+              auxs (dffts%nlm(ig) ) = aux (dfftp%nlm(ig) )
            enddo
         end if
         CALL invfft ('Smooth', auxs, dffts)
@@ -75,11 +74,11 @@ subroutine interpolate (v, vs, iflag)
         CALL fwfft ('Smooth', auxs, dffts)
         aux (:) = (0.d0, 0.d0)
         do ig = 1, ngms
-           aux (nl (ig) ) = auxs (nls (ig) )
+           aux (dfftp%nl (ig) ) = auxs (dffts%nl (ig) )
         enddo
         if (gamma_only) then
            do ig = 1, ngms
-              aux (nlm(ig) ) = auxs (nlsm(ig) )
+              aux (dfftp%nlm(ig) ) = auxs (dffts%nlm(ig) )
            enddo
         end if
         CALL invfft ('Dense', aux, dfftp)
@@ -106,8 +105,7 @@ subroutine cinterpolate (v, vs, iflag)
   !     V and Vs are complex and in real space . V and Vs may coincide
   !
   USE kinds, ONLY: DP
-  USE gvect,  ONLY: nl, nlm
-  USE gvecs,ONLY: ngms, nls, nlsm, doublegrid
+  USE gvecs,ONLY: ngms, doublegrid
   USE control_flags, ONLY: gamma_only
   USE fft_base,      ONLY : dfftp, dffts
   USE fft_interfaces,ONLY : fwfft, invfft
@@ -138,7 +136,7 @@ subroutine cinterpolate (v, vs, iflag)
         CALL fwfft ('Dense', aux, dfftp)
         vs (:) = (0.d0, 0.d0)
         do ig = 1, ngms
-           vs (nls (ig) ) = aux (nl (ig) )
+           vs (dffts%nl (ig) ) = aux (dfftp%nl (ig) )
         enddo
         CALL invfft ('Smooth', vs, dffts)
         deallocate (aux)
@@ -155,7 +153,7 @@ subroutine cinterpolate (v, vs, iflag)
         CALL fwfft ('Smooth', auxs, dffts)
         v (:) = (0.d0, 0.d0)
         do ig = 1, ngms
-           v (nl (ig) ) = auxs (nls (ig) )
+           v (dfftp%nl (ig) ) = auxs (dffts%nl (ig) )
         enddo
         CALL invfft ('Dense', v, dfftp)
         deallocate (auxs)
@@ -166,3 +164,83 @@ subroutine cinterpolate (v, vs, iflag)
   call stop_clock ('interpolate')
   return
 end subroutine cinterpolate
+!
+subroutine exx_interpolate (v, vs, iflag)
+  !
+  !     This subroutine interpolates :
+  !     vs on the exx mesh to v on the density mesh (iflag>0)
+  !        vs is unchanged on output
+  !     v on the density mesh to vs on the exx mesh (iflag<=0)
+  !        v  is unchanged on output
+  !     V and Vs are real and in real space . V and Vs may coincide
+  !
+  USE kinds,         ONLY: DP
+  USE gvect,         ONLY: g
+  USE control_flags, ONLY: gamma_only
+  USE fft_base,      ONLY : dfftp
+  USE exx,           ONLY : dfftt
+  USE fft_interfaces,ONLY : fwfft, invfft
+  !
+  implicit none
+  real(DP) :: v (dfftp%nnr), vs (dfftt%nnr)
+  ! function on density mesh
+  ! function on exx mesh
+
+  complex(DP), allocatable :: aux (:), auxs (:)
+  ! work array on density mesh
+  ! work array on exx mesh
+
+  integer :: iflag
+  ! gives the direction of the interpolation
+
+  integer :: ig, ir
+
+  call start_clock ('interpolate')
+
+  if (iflag <= 0) then
+     !
+     !    from density to exx
+     !
+     allocate (aux( dfftp%nnr))    
+     allocate (auxs(dfftt%nnr))    
+     aux (:) = (1.0d0,0.0d0) * v (:)
+     CALL fwfft ('Dense', aux, dfftp)
+     auxs (:) = (0.d0, 0.d0)
+     do ig = 1, dfftt%ngm
+        auxs (dfftt%nl(ig)) = aux(dfftp%nl(ig))
+     enddo
+     if (gamma_only) then
+        do ig = 1, dfftt%ngm
+           auxs(dfftt%nlm(ig) ) = aux (dfftp%nlm(ig) )
+        enddo
+     end if
+     CALL invfft ('Custom', auxs, dfftt)
+     vs (:) = real(auxs (:))
+     deallocate (auxs)
+     deallocate (aux)
+  else
+     !
+     !   from exx to density 
+     !
+     allocate (aux( dfftp%nnr))    
+     allocate (auxs(dfftt%nnr))    
+     auxs (:) = vs (:)
+     CALL fwfft ('Custom', auxs, dfftt)
+     aux (:) = (0.d0, 0.d0)
+     do ig = 1, dfftt%ngm
+        aux (dfftp%nl (ig) ) = auxs (dfftt%nl (ig) )
+     enddo
+     if (gamma_only) then
+        do ig = 1, dfftt%ngm
+           aux (dfftp%nlm(ig) ) = auxs (dfftt%nlm(ig) )
+        enddo
+     end if
+     CALL invfft ('Dense', aux, dfftp)
+     v (:) = aux (:)
+     deallocate (auxs)
+     deallocate (aux)
+  endif
+  call stop_clock ('interpolate')
+  return
+
+end subroutine exx_interpolate
