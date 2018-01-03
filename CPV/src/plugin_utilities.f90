@@ -17,7 +17,7 @@ SUBROUTINE v_h_of_rho_g( rhog, ehart, charge, v )
       USE constants,          ONLY: fpi
       USE io_global,          ONLY: stdout
       USE cell_base,          ONLY: tpiba2, tpiba, omega
-      USE gvect,              ONLY: gstart, ngm, gg
+      USE gvect,              ONLY: gstart, gg
       USE mp_global,          ONLY: intra_bgrp_comm
       USE mp,                 ONLY: mp_sum
       USE fft_base,           ONLY: dfftp
@@ -29,7 +29,7 @@ SUBROUTINE v_h_of_rho_g( rhog, ehart, charge, v )
 
       ! ... Arguments
 
-      COMPLEX(DP), INTENT(IN)    :: rhog(ngm, nspin)
+      COMPLEX(DP), INTENT(IN)    :: rhog(dfftp%ngm, nspin)
       REAL(DP),    INTENT(INOUT) :: v(dfftp%nnr, nspin)
       REAL(DP),    INTENT(OUT)   :: ehart, charge
 
@@ -43,10 +43,10 @@ SUBROUTINE v_h_of_rho_g( rhog, ehart, charge, v )
       ! ... compute potential in G space ...
       !
       ehart = 0.0d0
-      ALLOCATE(aux1(ngm))
+      ALLOCATE(aux1(dfftp%ngm))
       ALLOCATE(aux(dfftp%nnr))
       aux1(1) = 0.D0
-      DO ig = gstart, ngm 
+      DO ig = gstart, dfftp%ngm 
         rhog_re  = REAL(rhog( ig, 1 ))
         rhog_im  = AIMAG(rhog( ig, 1 ))
         IF ( nspin .EQ. 2 ) THEN 
@@ -66,7 +66,7 @@ SUBROUTINE v_h_of_rho_g( rhog, ehart, charge, v )
       ! ... transform hartree potential to real space
       !
       CALL fftx_oned2threed( dfftp, aux, aux1 )
-      CALL invfft ('Dense', aux, dfftp)
+      CALL invfft ('Rho', aux, dfftp)
       !
       ! ... add hartree potential to the input potential
       !
@@ -106,7 +106,6 @@ SUBROUTINE v_h_of_rho_g( rhog, ehart, charge, v )
       !  if Gamma symmetry Fact = 1 else Fact = 1/2
       !
       USE kinds,              ONLY: DP
-      USE gvect,              ONLY: ngm
       USE fft_base,           ONLY: dfftp
       USE fft_interfaces,     ONLY: fwfft, invfft
       USE electrons_base,     ONLY: nspin
@@ -128,11 +127,11 @@ SUBROUTINE v_h_of_rho_g( rhog, ehart, charge, v )
       !
       ! ... bring the (unsymmetrized) rho(r) to G-space (use aux as work array)
       !
-      ALLOCATE( rhog( ngm, nspin ) )
+      ALLOCATE( rhog( dfftp%ngm, nspin ) )
       ALLOCATE( aux( dfftp%nnr ) )
       DO is = 1, nspin
         aux(:) = CMPLX(rhor( : , is ),0.D0,kind=dp) 
-        CALL fwfft ('Dense', aux, dfftp)
+        CALL fwfft ('Rho', aux, dfftp)
         CALL fftx_threed2oned( dfftp, aux, rhog(:,is) )
       END DO
       !
@@ -169,10 +168,9 @@ SUBROUTINE v_h_of_rho_g( rhog, ehart, charge, v )
       USE constants,          ONLY: fpi
       USE cell_base,          ONLY: tpiba2, tpiba
       USE io_global,          ONLY: stdout
-      USE gvect,              ONLY: mill, gstart, g, gg, ngm
-      USE gvecs,              ONLY: ngms
+      USE gvect,              ONLY: mill, gstart, g, gg
       USE ions_base,          ONLY: nat, nsp, na, rcmax, zv
-      USE fft_base,           ONLY: dfftp
+      USE fft_base,           ONLY: dfftp, dffts
       USE mp_global,          ONLY: intra_bgrp_comm
       USE mp,                 ONLY: mp_sum
 
@@ -180,7 +178,7 @@ SUBROUTINE v_h_of_rho_g( rhog, ehart, charge, v )
 
       ! ... Arguments
 
-      COMPLEX(DP), INTENT(IN) :: rhog(ngm)
+      COMPLEX(DP), INTENT(IN) :: rhog(dfftp%ngm)
       COMPLEX(DP), INTENT(IN) :: ei1(-dfftp%nr1:dfftp%nr1,nat)
       COMPLEX(DP), INTENT(IN) :: ei2(-dfftp%nr2:dfftp%nr2,nat)
       COMPLEX(DP), INTENT(IN) :: ei3(-dfftp%nr3:dfftp%nr3,nat)
@@ -201,7 +199,7 @@ SUBROUTINE v_h_of_rho_g( rhog, ehart, charge, v )
       
       ftmp = 0.0d0
 
-      DO ig = gstart, ngms ! maybe ngms (in case use rhops from pseudo_base)
+      DO ig = gstart, dffts%ngm
 
         RHO   = RHOG( ig )
         FPIBG = fpi / ( gg(ig) * tpiba2 )
@@ -257,7 +255,7 @@ SUBROUTINE gradv_h_of_rho_r( rho, gradv )
       USE constants,          ONLY: fpi
       USE io_global,          ONLY: stdout
       USE cell_base,          ONLY: tpiba, omega
-      USE gvect,              ONLY: gstart, ngm, gg, g
+      USE gvect,              ONLY: gstart, gg, g
       USE mp_global,          ONLY: intra_bgrp_comm
       USE mp,                 ONLY: mp_sum
       USE fft_base,           ONLY: dfftp
@@ -281,12 +279,12 @@ SUBROUTINE gradv_h_of_rho_r( rho, gradv )
       ! ... Bring rho to G space
       !
       ALLOCATE( rhoaux( dfftp%nnr ) )
-      ALLOCATE( gaux(ngm) )
-      ALLOCATE( rhog(ngm) )
+      ALLOCATE( gaux(dfftp%ngm) )
+      ALLOCATE( rhog(dfftp%ngm) )
       !
       rhoaux( : ) = CMPLX( rho( : ), 0.D0, KIND=dp ) 
       !
-      CALL fwfft('Dense', rhoaux, dfftp)
+      CALL fwfft('Rho', rhoaux, dfftp)
       CALL fftx_threed2oned( dfftp, rhoaux, rhog )
       !
       !
@@ -296,14 +294,14 @@ SUBROUTINE gradv_h_of_rho_r( rho, gradv )
          !
          gaux(1) = (0.d0,0.d0)
          !
-         DO ig = gstart, ngm 
+         DO ig = gstart, dfftp%ngm 
            gaux(ig) = CMPLX(0.0d0,1.0d0,kind=DP) * fpi * g(ipol,ig) / ( gg(ig) * tpiba ) * rhog( ig )
          ENDDO
          !
          ! ... bring back to R-space, (\grad_ipol a)(r) ...
          !
          CALL fftx_oned2threed( dfftp, rhoaux, gaux )
-         CALL invfft ('Dense', rhoaux, dfftp)
+         CALL invfft ('Rho', rhoaux, dfftp)
          !
          gradv(ipol,:) = REAL( rhoaux(:) )
          !
@@ -327,7 +325,7 @@ SUBROUTINE gradv_h_of_rho_r( rho, gradv )
       !
       USE kinds,            ONLY : DP
       USE fft_base,         ONLY : dfftp
-      USE gvect,            ONLY : ngm, g
+      USE gvect,            ONLY : g
       USE fft_interfaces,   ONLY : fwfft, invfft
       USE fft_helper_subroutines, ONLY: fftx_threed2oned
       !
@@ -344,7 +342,7 @@ SUBROUTINE gradv_h_of_rho_r( rho, gradv )
       REAL(DP), ALLOCATABLE :: d2rho(:,:)
       REAL(DP), ALLOCATABLE :: dxdyrho(:), dxdzrho(:), dydzrho(:)
       !
-      ALLOCATE( auxg( ngm ) )
+      ALLOCATE( auxg( dfftp%ngm ) )
       ALLOCATE( auxr( dfftp%nnr ) )
       ALLOCATE( d2rho(3,dfftp%nnr) )
       ALLOCATE( dxdyrho(dfftp%nnr) )
@@ -352,7 +350,7 @@ SUBROUTINE gradv_h_of_rho_r( rho, gradv )
       ALLOCATE( dydzrho(dfftp%nnr) )
 
       auxr(:) = CMPLX(a( : ),0.D0,kind=dp) 
-      CALL fwfft ('Dense', auxr, dfftp)
+      CALL fwfft ('Rho', auxr, dfftp)
       CALL fftx_threed2oned( dfftp, auxr, auxg )
       ! from G-space A compute R-space grad(A) 
       CALL gradrho(1,auxg,grada,d2rho,dxdyrho,dxdzrho,dydzrho)
@@ -375,7 +373,7 @@ SUBROUTINE gradv_h_of_rho_r( rho, gradv )
       !
       USE kinds,            ONLY : DP
       USE fft_base,         ONLY : dfftp
-      USE gvect,            ONLY : ngm, g
+      USE gvect,            ONLY : g
       USE fft_interfaces,   ONLY : fwfft, invfft
       USE fft_helper_subroutines, ONLY: fftx_threed2oned
       !
@@ -393,7 +391,7 @@ SUBROUTINE gradv_h_of_rho_r( rho, gradv )
       REAL(DP), ALLOCATABLE :: d2rho(:,:)
       REAL(DP), ALLOCATABLE :: dxdyrho(:), dxdzrho(:), dydzrho(:)
       !
-      ALLOCATE( auxg( ngm ) )
+      ALLOCATE( auxg( dfftp%ngm ) )
       ALLOCATE( auxr( dfftp%nnr ) )
       ALLOCATE( d2rho(3,dfftp%nnr) )
       ALLOCATE( dxdyrho(dfftp%nnr) )
@@ -401,7 +399,7 @@ SUBROUTINE gradv_h_of_rho_r( rho, gradv )
       ALLOCATE( dydzrho(dfftp%nnr) )
 
       auxr(:) = CMPLX(a( : ),0.D0,kind=dp) 
-      CALL fwfft ('Dense', auxr, dfftp)
+      CALL fwfft ('Rho', auxr, dfftp)
       CALL fftx_threed2oned( dfftp, auxr, auxg )
       !
       ! from G-space A compute R-space grad(A) and second derivatives

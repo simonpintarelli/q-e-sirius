@@ -38,7 +38,7 @@ MODULE lr_exx_kernel
                                    & invfft_orbital_k, fwfft_orbital_k
   USE wavefunctions_module,   ONLY : psic
   USE cell_base,              ONLY : omega
-  USE exx,                    ONLY : exxalfa, g2_convolution, exx_fft, dfftt
+  USE exx,                    ONLY : exxalfa, g2_convolution, npwt, gt, dfftt
 
 
   REAL(kind=dp),    PUBLIC, ALLOCATABLE :: revc_int(:,:)
@@ -164,7 +164,7 @@ SUBROUTINE lr_exx_apply_revc_int(psi, ibnd, nbnd, ik)
         !
         ! To g-space
         !
-        CALL fwfft ('CustomWave', tempphic(:,1), dfftt)
+        CALL fwfft ('Wave', tempphic(:,1), dfftt)
         !
         ! Now separate the two bands and apply the correct nl mapping
         !
@@ -187,7 +187,7 @@ SUBROUTINE lr_exx_apply_revc_int(psi, ibnd, nbnd, ik)
         !
         ! To g-space
         !
-        CALL fwfft ('CustomWave', tempphic(:,1), dfftt)
+        CALL fwfft ('Wave', tempphic(:,1), dfftt)
         !
         ! Correct the nl mapping for the two grids.
         !
@@ -249,7 +249,7 @@ SUBROUTINE lr_exx_revc0_init(orbital, ik)
      DO ibnd=1,nbnd,2
         !
         CALL invfft_orbital_custom_gamma(orbital(:,:,1), ibnd, nbnd, &
-             exx_fft%npwt, dfftt)
+             npwt, dfftt)
         red_revc0(1:nnr_,ibnd,1)=psic(1:nnr_)
         !
      ENDDO
@@ -382,7 +382,7 @@ SUBROUTINE lr_exx_kernel_noint ( evc, int_vect )
      ! Put the appropriate interaction in fac(). Note g2_convolution respects
      ! the choice of divergence treatment etc set in the initial PWscf run.
      !
-     CALL g2_convolution(dfftt%ngm, exx_fft%gt, xk(:,1), xk(:,1), fac)
+     CALL g2_convolution(dfftt%ngm, gt, xk(:,1), xk(:,1), fac)
      !
      ALLOCATE(revc_int(nrxxs,nbnd))
      !
@@ -400,7 +400,7 @@ SUBROUTINE lr_exx_kernel_noint ( evc, int_vect )
      DO ibnd=ibnd_start_gamma,ibnd_end_gamma,2
         !
         CALL invfft_orbital_custom_gamma(evc(:,:,1), ibnd, nbnd, &
-             exx_fft%npwt, dfftt)
+             npwt, dfftt)
         !
         w1=wg(ibnd,1)/omega
         !
@@ -431,7 +431,7 @@ SUBROUTINE lr_exx_kernel_noint ( evc, int_vect )
              &,0.d0,dp)
         !
         CALL fwfft_orbital_custom_gamma (int_vect(:,:,1), ibnd, nbnd, &
-             exx_fft%npwt, dfftt) 
+             npwt, dfftt) 
         !
      ENDDO
      !
@@ -628,7 +628,7 @@ SUBROUTINE lr_exx_kernel_int ( orbital, ibnd, nbnd, ikk )
   !
   IF( gamma_only ) THEN
      !
-     CALL invfft_orbital_custom_gamma( orbital, ibnd, nbnd, exx_fft%npwt, dfftt )
+     CALL invfft_orbital_custom_gamma( orbital, ibnd, nbnd, npwt, dfftt )
      !
      w1=wg(ibnd,1)/omega
      !
@@ -638,7 +638,7 @@ SUBROUTINE lr_exx_kernel_int ( orbital, ibnd, nbnd, ikk )
         w2=0.0d0
      ENDIF
      !
-     CALL g2_convolution(dfftt%ngm, exx_fft%gt,xk(:,1), xk(:,1), fac)
+     CALL g2_convolution(dfftt%ngm, gt,xk(:,1), xk(:,1), fac)
      !
      IF (.NOT.ltammd) THEN
         revc_int(1:dfftt%nnr,:)= revc_int(1:dfftt%nnr,:)&
@@ -771,7 +771,7 @@ FUNCTION k1d_term_gamma(w1, w2, psi, fac_in, ibnd) RESULT (psi_int)
   !
   INTEGER                  :: ibnd2, is, npw_, ngm_, nnr_
   !
-  npw_=exx_fft%npwt
+  npw_=npwt
   ngm_=dfftt%ngm
   nnr_=dfftt%nnr
   !  
@@ -803,7 +803,7 @@ FUNCTION k1d_term_gamma(w1, w2, psi, fac_in, ibnd) RESULT (psi_int)
              &AIMAG(red_revc0(1:nnr_,ibnd2-1,1)), kind=DP )
      ENDIF
      !
-     CALL fwfft ('Custom', pseudo_dens_c, dfftt)
+     CALL fwfft ('Rho', pseudo_dens_c, dfftt)
      !
      ! hartree contribution is computed in reciprocal space
      !
@@ -818,7 +818,7 @@ FUNCTION k1d_term_gamma(w1, w2, psi, fac_in, ibnd) RESULT (psi_int)
         !
         !  and transformed back to real space
         !
-        CALL invfft ('Custom', vhart (:, is), dfftt)
+        CALL invfft ('Rho', vhart (:, is), dfftt)
         !
      ENDDO
      !
@@ -873,7 +873,7 @@ FUNCTION k1d_term_k(w1, psi, fac_in, ibnd, ik,ikq) RESULT (psi_int)
      pseudo_dens_c(:) = CONJG(red_revc0(:,ibnd,ikq))*&
           &red_revc0(:,ibnd2,k2q(ik))/omega
      !
-     CALL fwfft ('Smooth', pseudo_dens_c, dffts)
+     CALL fwfft ('Rho', pseudo_dens_c, dffts)
      !
      ! hartree contribution is computed in reciprocal space
      !
@@ -884,7 +884,7 @@ FUNCTION k1d_term_k(w1, psi, fac_in, ibnd, ik,ikq) RESULT (psi_int)
         !
         !  and transformed back to real space
         !
-        CALL invfft ('Smooth', vhart (:, is), dffts)
+        CALL invfft ('Rho', vhart (:, is), dffts)
         !
      ENDDO
      !
@@ -921,7 +921,7 @@ FUNCTION k2d_term_gamma(w1, w2, psi, fac_in, ibnd) RESULT (psi_int)
   !
   nnr_ = dfftt%nnr
   ngm_ = dfftt%ngm
-  npw_ = exx_fft%npwt
+  npw_ = npwt
   !
   ALLOCATE(psi_int(nnr_, nbnd))
   psi_int = 0.d0
@@ -948,7 +948,7 @@ FUNCTION k2d_term_gamma(w1, w2, psi, fac_in, ibnd) RESULT (psi_int)
              & w2*AIMAG(psi(1:nnr_))*AIMAG(red_revc0(1:nnr_,ibnd2-1,1)), kind=DP )
      ENDIF
      !
-     CALL fwfft ('Custom', pseudo_dens_c, dfftt)
+     CALL fwfft ('Rho', pseudo_dens_c, dfftt)
      !
      ! hartree contribution is computed in reciprocal space
      !
@@ -961,7 +961,7 @@ FUNCTION k2d_term_gamma(w1, w2, psi, fac_in, ibnd) RESULT (psi_int)
         !
         !  and transformed back to real space
         !
-        CALL invfft ('Custom', vhart (:, is), dfftt)
+        CALL invfft ('Rho', vhart (:, is), dfftt)
         !
      ENDDO
      !
@@ -1012,7 +1012,7 @@ FUNCTION k2d_term_k(w1, psi, fac_in, ibnd, ik, ikq) RESULT (psi_int)
      !
      pseudo_dens_c(:) =  CONJG(psi(:))*red_revc0(:,ibnd2,k2q(ik))/omega
      !
-     CALL fwfft ('Smooth', pseudo_dens_c, dffts)
+     CALL fwfft ('Rho', pseudo_dens_c, dffts)
      !
      ! hartree contribution is computed in reciprocal space
      !
@@ -1023,7 +1023,7 @@ FUNCTION k2d_term_k(w1, psi, fac_in, ibnd, ik, ikq) RESULT (psi_int)
         !
         !  and transformed back to real space
         !
-        CALL invfft ('Smooth', vhart (:, is), dffts)
+        CALL invfft ('Rho', vhart (:, is), dffts)
         !
      ENDDO
      !
@@ -1072,7 +1072,7 @@ SUBROUTINE invfft_orbital_custom_gamma(orbital, ibnd, nbnd, npwt, dfftt)
      !
   ENDIF
   !
-  CALL invfft ('CustomWave', psic, dfftt)
+  CALL invfft ('Wave', psic, dfftt)
   !
   RETURN
   !
@@ -1094,7 +1094,7 @@ SUBROUTINE fwfft_orbital_custom_gamma(orbital, ibnd, nbnd, npwt, dfftt)
   ! Counters
   INTEGER :: j
   !
-  CALL fwfft ('CustomWave', psic(:), dfftt)
+  CALL fwfft ('Wave', psic(:), dfftt)
   !
   IF (ibnd < nbnd) THEN
      !
