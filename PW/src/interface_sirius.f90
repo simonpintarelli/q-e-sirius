@@ -278,7 +278,7 @@ subroutine put_potential_to_sirius
   if (nspin.eq.1.or.nspin.eq.4) then
     ! add local part of the potential and transform to PW domain
     psic(:) = v%of_r(:, 1) + vltot(:)
-    call fwfft('Dense', psic, dfftp)
+    call fwfft('Rho', psic, dfftp)
     ! convert to Hartree
     do ig = 1, ngm
       v%of_g(ig, 1) = psic(dfftp%nl(ig)) * 0.5d0
@@ -291,7 +291,7 @@ subroutine put_potential_to_sirius
     do is = 1, 2
       ! add local part of the potential and transform to PW domain
       psic(:) = v%of_r(:, is) + vltot(:)
-      call fwfft('Dense', psic, dfftp)
+      call fwfft('Rho', psic, dfftp)
       ! convert to Hartree
       do ig = 1, ngm
          v%of_g(ig, is) = psic(dfftp%nl(ig)) * 0.5d0
@@ -312,7 +312,7 @@ subroutine put_potential_to_sirius
   if (nspin.eq.4) then
     do is = 2, nspin_mag
       psic(:) = v%of_r(:, is)
-      call fwfft('Dense', psic, dfftp)
+      call fwfft('Rho', psic, dfftp)
       ! convert to Hartree
       do ig = 1, ngm
         v%of_g(ig, is) = psic(dfftp%nl(ig)) * 0.5d0
@@ -335,7 +335,7 @@ subroutine put_potential_to_sirius
       psic(ir) = 0.5d0 * (vxc(ir, 1) + vxc(ir, 2))
     enddo
   endif
-  call fwfft('Dense', psic, dfftp)
+  call fwfft('Rho', psic, dfftp)
   allocate(vxcg(ngm))
   ! convert to Hartree
   do ig = 1, ngm
@@ -403,7 +403,7 @@ subroutine put_vltot_to_sirius
   !
   allocate(vg(ngm))
   psic(:) = vltot(:)
-  call fwfft('Dense', psic, dfftp)
+  call fwfft('Rho', psic, dfftp)
   ! convert to Hartree
   do ig = 1, ngm
     vg(ig) = psic(dfftp%nl(ig)) * 0.5d0 ! convert to Ha
@@ -435,7 +435,7 @@ subroutine get_rhoc_from_sirius
     psic(:) = (0.d0, 0.d0)
     psic(dfftp%nl(:)) = rhog_core(:)
     if (gamma_only) psic(dfftp%nlm(:)) = conjg(rhog_core(:))
-    call invfft ('Dense', psic, dfftp)
+    call invfft ('Rho', psic, dfftp)
     rho_core(:) = psic(:)
   else 
     rhog_core(:) = 0.0d0
@@ -488,7 +488,7 @@ subroutine get_vloc_from_sirius
   psic(:) = 0.d0
   psic(dfftp%nl(:)) = vpw(:)
   if (gamma_only) psic(dfftp%nlm(:)) = conjg(vpw(:))
-  call invfft('Dense', psic, dfftp)
+  call invfft('Rho', psic, dfftp)
   vltot(:) = dble(psic(:)) * 2 ! convert to Ry
   v_of_0=0.d0
   IF (gg(1) < eps8) v_of_0 = dble(vpw(1))

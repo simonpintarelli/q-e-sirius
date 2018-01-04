@@ -120,7 +120,7 @@ subroutine electrons_sirius_v2(scf_step)
        psic(:) = 0.d0
        psic(dfftp%nl(:)) = rho%of_g(:,is)
        if (gamma_only) psic(dfftp%nlm(:)) = conjg(rho%of_g(:,is))
-       call invfft('Dense', psic, dfftp)
+       call invfft('Rho', psic, dfftp)
        rho%of_r(:,is) = dble(psic(:))
     end do
     call v_of_rho(rho, rho_core, rhog_core, ehart, etxc, vtxc, eth, etotefield, charge, v)
@@ -238,7 +238,7 @@ subroutine electrons_sirius_v2(scf_step)
        psic(:) = 0.d0
        psic(dfftp%nl(:)) = rho%of_g(:,is)
        if (gamma_only) psic(dfftp%nlm(:)) = conjg(rho%of_g(:,is))
-       call invfft('Dense', psic, dfftp)
+       call invfft('Rho', psic, dfftp)
        rho%of_r(:,is) = dble(psic(:))
     end do
 
@@ -452,7 +452,7 @@ subroutine electrons_sirius_v2(scf_step)
   !     psic(:) = ( 0.d0, 0.d0 )
   !     psic(nl(:)) = rho%of_g(:,is)
   !     if ( gamma_only ) psic(nlm(:)) = conjg( rho%of_g(:,is) )
-  !     call invfft ('Dense', psic, dfftp)
+  !     call invfft ('Rho', psic, dfftp)
   !     rho%of_r(:,is) = psic(:)
   !     !
   !  end do

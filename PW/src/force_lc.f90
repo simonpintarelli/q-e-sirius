@@ -75,7 +75,7 @@ subroutine force_lc (nat, tau, ityp, alat, omega, ngm, ngl, &
       else
         aux(:) = CMPLX( rho(:,1), 0.0_dp, kind=dp )
       end if
-      CALL fwfft ('Dense', aux, dfftp)
+      CALL fwfft ('Rho', aux, dfftp)
       force_tmp = 0.d0
       call esm_force_lc ( aux, force_tmp )
       call mp_sum( force_tmp, intra_bgrp_comm )

@@ -122,7 +122,7 @@ SUBROUTINE forces()
        psic(:) = (vxc(:, 1) + vxc(:, 2)) * 0.5d0
     endif
     deallocate(vxc)
-    call fwfft('Dense', psic, dfftp)
+    call fwfft('Rho', psic, dfftp)
     !
     ! psic contains now Vxc(G)
     !
@@ -141,7 +141,7 @@ SUBROUTINE forces()
     else
        psic(:) = (vnew%of_r(:, 1) + vnew%of_r(:, 2)) * 0.5d0
     endif
-    call fwfft ('Dense', psic, dfftp)
+    call fwfft ('Rho', psic, dfftp)
 
     do ig = 1, ngm
        vxc_g(ig) = psic(dfftp%nl(ig)) * 0.5d0 ! convert to Ha
