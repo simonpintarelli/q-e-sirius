@@ -195,7 +195,7 @@
                  TRIM(tmp_dir), TRIM(prefix), ndr
             CALL read_rhog ( dirname, root_bgrp, intra_bgrp_comm, &
                  ig_l2g, nspin, rhog )
-            CALL rho_g2r ( rhog, rhor )
+            CALL rho_g2r ( dfftp, rhog, rhor )
 #endif
             rhopr = rhor
             first = .FALSE.
@@ -203,7 +203,7 @@
             rhor = rhopr
          END IF
 
-         CALL rho_r2g( rhor, rhog )
+         CALL rho_r2g( dfftp, rhor, rhog )
 
       ELSE
          !
@@ -251,11 +251,11 @@
          !
          !     smooth charge in g-space is put into rhog(ig)
          !
-         CALL smooth_rho_r2g( rhos, rhog )
+         CALL rho_r2g( dffts, rhos, rhog )
          !
          rhog(dffts%ngm+1:,:) = 0.0d0
          !
-         CALL rho_g2r( rhog, rhor )
+         CALL rho_g2r( dfftp, rhog, rhor )
          !
          IF ( dft_is_meta() ) THEN
             CALL kedtauofr_meta( c_bgrp ) ! METAGGA

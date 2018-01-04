@@ -420,9 +420,9 @@ SUBROUTINE vofrho_x( nfi, rhor, drhor, rhog, drhog, rhos, rhoc, tfirst, &
 !     -------------------------------------------------------------------
 !
       IF( abivol .or. abisur ) THEN
-         CALL rho_r2g ( rhor, rhog, v_vol )
+         CALL rho_r2g ( dfftp, rhor, rhog, v_vol )
       ELSE
-         CALL rho_r2g ( rhor, rhog )
+         CALL rho_r2g ( dfftp, rhor, rhog )
       END IF
        
       IF( nspin == 1 ) THEN
@@ -474,7 +474,7 @@ SUBROUTINE vofrho_x( nfi, rhor, drhor, rhog, drhog, rhos, rhoc, tfirst, &
 !     fourier transform of total potential to r-space (dense grid)
 !     -------------------------------------------------------------------
       
-      CALL rho_g2r( rhog, rhor )
+      CALL rho_g2r( dfftp, rhog, rhor )
 
       IF(nspin.EQ.1) THEN
          vave=SUM(rhor(:,1))/DBLE( dfftp%nr1* dfftp%nr2* dfftp%nr3)
@@ -489,7 +489,7 @@ SUBROUTINE vofrho_x( nfi, rhor, drhor, rhog, drhog, rhos, rhoc, tfirst, &
       !
       !     fourier transform of total potential to r-space (smooth grid)
       !
-      CALL smooth_rho_g2r ( rhog, rhos )
+      CALL rho_g2r ( dffts, rhog, rhos )
 
       IF( dft_is_meta() ) CALL vofrho_meta( )
 

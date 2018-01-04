@@ -276,7 +276,7 @@ SUBROUTINE read_xml_file ( )
   CALL pre_init()
   CALL data_structure ( gamma_only )
   CALL allocate_fft()
-  CALL ggen ( gamma_only, at, bg ) 
+  CALL ggen ( dfftp, dffts, gamma_only, at, bg ) 
   IF (do_comp_esm) THEN
      CALL init_vars_from_schema ( 'esm', ierr, output_obj, parinfo_obj, geninfo_obj ) 
      CALL esm_init()
@@ -305,7 +305,7 @@ SUBROUTINE read_xml_file ( )
 #if ! defined (__OLDXML)
   ! FIXME: for compatibility. rho was previously read and written in real space
   ! FIXME: now it is in G space - to be removed together with old format
-  CALL rho_g2r ( rho%of_g, rho%of_r )
+  CALL rho_g2r ( dfftp, rho%of_g, rho%of_r )
 #endif
   !
   ! ... re-calculate the local part of the pseudopotential vltot
