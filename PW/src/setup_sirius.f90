@@ -93,10 +93,10 @@ subroutine setup_sirius()
   !    stop ("interface for this gradient correlation functional is not implemented")
   !  end select
   !endif
-  
+
   ! set number of first-variational states
   if (noncolin) then
-    call sirius_set_num_fv_states(nbnd / 2 + 1) 
+    call sirius_set_num_fv_states(nbnd / 2 + 1)
   else
     call sirius_set_num_fv_states(nbnd)
   endif
@@ -128,7 +128,7 @@ subroutine setup_sirius()
   ! set |G+k| cutoff for the wave-functions
   ! convert from |G+k|^2/2 Rydbergs to |G+k| in [a.u.^-1]
   call sirius_set_gk_cutoff(sqrt(ecutwfc))
-  
+
   if (lspinorb) then
      call sirius_set_num_mag_dims(3)
      call sirius_set_so_correction(.true.)
@@ -195,11 +195,11 @@ subroutine setup_sirius()
       call sirius_set_atom_type_beta_rf(c_str(atm(iat)), upf(iat)%nbeta, upf(iat)%lll(1), tmp, &
                                        &upf(iat)%kbeta(1), upf(iat)%beta(1, 1), upf(iat)%mesh, bool_var)
     endif
-    
+
     ! set the atomic radial functions
     do iwf = 1, upf(iat)%nwfc
       l = upf(iat)%lchi(iwf)
-      call sirius_add_atom_type_chi(c_str(atm(iat)), l, msh(iat), upf(iat)%chi(1, iwf))
+      call sirius_add_atom_type_chi(c_str(atm(iat)), l, upf(iat)%jchi(iwf), msh(iat), upf(iat)%chi(1, iwf), upf(iat)%oc(iwf))
     enddo
 
     allocate(dion(upf(iat)%nbeta, upf(iat)%nbeta))
@@ -255,7 +255,7 @@ subroutine setup_sirius()
     call sirius_set_atom_type_vloc(c_str(atm(iat)), upf(iat)%mesh, vloc(1))
     deallocate(vloc)
   enddo
-    
+
   ! add atoms to the unit cell
   ! WARNING: sirius accepts only fractional coordinates;
   !          if QE stores coordinates in a different way, the conversion must be made here
@@ -282,13 +282,13 @@ subroutine setup_sirius()
   !if (nosym) then
     call sirius_set_use_symmetry(0)
   !endif
-  
+
   bool_var = do_comp_esm
   call sirius_set_esm(bool_var, esm_bc)
 
   ! initialize global variables/indices/arrays/etc. of the simulation
   call sirius_initialize_simulation_context()
-    
+
   ! get number of g-vectors of the dense fft grid
   call sirius_get_num_gvec(num_gvec)
 
