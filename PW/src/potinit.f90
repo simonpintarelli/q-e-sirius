@@ -32,7 +32,7 @@ SUBROUTINE potinit()
   USE lsda_mod,             ONLY : lsda, nspin
   USE fft_base,             ONLY : dfftp
   USE fft_interfaces,       ONLY : fwfft
-  USE gvect,                ONLY : ngm, gstart, nl, g, gg, ig_l2g
+  USE gvect,                ONLY : ngm, gstart, g, gg, ig_l2g
   USE gvecs,                ONLY : doublegrid
   USE control_flags,        ONLY : lscf, gamma_only
   USE scf,                  ONLY : rho, rho_core, rhog_core, &
@@ -89,7 +89,7 @@ SUBROUTINE potinit()
      IF ( .NOT.lforcet ) THEN
         CALL read_scf ( rho, nspin, gamma_only )
 #if !defined (__OLDXML)
-        CALL rho_g2r ( rho%of_g, rho%of_r )
+        CALL rho_g2r ( dfftp, rho%of_g, rho%of_r )
 #endif
      ELSE
         !
@@ -101,7 +101,7 @@ SUBROUTINE potinit()
 #else
         CALL read_rhog ( dirname, root_bgrp, intra_bgrp_comm, &
              ig_l2g, nspin, rho%of_g, gamma_only )
-        CALL rho_g2r ( rho%of_g, rho%of_r )
+        CALL rho_g2r ( dfftp, rho%of_g, rho%of_r )
 #endif
         CALL nc_magnetization_from_lsda ( dfftp%nnr, nspin, rho%of_r )
      END IF
@@ -157,7 +157,7 @@ SUBROUTINE potinit()
 #else
         CALL read_rhog ( dirname, root_bgrp, intra_bgrp_comm, &
              ig_l2g, nspin, v%of_g, gamma_only )
-        CALL rho_g2r ( v%of_g, v%of_r )
+        CALL rho_g2r ( dfftp, v%of_g, v%of_r )
 #endif
         !
         WRITE( UNIT = stdout, &
@@ -211,9 +211,9 @@ SUBROUTINE potinit()
      !
      psic(:) = rho%of_r(:,is)
      !
-     CALL fwfft ('Dense', psic, dfftp)
+     CALL fwfft ('Rho', psic, dfftp)
      !
-     rho%of_g(:,is) = psic(nl(:))
+     rho%of_g(:,is) = psic(dfftp%nl(:))
      !
   END DO
   !
@@ -228,8 +228,8 @@ SUBROUTINE potinit()
      DO is = 1, nspin
         if (starting_pot /= 'file') rho%kin_r(:,is) = fact * abs(rho%of_r(:,is)*nspin)**(5.0/3.0)/nspin
         psic(:) = rho%kin_r(:,is)
-        CALL fwfft ('Dense', psic, dfftp)
-        rho%kin_g(:,is) = psic(nl(:))
+        CALL fwfft ('Rho', psic, dfftp)
+        rho%kin_g(:,is) = psic(dfftp%nl(:))
      END DO
      !
   end if

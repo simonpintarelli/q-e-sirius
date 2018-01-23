@@ -37,10 +37,8 @@ SUBROUTINE cprmain( tau_out, fion_out, etot_out )
                                        berry_energy2, pberryel2, pberryion2
   USE ensemble_dft,             ONLY : tens, z0t, gibbsfe
   USE cg_module,                ONLY : tcg,  cg_update, c0old
-  USE gvect,                    ONLY : ngm, ngm_g
-  USE gvecs,                    ONLY : ngms
-  USE smallbox_gvec,                    ONLY : ngb
-  USE gvecw,                    ONLY : ngw, ngw_g
+  USE smallbox_gvec,            ONLY : ngb
+  USE gvecw,                    ONLY : ngw
   USE gvect,       ONLY : gstart, mill, eigts1, eigts2, eigts3
   USE ions_base,                ONLY : na, nat, amass, nax, nsp, rcmax
   USE ions_base,                ONLY : ind_srt, ions_cofmass, ions_kinene, &
@@ -114,7 +112,7 @@ SUBROUTINE cprmain( tau_out, fion_out, etot_out )
                                        me_ortho, ortho_comm, &
                                        me_bgrp, inter_bgrp_comm, nbgrp, me_image
   USE ldaU_cp,                  ONLY : lda_plus_u, vupsi
-  USE fft_base,                 ONLY : dfftp
+  USE fft_base,                 ONLY : dfftp, dffts
   USE london_module,            ONLY : energy_london, force_london, stres_london
   USE input_parameters,         ONLY : tcpbo
   USE funct,                    ONLY : dft_is_hybrid, start_exx, exx_is_active
@@ -278,7 +276,7 @@ SUBROUTINE cprmain( tau_out, fion_out, etot_out )
         !
         ! ... strucf calculates the structure factor sfac
         !
-        CALL strucf( sfac, eigts1, eigts2, eigts3, mill, ngms )
+        CALL strucf( sfac, eigts1, eigts2, eigts3, mill, dffts%ngm )
         !
      END IF
      !
@@ -806,7 +804,7 @@ SUBROUTINE cprmain( tau_out, fion_out, etot_out )
            END IF
            CALL r_to_s( tau0, taus, na, nsp, ainv )
            CALL phfacs( eigts1,eigts2,eigts3, eigr, mill, taus, dfftp%nr1,dfftp%nr2,dfftp%nr3, nat )
-           CALL strucf( sfac, eigts1, eigts2, eigts3, mill, ngms )
+           CALL strucf( sfac, eigts1, eigts2, eigts3, mill, dffts%ngm )
            !
            IF ( thdyn )    CALL formf( tfirst, eself )
            IF ( tefield )  CALL efield_update( eigr )

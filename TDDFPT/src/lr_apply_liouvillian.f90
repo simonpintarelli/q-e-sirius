@@ -32,10 +32,9 @@ SUBROUTINE lr_apply_liouvillian( evc1, evc1_new, interaction )
   USE ions_base,            ONLY : ityp, nat, ntyp=>nsp
   USE cell_base,            ONLY : tpiba2
   USE fft_base,             ONLY : dffts, dfftp
-  USE fft_interfaces,       ONLY : fwfft
+  USE fft_interfaces,       ONLY : fwfft, fft_interpolate
   USE fft_helper_subroutines
-  USE gvecs,                ONLY : nls, nlsm
-  USE gvect,                ONLY : nl, ngm, gstart, g, gg
+  USE gvect,                ONLY : ngm, gstart, g, gg
   USE io_global,            ONLY : stdout
   USE klist,                ONLY : nks, xk, ngk, igk_k
   USE lr_variables,         ONLY : evc0, sevc0, revc0, rho_1, rho_1c, &
@@ -140,10 +139,10 @@ SUBROUTINE lr_apply_liouvillian( evc1, evc1_new, interaction )
         !
         IF (gamma_only) THEN
            dvrs(:,1) = 0.0d0
-           CALL interpolate (dvrs(:,1),dvrss,-1)
+           CALL fft_interpolate (dfftp, dvrs(:,1), dffts, dvrss)
         ELSE
            dvrsc(:,1) = 0.0d0
-           CALL cinterpolate (dvrsc(:,1),dvrssc,-1)
+           CALL fft_interpolate (dfftp, dvrsc(:,1), dffts, dvrssc)
         ENDIF
         !
      ELSE
@@ -223,9 +222,9 @@ SUBROUTINE lr_apply_liouvillian( evc1, evc1_new, interaction )
         ! Put the interaction on the smooth grid.
         !
         IF (gamma_only) THEN
-           CALL interpolate (dvrs(:,1),dvrss,-1)
+           CALL fft_interpolate (dfftp, dvrs(:,1), dffts, dvrss)
         ELSE
-           CALL cinterpolate (dvrsc(:,1),dvrssc,-1)
+           CALL fft_interpolate (dfftp, dvrsc(:,1), dffts, dvrssc)
         ENDIF
         !
      ENDIF
@@ -418,7 +417,7 @@ CONTAINS
           !end: calculation of becp2
        ENDIF
 
-      IF ( dffts%have_task_groups ) THEN
+      IF ( dffts%has_task_groups ) THEN
          !
          v_siz =  dffts%nnr_tg
          !
@@ -447,7 +446,7 @@ CONTAINS
           ! Product with the potential vrs = (vltot+vr)
           ! revc0 is on smooth grid. psic is used up to smooth grid
           !
-          IF (dffts%have_task_groups) THEN
+          IF (dffts%has_task_groups) THEN
              !
              DO ir=1, dffts%nr1x*dffts%nr2x*dffts%my_nr3p
                 !
@@ -540,7 +539,7 @@ CONTAINS
 #if defined(__MPI)
        CALL mp_sum( evc1_new(:,:,1), inter_bgrp_comm )
 #endif
-       IF (dffts%have_task_groups) DEALLOCATE (tg_dvrss)
+       IF (dffts%has_task_groups) DEALLOCATE (tg_dvrss)
        !
        IF( nkb > 0 .and. okvan .and. real_space_debug <= 7) THEN
           !The non real_space part
@@ -642,7 +641,7 @@ SUBROUTINE lr_apply_liouvillian_k()
              !
              DO ig = 1,ngk(ik)
                 !
-                evc1_new(ig,ibnd,ik) = psic(nls(igk_k(ig,ik)))
+                evc1_new(ig,ibnd,ik) = psic(dffts%nl(igk_k(ig,ik)))
                 !
              ENDDO
              !

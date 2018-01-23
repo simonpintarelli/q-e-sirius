@@ -16,7 +16,7 @@ subroutine stres_har (sigmahar)
   USE ener,      ONLY: ehart
   USE fft_base,  ONLY : dfftp
   USE fft_interfaces,ONLY : fwfft
-  USE gvect,     ONLY: ngm, gstart, nl, g, gg
+  USE gvect,     ONLY: ngm, gstart, g, gg
   USE lsda_mod,  ONLY: nspin
   USE scf,       ONLY: rho
   USE control_flags,        ONLY: gamma_only
@@ -39,7 +39,7 @@ subroutine stres_har (sigmahar)
      call daxpy (dfftp%nnr, 1.d0, rho%of_r (1, is), 1, psic, 2)
   enddo
 
-  CALL fwfft ('Dense', psic, dfftp)
+  CALL fwfft ('Rho', psic, dfftp)
   ! psic contains now the charge density in G space
   ! the  G=0 component is not computed
   IF (do_cutoff_2D) THEN  
@@ -47,7 +47,7 @@ subroutine stres_har (sigmahar)
   ELSE
   do ig = gstart, ngm
      g2 = gg (ig) * tpiba2
-     shart = psic (nl (ig) ) * CONJG(psic (nl (ig) ) ) / g2
+     shart = psic (dfftp%nl (ig) ) * CONJG(psic (dfftp%nl (ig) ) ) / g2
      do l = 1, 3
         do m = 1, l
            sigmahar (l, m) = sigmahar (l, m) + shart * tpiba2 * 2 * &

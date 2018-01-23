@@ -65,6 +65,7 @@ lr_apply_liouvillian.o : ../../UtilXlib/mp.o
 lr_apply_liouvillian.o : lr_exx_kernel.o
 lr_apply_liouvillian.o : lr_variables.o
 lr_apply_liouvillian_eels.o : ../../FFTXlib/fft_helper_subroutines.o
+lr_apply_liouvillian_eels.o : ../../FFTXlib/fft_interfaces.o
 lr_apply_liouvillian_eels.o : ../../LR_Modules/dv_of_drho.o
 lr_apply_liouvillian_eels.o : ../../LR_Modules/lrcom.o
 lr_apply_liouvillian_eels.o : ../../Modules/fft_base.o
@@ -99,6 +100,7 @@ lr_calc_dens.o : ../../UtilXlib/mp.o
 lr_calc_dens.o : lr_charg_resp.o
 lr_calc_dens.o : lr_exx_kernel.o
 lr_calc_dens.o : lr_variables.o
+lr_calc_dens_eels.o : ../../FFTXlib/fft_interfaces.o
 lr_calc_dens_eels.o : ../../LR_Modules/lrcom.o
 lr_calc_dens_eels.o : ../../Modules/fft_base.o
 lr_calc_dens_eels.o : ../../Modules/gvecw.o
@@ -112,6 +114,7 @@ lr_calc_dens_eels.o : ../../Modules/wavefunctions.o
 lr_calc_dens_eels.o : ../../PW/src/buffers.o
 lr_calc_dens_eels.o : ../../PW/src/pwcom.o
 lr_calc_dens_eels.o : ../../UtilXlib/mp.o
+lr_calc_dens_eels_nc.o : ../../FFTXlib/fft_interfaces.o
 lr_calc_dens_eels_nc.o : ../../LR_Modules/lrcom.o
 lr_calc_dens_eels_nc.o : ../../Modules/fft_base.o
 lr_calc_dens_eels_nc.o : ../../Modules/gvecw.o
@@ -279,10 +282,10 @@ lr_eels_main.o : ../../PW/src/pwcom.o
 lr_eels_main.o : lr_lanczos.o
 lr_eels_main.o : lr_variables.o
 lr_exx_kernel.o : ../../FFTXlib/fft_interfaces.o
+lr_exx_kernel.o : ../../FFTXlib/fft_types.o
 lr_exx_kernel.o : ../../FFTXlib/scatter_mod.o
 lr_exx_kernel.o : ../../Modules/cell_base.o
 lr_exx_kernel.o : ../../Modules/fft_base.o
-lr_exx_kernel.o : ../../Modules/fft_custom.o
 lr_exx_kernel.o : ../../Modules/funct.o
 lr_exx_kernel.o : ../../Modules/io_global.o
 lr_exx_kernel.o : ../../Modules/kind.o

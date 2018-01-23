@@ -3,8 +3,8 @@
 include ../make.inc
 
 # location of needed modules
-MODFLAGS= $(MOD_FLAG)../iotk/src $(MOD_FLAG)../ELPA/src $(MOD_FLAG)../FFTXlib $(MOD_FLAG)../LAXlib $(MOD_FLAG)../UtilXlib \
-          $(MOD_FLAG)../KS_Solvers/CG $(IFLAGS) $(MOD_FLAG).
+MODFLAGS=$(BASEMOD_FLAGS) \
+         $(MOD_FLAG)../ELPA/src
 
 # list of modules
 
@@ -30,12 +30,12 @@ environment.o \
 fcp_variables.o \
 fd_gradient.o \
 fft_base.o \
-fft_custom.o \
 fft_rho.o \
 fsockets.o \
 funct.o \
 generate_function.o \
 gth.o \
+gradutils.o \
 gvecw.o \
 input_parameters.o \
 invmat.o \
@@ -86,6 +86,7 @@ setqf.o \
 splinelib.o \
 timestep.o\
 tsvdw.o\
+emend_upf.o \
 upf.o \
 upf_to_internal.o \
 uspp.o \

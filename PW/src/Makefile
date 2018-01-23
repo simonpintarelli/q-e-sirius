@@ -3,11 +3,10 @@
 include ../../make.inc
 
 # location of needed modules and included files (if any)
-MODFLAGS= $(MOD_FLAG)../../iotk/src $(MOD_FLAG)../../Modules \
-          $(MOD_FLAG)../../FFTXlib $(MOD_FLAG)../../LAXlib $(MOD_FLAG)../../UtilXlib \
-          $(MOD_FLAG)../../KS_Solvers/Davidson $(MOD_FLAG)../../KS_Solvers/CG \
+MODFLAGS= $(BASEMOD_FLAGS) \
+          $(MOD_FLAG)../../KS_Solvers/Davidson \
+          $(MOD_FLAG)../../KS_Solvers/CG \
           $(MOD_FLAG)../../dft-d3/
-
 PWOBJS = \
 pwscf.o 
 
@@ -58,7 +57,6 @@ data_structure.o \
 deriv_drhoc.o \
 divide_class.o \
 divide_class_so.o \
-divide.o \
 divide_et_impera.o \
 dqvan2.o \
 drhoc.o \
@@ -113,7 +111,6 @@ init_us_2.o \
 init_at_1.o \
 init_vloc.o \
 input.o \
-interpolate.o \
 io_rho_xml.o \
 irrek.o \
 iweights.o \

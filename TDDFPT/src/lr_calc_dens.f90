@@ -25,9 +25,9 @@ SUBROUTINE lr_calc_dens( evc1, response_calc )
   USE ions_base,              ONLY : ityp, nat, ntyp=>nsp
   USE cell_base,              ONLY : omega
   USE ener,                   ONLY : ef
-  USE gvecs,                  ONLY : nls, nlsm, doublegrid
+  USE gvecs,                  ONLY : doublegrid
   USE fft_base,               ONLY : dffts, dfftp
-  USE fft_interfaces,         ONLY : invfft
+  USE fft_interfaces,         ONLY : invfft, fft_interpolate
   USE io_global,              ONLY : stdout
   USE kinds,                  ONLY : dp
   USE klist,                  ONLY : nks, xk, wk, ngk, igk_k
@@ -104,7 +104,7 @@ SUBROUTINE lr_calc_dens( evc1, response_calc )
      !
      ! If a double grid is used, interpolate onto the fine grid
      !
-     IF ( doublegrid ) CALL interpolate(rho_1,rho_1,1)
+     IF ( doublegrid ) CALL fft_interpolate(dffts, rho_1(:,1), dfftp, rho_1(:,1))
      !
 #if defined(__MPI)
      CALL mp_sum(rho_1, inter_bgrp_comm)
@@ -118,7 +118,7 @@ SUBROUTINE lr_calc_dens( evc1, response_calc )
      !
      ! If a double grid is used, interpolate onto the fine grid
      !
-     IF ( doublegrid ) CALL cinterpolate(rho_1c,rho_1c,1)
+     IF ( doublegrid ) CALL fft_interpolate(dffts, rho_1c(:,1), dfftp, rho_1c(:,1))
      !
   ENDIF
   !
@@ -338,7 +338,7 @@ CONTAINS
     !
     incr = 2
     !
-    IF ( dffts%have_task_groups ) THEN
+    IF ( dffts%has_task_groups ) THEN
        !
        v_siz =  dffts%nnr_tg
        !
@@ -355,7 +355,7 @@ CONTAINS
        !
        CALL invfft_orbital_gamma(evc1(:,:,1),ibnd,nbnd)
        !
-       IF (dffts%have_task_groups) THEN
+       IF (dffts%has_task_groups) THEN
           !
           ! Now the first proc of the group holds the first two bands
           ! of the 2*ntgrp bands that we are processing at the same time,
@@ -440,7 +440,7 @@ CONTAINS
        !
     ENDDO
     !
-    IF (dffts%have_task_groups) THEN
+    IF (dffts%has_task_groups) THEN
        !
        ! reduce the group charge
        !
@@ -543,7 +543,7 @@ CONTAINS
        !
     ENDIF
     !
-    IF ( dffts%have_task_groups ) THEN
+    IF ( dffts%has_task_groups ) THEN
        DEALLOCATE( tg_rho )
     END IF
     !   
@@ -570,7 +570,7 @@ CONTAINS
           psic(:) = (0.0d0,0.0d0)
           !
           DO ig = 1, ngk(ik)
-             psic(nls(igk_k(ig,ik)))=evc1(ig,ibnd,ik)
+             psic(dffts%nl(igk_k(ig,ik)))=evc1(ig,ibnd,ik)
           ENDDO
           !
           CALL invfft ('Wave', psic, dffts)

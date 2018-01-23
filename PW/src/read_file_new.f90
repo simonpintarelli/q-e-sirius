@@ -119,11 +119,11 @@ SUBROUTINE read_xml_file ( )
   USE fft_base,             ONLY : dfftp
   USE fft_interfaces,       ONLY : fwfft
   USE fft_types,            ONLY : fft_type_allocate
-  USE recvec_subs,          ONLY : ggen
-  USE gvect,                ONLY : gg, ngm, g, gcutm, &
-                                   eigts1, eigts2, eigts3, nl, gstart
+  USE recvec_subs,          ONLY : ggen, ggens
+  USE gvect,                ONLY : gg, ngm, g, gcutm, mill, ngm_g, ig_l2g, &
+                                   eigts1, eigts2, eigts3, gstart
   USE fft_base,             ONLY : dfftp, dffts
-  USE gvecs,                ONLY : ngms, nls, gcutms 
+  USE gvecs,                ONLY : ngms, gcutms 
   USE spin_orb,             ONLY : lspinorb, domag
   USE scf,                  ONLY : rho, rho_core, rhog_core, v
   USE wavefunctions_module, ONLY : psic
@@ -276,7 +276,9 @@ SUBROUTINE read_xml_file ( )
   CALL pre_init()
   CALL data_structure ( gamma_only )
   CALL allocate_fft()
-  CALL ggen ( gamma_only, at, bg ) 
+  CALL ggen ( dfftp, gamma_only, at, bg, gcutm, ngm_g, ngm, &
+       g, gg, mill, ig_l2g, gstart ) 
+  CALL ggens( dffts, gamma_only, at, g, gg, mill, gcutms, ngms ) 
   IF (do_comp_esm) THEN
      CALL init_vars_from_schema ( 'esm', ierr, output_obj, parinfo_obj, geninfo_obj ) 
      CALL esm_init()
@@ -305,7 +307,7 @@ SUBROUTINE read_xml_file ( )
 #if ! defined (__OLDXML)
   ! FIXME: for compatibility. rho was previously read and written in real space
   ! FIXME: now it is in G space - to be removed together with old format
-  CALL rho_g2r ( rho%of_g, rho%of_r )
+  CALL rho_g2r ( dfftp, rho%of_g, rho%of_r )
 #endif
   !
   ! ... re-calculate the local part of the pseudopotential vltot
@@ -326,8 +328,8 @@ SUBROUTINE read_xml_file ( )
   DO is = 1, nspin
      !
      psic(:) = rho%of_r(:,is)
-     CALL fwfft ('Dense', psic, dfftp)
-     rho%of_g(:,is) = psic(nl(:))
+     CALL fwfft ('Rho', psic, dfftp)
+     rho%of_g(:,is) = psic(dfftp%nl(:))
      !
   END DO
   !
@@ -349,7 +351,7 @@ SUBROUTINE read_xml_file ( )
     SUBROUTINE set_dimensions()
       !------------------------------------------------------------------------
       !
-      USE constants, ONLY : pi
+      USE constants, ONLY : pi, eps8
       USE cell_base, ONLY : alat, tpiba, tpiba2
       USE gvect,     ONLY : ecutrho, gcutm
       USE gvecs,     ONLY : gcutms, dual, doublegrid
@@ -367,7 +369,7 @@ SUBROUTINE read_xml_file ( )
       gcutm = dual * ecutwfc / tpiba2
       ecutrho=dual * ecutwfc
       !
-      doublegrid = ( dual > 4.D0 )
+      doublegrid = ( dual > 4.0_dp + eps8 )
       IF ( doublegrid ) THEN
          gcutms = 4.D0 * ecutwfc / tpiba2
       ELSE

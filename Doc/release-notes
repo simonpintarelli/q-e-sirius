@@ -1,8 +1,43 @@
+New in development version:
+
+  * EXX: ACE can be projected on arbitrary number of orbitals
+    Slight change in SCF convergence with ACE (dexx) properly
+    accounting for difference between 2*<new|V(old)|new> 
+    and <new|V(old)|new> + <old|V(new)|old>  (see "fock3" term) 
+    SCDM and localized exchange is now compatible with ecutfock
+    Localized exchange can deal with virtual orbitals (empty bands)
+    (Ivan Carnimeo)
+
 Problems fixed in development version:
+
+  * pw2bgw.x fixed, courtesy G. Samsonidze (Jan.16, 2018)
+
+  * Band parallelization was broken in one of the last commits
+    just before v.6.2.1 (Dec.23, 2017)
+
+  * TDDFPT in "lr_addus_dvpsi.f90" had a bug for systems with USPP
+    and more than 2 atoms (Dec.22, 2017) (Oleksandr Motornyi, 
+    Michele Raynaud, Iurii Timrov, Nathalie Vast, Andrea Dal Corso)
+
+  * Phonons with images wasn't working in v.6.2.1 with old PP files
+    containing "&" in the header section (Dec.20, 2017)
 
   * PWscf in "manypw" mode wasn't working due to a bad IF (Dec.12, 2017)
 
 Incompatible changes in development version:
+
+  * subroutine "ggen" split into two subroutines: "ggen" takes care of
+    G-vectors for the FFT grid only, "ggens" for the subgrid only
+
+  * FFT interfaces fwfft, invfft now accept only 'Rho', 'Wave', 'tgWave'.
+    Together with FFT descriptor, these options cover all cases.
+
+  * Structure for 'custom' FFT (exx_fft) deleted from exact exchange code,
+    FFT descriptor dfftt and a few variables used instead
+    (a different exx_fft structure is still present in GWW)
+
+  * FFT indices nl, nlm, nls, nlsm, moved from their previous location
+    (gvect, gvecs) into FFT descriptors (dfft* structures)
 
   * Development moved to GitLab
 

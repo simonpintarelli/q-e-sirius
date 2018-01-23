@@ -15,9 +15,7 @@
 ! of e(xc) with respect to to cell parameter h(i,j)
 !     
       use funct,           only : dft_is_gradient, dft_is_meta
-      use gvect,           only : ngm
-      use gvecs,           only : ngms
-      use fft_base,        only : dfftp
+      use fft_base,        only : dfftp, dffts
       use cell_base,       only : ainv, omega, h
       use ions_base,       only : nsp
       use control_flags,   only : tpre, iverbosity
@@ -42,8 +40,8 @@
       ! rhog contains the charge density in G space
       ! rhor contains the charge density in R space
       !
-      complex(DP) :: rhog( ngm, nspin )
-      complex(DP) :: sfac( ngms, nsp )
+      complex(DP) :: rhog( dfftp%ngm, nspin )
+      complex(DP) :: sfac( dffts%ngm, nsp )
       !
       ! output
       ! rhor contains the exchange-correlation potential
@@ -90,7 +88,7 @@
          !  allocate the sic_arrays
          !
          ALLOCATE( self_rho( dfftp%nnr, nspin ) )
-         ALLOCATE( self_rhog(ngm, nspin ) )
+         ALLOCATE( self_rhog(dfftp%ngm, nspin ) )
          IF( dft_is_gradient() ) ALLOCATE( self_gradr( dfftp%nnr, 3, nspin ) )
 
          self_rho(:, 1) = rhor( :, 2)
@@ -269,26 +267,28 @@
       USE kinds,              ONLY: DP
       use control_flags, only: iprint, tpre
       use gvect, only: g
-      use gvect, only: ngm, nl, nlm
       use cell_base, only: ainv, tpiba, omega
       use cp_main_variables, only: drhog
       USE fft_interfaces, ONLY: fwfft, invfft
       USE fft_base,       ONLY: dfftp
+      USE fft_helper_subroutines, ONLY: fftx_threed2oned, fftx_oned2threed
 !                 
       implicit none  
 ! input                   
       integer nspin
       real(DP)    :: gradr( dfftp%nnr, 3, nspin ), rhor( dfftp%nnr, nspin ), dexc( 3, 3 )
-      complex(DP) :: rhog( ngm, nspin )
+      complex(DP) :: rhog( dfftp%ngm, nspin )
 !
-      complex(DP), allocatable:: v(:)
+      complex(DP), allocatable:: v(:), vp(:), vm(:)
       complex(DP), allocatable:: x(:), vtemp(:)
       complex(DP) ::  ci, fp, fm
       integer :: iss, ig, ir, i,j
 !
       allocate(v(dfftp%nnr))
-      allocate(x(ngm))
-      allocate(vtemp(ngm))
+      allocate(x(dfftp%ngm))
+      allocate(vp(dfftp%ngm))
+      allocate(vm(dfftp%ngm))
+      allocate(vtemp(dfftp%ngm))
       !
       ci=(0.0d0,1.0d0)
       !
@@ -301,16 +301,17 @@
          do ir=1,dfftp%nnr
             v(ir)=CMPLX(gradr(ir,1,iss),0.d0,kind=DP)
          end do
-         call fwfft('Dense',v, dfftp )
-         do ig=1,ngm
-            x(ig)=ci*tpiba*g(1,ig)*v(nl(ig))
+         call fwfft('Rho',v, dfftp )
+         CALL fftx_threed2oned( dfftp, v, vp )
+         do ig=1,dfftp%ngm
+            x(ig)=ci*tpiba*g(1,ig)*vp(ig)
          end do
 !
          if(tpre) then
             do i=1,3
                do j=1,3
-                  do ig=1,ngm
-                     vtemp(ig) = omega*ci*CONJG(v(nl(ig)))*             &
+                  do ig=1,dfftp%ngm
+                     vtemp(ig) = omega*ci*CONJG(vp(ig))*             &
      &                    tpiba*(-rhog(ig,iss)*g(i,ig)*ainv(j,1)+      &
      &                    g(1,ig)*drhog(ig,iss,i,j))
                   end do
@@ -322,30 +323,21 @@
          do ir=1,dfftp%nnr
             v(ir)=CMPLX(gradr(ir,2,iss),gradr(ir,3,iss),kind=DP)
          end do
-         call fwfft('Dense',v, dfftp )
+         call fwfft('Rho',v, dfftp )
+         CALL fftx_threed2oned( dfftp, v, vp, vm )
 !
-         do ig=1,ngm
-            fp=v(nl(ig))+v(nlm(ig))
-            fm=v(nl(ig))-v(nlm(ig))
-            x(ig) = x(ig) +                                             &
-     &           ci*tpiba*g(2,ig)*0.5d0*CMPLX( DBLE(fp),AIMAG(fm),kind=DP)
-            x(ig) = x(ig) +                                             &
-     &           ci*tpiba*g(3,ig)*0.5d0*CMPLX(AIMAG(fp),-DBLE(fm),kind=DP)
+         do ig=1,dfftp%ngm
+            x(ig) = x(ig) + ci*tpiba*g(2,ig)*vp(ig)
+            x(ig) = x(ig) + ci*tpiba*g(3,ig)*vm(ig)
          end do
 !
          if(tpre) then
             do i=1,3
                do j=1,3
-                  do ig=1,ngm
-                     fp=v(nl(ig))+v(nlm(ig))
-                     fm=v(nl(ig))-v(nlm(ig))
-                     vtemp(ig) = omega*ci*                              &
-     &                    (0.5d0*CMPLX(DBLE(fp),-AIMAG(fm),kind=DP)*              &
-     &                    tpiba*(-rhog(ig,iss)*g(i,ig)*ainv(j,2)+      &
-     &                    g(2,ig)*drhog(ig,iss,i,j))+                  &
-     &                    0.5d0*CMPLX(AIMAG(fp),DBLE(fm),kind=DP)*tpiba*          &
-     &                    (-rhog(ig,iss)*g(i,ig)*ainv(j,3)+            &
-     &                    g(3,ig)*drhog(ig,iss,i,j)))
+                  do ig=1,dfftp%ngm
+                     vtemp(ig) = omega*ci*( &
+     &                    CONJG(vp(ig))*tpiba*(-rhog(ig,iss)*g(i,ig)*ainv(j,2)+g(2,ig)*drhog(ig,iss,i,j))+ &
+     &                    CONJG(vm(ig))*tpiba*(-rhog(ig,iss)*g(i,ig)*ainv(j,3)+g(3,ig)*drhog(ig,iss,i,j))  )
                   end do
                   dexc(i,j) = dexc(i,j) + 2.0d0*DBLE(SUM(vtemp))
                end do
@@ -354,14 +346,8 @@
 !     _________________________________________________________________
 !     second part xc-potential: 1 inverse fft
 !
-         do ig=1,dfftp%nnr
-            v(ig)=(0.0d0,0.0d0)
-         end do
-         do ig=1,ngm
-            v(nl(ig))=x(ig)
-            v(nlm(ig))=CONJG(x(ig))
-         end do
-         call invfft('Dense',v, dfftp )
+         CALL fftx_oned2threed( dfftp, v, x )
+         call invfft('Rho',v, dfftp )
          do ir=1,dfftp%nnr
             rhor(ir,iss)=rhor(ir,iss)-DBLE(v(ir))
          end do
@@ -370,6 +356,8 @@
       deallocate(vtemp)
       deallocate(x)
       deallocate(v)
+      deallocate(vp)
+      deallocate(vm)
 !
       return
    end subroutine gradh

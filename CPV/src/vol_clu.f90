@@ -8,7 +8,7 @@
 
 
 !----------------------------------------------------------------------
-SUBROUTINE vol_clu(rho_real,rho_g,s_fac,flag)
+SUBROUTINE vol_clu(rho_real,rho_g,flag)
 !----------------------------------------------------------------------
 ! it computes the volume of the cluster (cluster calculations) starting
 ! from the measure of the region of space occupied by the electronic density
@@ -21,8 +21,7 @@ SUBROUTINE vol_clu(rho_real,rho_g,s_fac,flag)
       USE electrons_base, ONLY: nspin
       USE ions_base,      ONLY: na, nsp, amass
       USE ions_positions, ONLY: tau0
-      USE gvect,          ONLY: g, gg, ngm
-      USE gvecs,          ONLY: ngms
+      USE gvect,          ONLY: g, gg
       USE cp_main_variables, only: drhor
       USE control_flags,  ONLY: tpre
       USE fft_base,       ONLY: dfftp
@@ -59,8 +58,8 @@ SUBROUTINE vol_clu(rho_real,rho_g,s_fac,flag)
       real(kind=8), allocatable:: dydzrho(:)
       real(kind=8), allocatable:: tauv(:,:,:)
 
-      complex(kind=8) s_fac(ngms,nsp), ci
-      complex(kind=8) sum_sf, aux, auxx, fact, rho_g(ngm,nspin) 
+      complex(kind=8) ci
+      complex(kind=8) sum_sf, aux, auxx, fact, rho_g(dfftp%ngm,nspin) 
       complex(kind=8), allocatable :: rhofill(:), rhotmp(:,:)
 
       integer ir, ir1, ir2, ir3, is, iss, ia, flag, ierr
@@ -163,15 +162,15 @@ SUBROUTINE vol_clu(rho_real,rho_g,s_fac,flag)
 ! Let's add rhops to fill possible holes in the valence charge density on top
 ! of the ions
 
-      allocate(rhotmp(ngm,nspin))
+      allocate(rhotmp(dfftp%ngm,nspin))
       rhotmp = (0.d0,0.d0)
 
       if (nspin.eq.1) then
-         do ig = 1,ngm
+         do ig = 1,dfftp%ngm
             rhotmp(ig,1)=rho_g(ig,1)
          end do
       else
-         do ig = 1,ngm
+         do ig = 1,dfftp%ngm
             do iss = 1,2
                rhotmp(ig,iss) = rho_g(ig,iss) 
             end do
@@ -181,7 +180,7 @@ SUBROUTINE vol_clu(rho_real,rho_g,s_fac,flag)
 ! To fill the vacuum inside hollow structures
 
       if (fill_vac) then
-         allocate(rhofill(ngm))
+         allocate(rhofill(dfftp%ngm))
          rhofill = 0.d0
          do k = 1,3
             cm(k) = 0.d0
@@ -211,7 +210,7 @@ SUBROUTINE vol_clu(rho_real,rho_g,s_fac,flag)
                            tau00(k) = tauv(k,ia,is)
                         end if
                      end do
-                     do ig = 1,ngm
+                     do ig = 1,dfftp%ngm
                         prod = 0.d0
                         do k = 1,3
                            prod = prod + g(k,ig)*tau00(k)
@@ -226,11 +225,11 @@ SUBROUTINE vol_clu(rho_real,rho_g,s_fac,flag)
             end do
          end do   
          if (nspin.eq.1) then
-            do ig=1,ngm
+            do ig=1,dfftp%ngm
                rhotmp(ig,1) = rhotmp(ig,1) + rhofill(ig)
             end do
          else
-            do ig = 1,ngm
+            do ig = 1,dfftp%ngm
                do iss = 1,2
                   rhotmp(ig,iss) = rhotmp(ig,iss) + 0.5d0*rhofill(ig)
                end do
@@ -245,7 +244,7 @@ SUBROUTINE vol_clu(rho_real,rho_g,s_fac,flag)
       if (abisur)                                                       &
      &   call gradrho(nspin,rhotmp,drho,d2rho,dxdyrho,dxdzrho,dydzrho)
 
-      CALL rho_g2r( rhotmp, rho_gaus )
+      CALL rho_g2r( dfftp, rhotmp, rho_gaus )
       deallocate(rhotmp)
 
       e_j = 0.d0

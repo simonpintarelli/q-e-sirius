@@ -41,7 +41,7 @@ SUBROUTINE electrons()
                                    lambda, report
   USE uspp,                 ONLY : okvan
   USE exx,                  ONLY : aceinit,exxinit, exxenergy2, exxenergy, exxbuff, &
-                                   fock0, fock1, fock2, dexx, use_ace, local_thr
+                                   fock0, fock1, fock2, fock3, dexx, use_ace, local_thr
   USE funct,                ONLY : dft_is_hybrid, exx_is_active
   USE control_flags,        ONLY : adapt_thr, tr2_init, tr2_multi, gamma_only
   !
@@ -90,6 +90,7 @@ SUBROUTINE electrons()
   IF (dft_is_hybrid() .AND. adapt_thr ) tr2= tr2_init
   fock0 = 0.D0
   fock1 = 0.D0
+  fock3 = 0.D0
   IF (.NOT. exx_is_active () ) fock2 = 0.D0
   !
   !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -214,7 +215,7 @@ SUBROUTINE electrons()
         !
         CALL exxinit(DoLoc)
         IF( DoLoc ) CALL localize_orbitals( )
-        IF (use_ace) CALL aceinit ( )
+        IF (use_ace) CALL aceinit ( fock3 )
         !
         ! fock2 is the exchange energy calculated for orbitals at step n,
         !       using orbitals at step n in the expression of exchange 
@@ -230,8 +231,15 @@ SUBROUTINE electrons()
         ! check for convergence. dexx is positive definite: if it isn't,
         ! there is some numerical problem. One such cause could be that
         ! the treatment of the divergence in exact exchange has failed. 
+        ! FIXME: to be properly implemented for all cases
         !
-        dexx = fock1 - 0.5D0*(fock0+fock2)
+!civn 
+!       IF (use_ace .AND. (nspin == 1) .AND. gamma_only) THEN
+        IF ( DoLoc ) THEN
+          dexx =  0.5D0 * ((fock1-fock0)+(fock3-fock2)) 
+        ELSE
+          dexx = fock1 - 0.5D0*(fock0+fock2)
+        END IF 
         !
         IF ( dexx < 0.0_dp ) THEN
            IF( Doloc ) THEN
@@ -338,7 +346,7 @@ SUBROUTINE electrons_scf ( printout, exxen )
   USE basis,                ONLY : starting_pot
   USE bp,                   ONLY : lelfield
   USE fft_base,             ONLY : dfftp
-  USE gvect,                ONLY : ngm, gstart, nl, nlm, g, gg, gcutm
+  USE gvect,                ONLY : ngm, gstart, g, gg, gcutm
   USE gvecs,                ONLY : doublegrid, ngms
   USE klist,                ONLY : xk, wk, nelec, ngk, nks, nkstot, lgauss, &
                                    two_fermi_energies, tot_charge

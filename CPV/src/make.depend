@@ -68,7 +68,6 @@ chargedensity.o : ../../Modules/electrons_base.o
 chargedensity.o : ../../Modules/fft_base.o
 chargedensity.o : ../../Modules/fft_rho.o
 chargedensity.o : ../../Modules/funct.o
-chargedensity.o : ../../Modules/gvecw.o
 chargedensity.o : ../../Modules/input_parameters.o
 chargedensity.o : ../../Modules/io_base.o
 chargedensity.o : ../../Modules/io_files.o
@@ -88,6 +87,7 @@ chargedensity.o : mainvar.o
 chargedensity.o : modules.o
 chargedensity.o : smallbox.o
 chargedensity.o : smallbox_gvec.o
+chargedensity.o : smallbox_subs.o
 chargedensity.o : wannier_base.o
 cp_autopilot.o : ../../Modules/autopilot.o
 cp_autopilot.o : ../../Modules/control_flags.o
@@ -188,6 +188,7 @@ cp_restart_new.o : energies.o
 cp_restart_new.o : ldaU_cp.o
 cp_restart_new.o : mainvar.o
 cp_restart_new.o : modules.o
+cplib.o : ../../FFTXlib/fft_helper_subroutines.o
 cplib.o : ../../FFTXlib/fft_interfaces.o
 cplib.o : ../../LAXlib/la_types.o
 cplib.o : ../../Modules/atom.o
@@ -215,6 +216,7 @@ cplib.o : pseudo_base.o
 cplib.o : pseudopot.o
 cplib.o : smallbox_gvec.o
 cplib.o : spline.o
+cplib_meta.o : ../../FFTXlib/fft_helper_subroutines.o
 cplib_meta.o : ../../FFTXlib/fft_interfaces.o
 cplib_meta.o : ../../Modules/cell_base.o
 cplib_meta.o : ../../Modules/constants.o
@@ -319,7 +321,6 @@ dforceb.o : ../../Modules/ions_base.o
 dforceb.o : ../../Modules/kind.o
 dforceb.o : ../../Modules/mp_global.o
 dforceb.o : ../../Modules/parameters.o
-dforceb.o : ../../Modules/recvec.o
 dforceb.o : ../../Modules/uspp.o
 dforceb.o : ../../UtilXlib/mp.o
 dforceb.o : ../../UtilXlib/parallel_include.o
@@ -361,6 +362,7 @@ ensemble_dft.o : ../../LAXlib/la_types.o
 ensemble_dft.o : ../../Modules/io_global.o
 ensemble_dft.o : ../../Modules/kind.o
 entropy.o : ../../Modules/kind.o
+exch_corr.o : ../../FFTXlib/fft_helper_subroutines.o
 exch_corr.o : ../../FFTXlib/fft_interfaces.o
 exch_corr.o : ../../Modules/cell_base.o
 exch_corr.o : ../../Modules/constants.o
@@ -452,7 +454,6 @@ exx_psi.o : ../../Modules/io_global.o
 exx_psi.o : ../../Modules/kind.o
 exx_psi.o : ../../Modules/mp_global.o
 exx_psi.o : ../../Modules/mp_wave.o
-exx_psi.o : ../../Modules/recvec.o
 exx_psi.o : ../../UtilXlib/mp.o
 exx_psi.o : ../../UtilXlib/parallel_include.o
 exx_vofr.o : ../../Modules/constants.o
@@ -464,7 +465,6 @@ exx_vofr.o : exx_module.o
 fft.o : ../../Modules/fft_base.o
 fft.o : ../../Modules/kind.o
 fft.o : ../../Modules/mp_global.o
-fft.o : ../../Modules/recvec.o
 forces.o : ../../FFTXlib/fft_helper_subroutines.o
 forces.o : ../../FFTXlib/fft_interfaces.o
 forces.o : ../../Modules/cell_base.o
@@ -476,7 +476,6 @@ forces.o : ../../Modules/gvecw.o
 forces.o : ../../Modules/ions_base.o
 forces.o : ../../Modules/kind.o
 forces.o : ../../Modules/mp_global.o
-forces.o : ../../Modules/recvec.o
 forces.o : ../../Modules/uspp.o
 forces.o : ../../UtilXlib/parallel_include.o
 forces.o : ensemble_dft.o
@@ -518,6 +517,7 @@ fromscra.o : mainvar.o
 fromscra.o : modules.o
 fromscra.o : ortho_base.o
 fromscra.o : printout_base.o
+gradrho.o : ../../FFTXlib/fft_helper_subroutines.o
 gradrho.o : ../../FFTXlib/fft_interfaces.o
 gradrho.o : ../../Modules/cell_base.o
 gradrho.o : ../../Modules/fft_base.o
@@ -677,6 +677,7 @@ ions_nose.o : ../../Modules/io_global.o
 ions_nose.o : ../../Modules/ions_base.o
 ions_nose.o : ../../Modules/kind.o
 ions_positions.o : ../../Modules/kind.o
+ksstates.o : ../../FFTXlib/fft_helper_subroutines.o
 ksstates.o : ../../FFTXlib/fft_interfaces.o
 ksstates.o : ../../Modules/electrons_base.o
 ksstates.o : ../../Modules/fft_base.o
@@ -786,6 +787,7 @@ newd.o : ../../UtilXlib/mp.o
 newd.o : modules.o
 newd.o : smallbox.o
 newd.o : smallbox_gvec.o
+newd.o : smallbox_subs.o
 nl_base.o : ../../LAXlib/la_types.o
 nl_base.o : ../../Modules/cell_base.o
 nl_base.o : ../../Modules/constants.o
@@ -800,6 +802,7 @@ nl_base.o : ../../Modules/recvec.o
 nl_base.o : ../../Modules/uspp.o
 nl_base.o : ../../UtilXlib/mp.o
 nl_base.o : cp_interfaces.o
+nlcc.o : ../../FFTXlib/fft_helper_subroutines.o
 nlcc.o : ../../FFTXlib/fft_interfaces.o
 nlcc.o : ../../Modules/atom.o
 nlcc.o : ../../Modules/cell_base.o
@@ -818,6 +821,7 @@ nlcc.o : pseudo_base.o
 nlcc.o : pseudopot.o
 nlcc.o : smallbox.o
 nlcc.o : smallbox_gvec.o
+nlcc.o : smallbox_subs.o
 nlcc.o : spline.o
 ortho.o : ../../LAXlib/dspev_drv.o
 ortho.o : ../../LAXlib/la_types.o
@@ -915,6 +919,7 @@ plugin_print_energies.o : ../../Modules/plugin_flags.o
 plugin_print_info.o : ../../Modules/plugin_flags.o
 plugin_read_input.o : ../../Modules/input_parameters.o
 plugin_read_input.o : ../../Modules/plugin_flags.o
+plugin_utilities.o : ../../FFTXlib/fft_helper_subroutines.o
 plugin_utilities.o : ../../FFTXlib/fft_interfaces.o
 plugin_utilities.o : ../../Modules/cell_base.o
 plugin_utilities.o : ../../Modules/constants.o
@@ -991,6 +996,7 @@ pseudopot_sub.o : ../../Modules/atom.o
 pseudopot_sub.o : ../../Modules/cell_base.o
 pseudopot_sub.o : ../../Modules/constants.o
 pseudopot_sub.o : ../../Modules/control_flags.o
+pseudopot_sub.o : ../../Modules/fft_base.o
 pseudopot_sub.o : ../../Modules/gvecw.o
 pseudopot_sub.o : ../../Modules/io_global.o
 pseudopot_sub.o : ../../Modules/ions_base.o
@@ -1130,6 +1136,7 @@ stop_run.o : ../../Modules/mp_global.o
 stress.o : ../../Modules/cell_base.o
 stress.o : ../../Modules/constants.o
 stress.o : ../../Modules/electrons_base.o
+stress.o : ../../Modules/fft_base.o
 stress.o : ../../Modules/gvecw.o
 stress.o : ../../Modules/io_global.o
 stress.o : ../../Modules/ions_base.o
@@ -1239,6 +1246,7 @@ wf.o : mainvar.o
 wf.o : modules.o
 wf.o : printout_base.o
 wf.o : smallbox_gvec.o
+wf.o : smallbox_subs.o
 wf.o : wannier.o
 wf.o : wannier_base.o
 wfdd.o : ../../Modules/constants.o

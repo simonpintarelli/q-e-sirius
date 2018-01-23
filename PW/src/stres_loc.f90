@@ -17,7 +17,7 @@ subroutine stres_loc (sigmaloc)
   USE cell_base,            ONLY : omega, tpiba2
   USE fft_base,             ONLY : dfftp
   USE fft_interfaces,       ONLY : fwfft
-  USE gvect,                ONLY : ngm, gstart, nl, g, ngl, gl, igtongl
+  USE gvect,                ONLY : ngm, gstart, g, ngl, gl, igtongl
   USE lsda_mod,             ONLY : nspin
   USE scf,                  ONLY : rho
   USE vlocal,               ONLY : strf, vloc
@@ -47,7 +47,7 @@ subroutine stres_loc (sigmaloc)
      call daxpy (dfftp%nnr, 1.d0, rho%of_r (1, is), 1, psic, 2)
   enddo
 
-  CALL fwfft ('Dense', psic, dfftp)
+  CALL fwfft ('Rho', psic, dfftp)
   ! psic contains now the charge density in G space
   if (gamma_only) then
      fact = 2.d0
@@ -57,9 +57,9 @@ subroutine stres_loc (sigmaloc)
   evloc = 0.0d0
   do nt = 1, ntyp
      if (gstart==2) evloc = evloc + &
-          psic (nl (1) ) * strf (1, nt) * vloc (igtongl (1), nt)
+          psic (dfftp%nl (1) ) * strf (1, nt) * vloc (igtongl (1), nt)
      do ng = gstart, ngm
-        evloc = evloc +  DBLE (CONJG(psic (nl (ng) ) ) * strf (ng, nt) ) &
+        evloc = evloc +  DBLE (CONJG(psic (dfftp%nl (ng) ) ) * strf (ng, nt) ) &
              * vloc (igtongl (ng), nt) * fact
      enddo
   enddo
@@ -95,7 +95,7 @@ subroutine stres_loc (sigmaloc)
      do ng = 1, ngm
         do l = 1, 3
            do m = 1, l
-              sigmaloc(l, m) = sigmaloc(l, m) +  DBLE( CONJG( psic(nl(ng) ) ) &
+              sigmaloc(l, m) = sigmaloc(l, m) +  DBLE( CONJG( psic(dfftp%nl(ng) ) ) &
                     * strf (ng, nt) ) * 2.0d0 * dvloc (igtongl (ng) ) &
                     * tpiba2 * g (l, ng) * g (m, ng) * fact
            enddo
