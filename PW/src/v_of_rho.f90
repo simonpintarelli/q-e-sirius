@@ -118,7 +118,7 @@ SUBROUTINE v_xc_meta( rho, rho_core, rhog_core, etxc, vtxc, v, kedtaur )
   USE fft_base,         ONLY : dfftp
   USE gvect,            ONLY : g, ngm
   USE lsda_mod,         ONLY : nspin
-  USE cell_base,        ONLY : omega, alat
+  USE cell_base,        ONLY : omega
   USE spin_orb,         ONLY : domag
   USE funct,            ONLY : xc, xc_spin, tau_xc, tau_xc_spin, get_meta
   USE scf,              ONLY : scf_type
@@ -185,7 +185,7 @@ SUBROUTINE v_xc_meta( rho, rho_core, rhog_core, etxc, vtxc, v, kedtaur )
      rhoout(:,is)  = fac * rho_core(:)  + rhoout(:,is)
      rhogsum(:,is) = fac * rhog_core(:) + rhogsum(:,is)
      !
-     CALL gradrho( dfftp%nnr, rhogsum(1,is), ngm, g, dfftp%nl, grho(1,1,is) )
+     CALL fft_gradient_g2r( dfftp, rhogsum(1,is), g, grho(1,1,is) )
      !
   END DO
   !
@@ -299,7 +299,7 @@ SUBROUTINE v_xc_meta( rho, rho_core, rhog_core, etxc, vtxc, v, kedtaur )
   !
   DO is = 1, nspin
      !
-     CALL grad_dot( dfftp%nnr, h(1,1,is), ngm, g, dfftp%nl, alat, dh )
+     CALL fft_graddot( dfftp, h(1,1,is), g, dh )
      !
      v(:,is) = v(:,is) - dh(:)
      !
