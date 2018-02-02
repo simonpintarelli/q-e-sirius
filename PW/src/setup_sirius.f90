@@ -189,7 +189,7 @@ subroutine setup_sirius()
     ! set the atomic radial functions
     do iwf = 1, upf(iat)%nwfc
       l = upf(iat)%lchi(iwf)
-      call sirius_add_atom_type_chi(c_str(atm(iat)), l, msh(iat), upf(iat)%chi(1, iwf))
+      call sirius_add_atom_type_ps_atomic_wf(c_str(atm(iat)), l, upf(iat)%chi(1, iwf), msh(iat))
     enddo
 
     allocate(dion(upf(iat)%nbeta, upf(iat)%nbeta))
@@ -205,6 +205,15 @@ subroutine setup_sirius()
 
     ! set radial function of augmentation charge
     if (upf(iat)%tvanp) then
+      do l = 0, upf(iat)%nqlc - 1
+        do i = 0, upf(iat)%nbeta - 1
+          do j = i, upf(iat)%nbeta - 1
+            ijv = j * (j + 1) / 2 + i + 1
+            call sirius_add_atom_type_q_radial_function(c_str(atm(iat)), l, i, j,&
+                                                       &upf(iat)%qfuncl(1, ijv, l), upf(iat)%kkbeta)
+          enddo
+        enddo
+      enddo
       !if (2 * upf(iat)%lmax .ne. upf(iat)%nqlc - 1) then
       !  write(*,*)
       !  write(*,'("Mismatch between lmax_beta and lmax_qij for atom type", I2)')iat
@@ -213,7 +222,7 @@ subroutine setup_sirius()
       !  stop
       !endif
       !call sirius_set_atom_type_q_rf(c_str(atm(iat)), upf(iat)%qfuncl(1, 1, 0), upf(iat)%lmax)
-      call sirius_set_atom_type_q_rf(c_str(atm(iat)), upf(iat)%qfuncl(1, 1, 0), lmax_beta)
+      !call sirius_set_atom_type_q_rf(c_str(atm(iat)), upf(iat)%qfuncl(1, 1, 0), lmax_beta)
     endif
 
     if (upf(iat)%tpawp) then
