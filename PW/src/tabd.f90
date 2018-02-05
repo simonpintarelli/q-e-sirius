@@ -108,6 +108,10 @@ FUNCTION hubbard_occ ( psd )
      !
      CASE( 'H'  )
         hubbard_occ = 1.d0
+
+     CASE( 'He'  )
+        hubbard_occ = 2.d0
+
      !
      CASE( 'Ga', 'In'  )
         hubbard_occ = 10.d0
@@ -120,8 +124,7 @@ FUNCTION hubbard_occ ( psd )
         call errore ('hubbard_occ', 'pseudopotential not yet inserted', 1)
      !
   END SELECT
-  
+
   RETURN
 
 END FUNCTION hubbard_occ
-

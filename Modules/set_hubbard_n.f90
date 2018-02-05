@@ -49,7 +49,7 @@ FUNCTION set_hubbard_n( psd ) RESULT( hubbard_n )
      !
      ! ... other elements
      !
-     CASE( 'H' )
+     CASE( 'H', 'He')
         !
         hubbard_n =  1
         !

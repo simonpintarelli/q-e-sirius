@@ -19,6 +19,8 @@ subroutine setup_sirius()
   use noncollin_module, only : noncolin, npol, angle1, angle2
   use lsda_mod, only : lsda, nspin, starting_magnetization
   use cell_base, only : omega
+  use ldaU, only : lda_plus_U, Hubbard_J, Hubbard_U, Hubbard_alpha, &
+       & Hubbard_beta, is_Hubbard, lda_plus_u_kind, Hubbard_J0, U_projection
   use symm_base, only : nosym
   use spin_orb,  only : lspinorb
   use esm,       only : esm_local, esm_bc, do_comp_esm
@@ -29,7 +31,7 @@ subroutine setup_sirius()
   real(8) :: a1(3), a2(3), a3(3), vlat(3, 3), vlat_inv(3, 3), v1(3), v2(3), bg_inv(3, 3), tmp
   real(8), allocatable :: dion(:, :), qij(:,:,:), vloc(:), wk_tmp(:), xk_tmp(:,:)
   integer, allocatable :: nk_loc(:)
-  integer :: lmax_beta
+  integer :: lmax_beta, zn
   logical(C_BOOL) bool_var
   !
   ! create context of simulation
@@ -91,10 +93,10 @@ subroutine setup_sirius()
   !    stop ("interface for this gradient correlation functional is not implemented")
   !  end select
   !endif
-  
+
   ! set number of first-variational states
   if (noncolin) then
-    call sirius_set_num_fv_states(nbnd / 2 + 1) 
+    call sirius_set_num_fv_states(nbnd / 2 + 1)
   else
     call sirius_set_num_fv_states(nbnd)
   endif
@@ -126,7 +128,7 @@ subroutine setup_sirius()
   ! set |G+k| cutoff for the wave-functions
   ! convert from |G+k|^2/2 Rydbergs to |G+k| in [a.u.^-1]
   call sirius_set_gk_cutoff(sqrt(ecutwfc))
-  
+
   if (lspinorb) then
      call sirius_set_num_mag_dims(3)
      call sirius_set_so_correction(.true.)
@@ -142,6 +144,19 @@ subroutine setup_sirius()
      endif
   endif
 
+  if (lda_plus_U) then
+     call sirius_set_hubbard_correction()
+     if (lda_plus_u_kind == 0) then
+        call sirius_set_hubbard_simplified_method()
+     endif
+     if (U_projection == 'ortho-atomic') then
+        call sirius_set_orthogonalize_hubbard_orbitals()
+     endif
+
+     if (U_projection == 'norm-atomic') then
+        call sirius_set_normalize_hubbard_orbitals()
+     endif
+  endif
   ! set lattice vectors of the unit cell (length is in [a.u.])
   a1(:) = at(:, 1) * alat
   a2(:) = at(:, 2) * alat
@@ -175,22 +190,38 @@ subroutine setup_sirius()
 
     ! add new atom type
     bool_var = upf(iat)%has_so
-    call sirius_add_atom_type(c_str(atm(iat)), zn=nint(zv(iat)+0.001d0), mass=amass(iat), spin_orbit=bool_var)
+    call sirius_add_atom_type(c_str(atm(iat)), symbol=upf(iat)%psd, zn=nint(zv(iat)+0.001d0), mass=amass(iat), spin_orbit=bool_var)
 
     ! set radial grid
     call sirius_set_atom_type_radial_grid(c_str(atm(iat)), upf(iat)%mesh, upf(iat)%r(1))
 
     ! set beta-projectors
+
+
     do i = 1, upf(iat)%nbeta
-      call sirius_add_atom_type_beta_radial_function(c_str(atm(iat)), upf(iat)%lll(i), upf(iat)%beta(1, i),&
-                                                    &upf(iat)%kbeta(i))
+       l = upf(iat)%lll(i);
+       if ((upf(iat)%has_so) .and. ( upf(iat)%jjj(i) .le. upf(iat)%lll(i))) then
+          l = - upf(iat)%lll(i)
+       endif
+    call sirius_add_atom_type_beta_radial_function(c_str(atm(iat)), l, upf(iat)%beta(1, i),&
+         &upf(iat)%kbeta(i))
     enddo
-    
+
     ! set the atomic radial functions
-    do iwf = 1, upf(iat)%nwfc
+     do iwf = 1, upf(iat)%nwfc
       l = upf(iat)%lchi(iwf)
-      call sirius_add_atom_type_ps_atomic_wf(c_str(atm(iat)), l, upf(iat)%chi(1, iwf), msh(iat))
+      if (upf(iat)%has_so) then
+         if (upf(iat)%jchi(iwf) < l) then
+            l = -l
+         endif
+      endif
+      call sirius_add_atom_type_ps_atomic_wf(c_str(atm(iat)), l, upf(iat)%chi(1, iwf), upf(iat)%oc(iwf), msh(iat))
     enddo
+
+    if (is_hubbard(iat)) then
+       call sirius_set_atom_type_hubbard(c_str(atm(iat)), Hubbard_U(iat), Hubbard_J(1,iat), &
+            &angle1(iat), angle2(iat), Hubbard_alpha(iat), Hubbard_beta(iat), Hubbard_J0(iat))
+    endif
 
     allocate(dion(upf(iat)%nbeta, upf(iat)%nbeta))
     ! convert to hartree
@@ -254,7 +285,7 @@ subroutine setup_sirius()
     call sirius_set_atom_type_vloc(c_str(atm(iat)), upf(iat)%mesh, vloc(1))
     deallocate(vloc)
   enddo
-    
+
   ! add atoms to the unit cell
   ! WARNING: sirius accepts only fractional coordinates;
   !          if QE stores coordinates in a different way, the conversion must be made here
@@ -281,13 +312,13 @@ subroutine setup_sirius()
   !if (nosym) then
     call sirius_set_use_symmetry(0)
   !endif
-  
+
   bool_var = do_comp_esm
   call sirius_set_esm(bool_var, esm_bc)
 
   ! initialize global variables/indices/arrays/etc. of the simulation
   call sirius_initialize_simulation_context()
-    
+
   ! get number of g-vectors of the dense fft grid
   call sirius_get_num_gvec(num_gvec)
 
