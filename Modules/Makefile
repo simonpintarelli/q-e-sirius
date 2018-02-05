@@ -36,6 +36,7 @@ fsockets.o \
 funct.o \
 generate_function.o \
 gth.o \
+gradutils.o \
 gvecw.o \
 invmat.o \
 io_files.o \

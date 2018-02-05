@@ -707,14 +707,12 @@ gk_sort.o : pwcom.o
 gradcorr.o : ../../FFTXlib/fft_interfaces.o
 gradcorr.o : ../../Modules/cell_base.o
 gradcorr.o : ../../Modules/constants.o
-gradcorr.o : ../../Modules/control_flags.o
 gradcorr.o : ../../Modules/fft_base.o
 gradcorr.o : ../../Modules/funct.o
 gradcorr.o : ../../Modules/kind.o
 gradcorr.o : ../../Modules/noncol.o
 gradcorr.o : ../../Modules/recvec.o
 gradcorr.o : ../../Modules/wavefunctions.o
-gradcorr.o : exx.o
 gradcorr.o : pwcom.o
 gweights.o : ../../Modules/kind.o
 h_1psi.o : ../../Modules/control_flags.o
@@ -958,10 +956,6 @@ input.o : symm_base.o
 input.o : tetra.o
 input.o : update_pot.o
 input.o : xdm_dispersion.o
-interpolate.o : ../../FFTXlib/fft_interfaces.o
-interpolate.o : ../../FFTXlib/fft_types.o
-interpolate.o : ../../Modules/control_flags.o
-interpolate.o : ../../Modules/kind.o
 io_rho_xml.o : ../../Modules/cell_base.o
 io_rho_xml.o : ../../Modules/control_flags.o
 io_rho_xml.o : ../../Modules/funct.o
@@ -1810,6 +1804,7 @@ set_rhoc.o : ../../Modules/uspp.o
 set_rhoc.o : ../../UtilXlib/mp.o
 set_rhoc.o : pwcom.o
 set_rhoc.o : scf_mod.o
+set_vrs.o : ../../FFTXlib/fft_interfaces.o
 set_vrs.o : ../../Modules/fft_base.o
 set_vrs.o : ../../Modules/funct.o
 set_vrs.o : ../../Modules/kind.o
@@ -1892,6 +1887,7 @@ stres_ewa.o : ../../Modules/kind.o
 stres_ewa.o : ../../Modules/mp_bands.o
 stres_ewa.o : ../../UtilXlib/mp.o
 stres_ewa.o : Coul_cut_2D.o
+stres_gradcorr.o : ../../FFTXlib/fft_types.o
 stres_gradcorr.o : ../../Modules/funct.o
 stres_gradcorr.o : ../../Modules/kind.o
 stres_gradcorr.o : ../../Modules/mp_bands.o

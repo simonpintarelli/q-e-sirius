@@ -32,12 +32,10 @@ subroutine setup_sirius()
   real(8), allocatable :: dion(:, :), qij(:,:,:), vloc(:), wk_tmp(:), xk_tmp(:,:)
   integer, allocatable :: nk_loc(:)
   integer :: lmax_beta
-  logical(1) bool_var
+  logical(C_BOOL) bool_var
   !
   ! create context of simulation
-  call sirius_create_simulation_context(c_str(trim(adjustl(sirius_cfg))))
-  ! set up a type of calculation
-  call sirius_set_esm_type(c_str("pseudopotential"))
+  call sirius_create_simulation_context(c_str(trim(adjustl(sirius_cfg))), c_str("pseudopotential"))
 
   !if (get_meta().ne.0.or.get_inlc().ne.0) then
   !  write(*,*)get_igcx()
@@ -191,37 +189,33 @@ subroutine setup_sirius()
     endif
 
     ! add new atom type
-    call sirius_add_atom_type(c_str(atm(iat)))
-
-    ! set basic properties
-    call sirius_set_atom_type_properties(c_str(atm(iat)), c_str(atm(iat)), nint(zv(iat)+0.001d0),&
-                                        &amass(iat), upf(iat)%r(upf(iat)%mesh), upf(iat)%mesh)
+    bool_var = upf(iat)%has_so
+    call sirius_add_atom_type(c_str(atm(iat)), zn=nint(zv(iat)+0.001d0), mass=amass(iat), spin_orbit=bool_var)
 
     ! set radial grid
     call sirius_set_atom_type_radial_grid(c_str(atm(iat)), upf(iat)%mesh, upf(iat)%r(1))
 
     ! set beta-projectors
-    bool_var = upf(iat)%has_so
-    if (upf(iat)%has_so) then
-      call sirius_set_atom_type_beta_rf(c_str(atm(iat)), upf(iat)%nbeta, upf(iat)%lll(1), upf(iat)%jjj(1), &
-                                       &upf(iat)%kbeta(1), upf(iat)%beta(1, 1), upf(iat)%mesh, bool_var)
-    else
-      tmp = 0.d0
-      call sirius_set_atom_type_beta_rf(c_str(atm(iat)), upf(iat)%nbeta, upf(iat)%lll(1), tmp, &
-                                       &upf(iat)%kbeta(1), upf(iat)%beta(1, 1), upf(iat)%mesh, bool_var)
-    endif
 
+
+    do i = 1, upf(iat)%nbeta
+       l = upf(iat)%lll(1);
+       if ((upf(iat)%has_so) .and. ( upf(iat)%jjj(1) < upf(iat)%lll(1))) then
+          l = - upf(iat)%lll(1);
+       endif
+    call sirius_add_atom_type_beta_radial_function(c_str(atm(iat)), upf(iat)%lll(i), upf(iat)%beta(1, i),&
+         &upf(iat)%kbeta(i))
+    enddo
 
     ! set the atomic radial functions
      do iwf = 1, upf(iat)%nwfc
       l = upf(iat)%lchi(iwf)
       if (upf(iat)%has_so) then
-         call sirius_add_atom_type_chi(c_str(atm(iat)), l, upf(iat)%jchi(iwf), msh(iat), upf(iat)%chi(1, iwf), upf(iat)%oc(iwf))
-      else
-         tmp = -1.0
-         call sirius_add_atom_type_chi(c_str(atm(iat)), l, tmp, msh(iat), upf(iat)%chi(1, iwf), upf(iat)%oc(iwf))
+         if (upf(iat)%jchi(iwf) < l) then
+            l = l * -1
+         endif
       endif
-
+      call sirius_add_atom_type_ps_atomic_wf(c_str(atm(iat)), l, upf(iat)%chi(1, iwf), msh(iat))
     enddo
 
     if (is_hubbard(iat)) then
@@ -242,6 +236,15 @@ subroutine setup_sirius()
 
     ! set radial function of augmentation charge
     if (upf(iat)%tvanp) then
+      do l = 0, upf(iat)%nqlc - 1
+        do i = 0, upf(iat)%nbeta - 1
+          do j = i, upf(iat)%nbeta - 1
+            ijv = j * (j + 1) / 2 + i + 1
+            call sirius_add_atom_type_q_radial_function(c_str(atm(iat)), l, i, j,&
+                                                       &upf(iat)%qfuncl(1, ijv, l), upf(iat)%kkbeta)
+          enddo
+        enddo
+      enddo
       !if (2 * upf(iat)%lmax .ne. upf(iat)%nqlc - 1) then
       !  write(*,*)
       !  write(*,'("Mismatch between lmax_beta and lmax_qij for atom type", I2)')iat
@@ -250,7 +253,7 @@ subroutine setup_sirius()
       !  stop
       !endif
       !call sirius_set_atom_type_q_rf(c_str(atm(iat)), upf(iat)%qfuncl(1, 1, 0), upf(iat)%lmax)
-      call sirius_set_atom_type_q_rf(c_str(atm(iat)), upf(iat)%qfuncl(1, 1, 0), lmax_beta)
+      !call sirius_set_atom_type_q_rf(c_str(atm(iat)), upf(iat)%qfuncl(1, 1, 0), lmax_beta)
     endif
 
     if (upf(iat)%tpawp) then

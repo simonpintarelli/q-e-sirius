@@ -27,7 +27,7 @@ SUBROUTINE do_elf (elf)
   USE constants, ONLY: pi
   USE cell_base, ONLY: omega, tpiba
   USE fft_base,  ONLY: dffts, dfftp
-  USE fft_interfaces, ONLY : fwfft, invfft
+  USE fft_interfaces, ONLY : fwfft, invfft, fft_interpolate
   USE gvect, ONLY: gcutm, g, ngm
   USE gvecs, ONLY : ngms, doublegrid, dual
   USE io_files, ONLY: iunwfc, nwordwfc
@@ -104,7 +104,7 @@ SUBROUTINE do_elf (elf)
   IF (doublegrid) THEN
      DEALLOCATE (aux)
      ALLOCATE(aux(dfftp%nnr))
-     CALL fft_interpolate_real (dffts, kkin, dfftp, kkin)
+     CALL fft_interpolate (dffts, kkin, dfftp, kkin)
   ENDIF
   !
   ! symmetrize the local kinetic energy if needed
@@ -210,7 +210,7 @@ SUBROUTINE do_rdg (rdg)
   ENDDO
 
   ! gradient of rho
-  CALL gradrho(dfftp%nnr, rho%of_g(1,1), ngm, g, dfftp%nl, grho)
+  CALL fft_gradient_g2r(dfftp, rho%of_g(1,1), g, grho)
 
   ! calculate rdg
   DO i = 1, dfftp%nnr
@@ -262,7 +262,7 @@ SUBROUTINE do_sl2rho (sl2rho)
   ENDDO
 
   ! calculate hessian of rho (gradient is discarded)
-  CALL hessian( dfftp%nnr, rho%of_r(:,1), ngm, g, dfftp%nl, grho, hrho )
+  CALL fft_hessian( dfftp, rho%of_r(:,1), g, grho, hrho )
 
   ! find eigenvalues of the hessian
   DO i = 1, dfftp%nnr
