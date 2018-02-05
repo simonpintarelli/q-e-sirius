@@ -29,7 +29,7 @@ subroutine electrons_sirius_v2(scf_step)
   use fft_base,             only : dfftp
   use input_parameters,     only : conv_thr, sirius_cfg, diago_thr_init
   use funct,                only : dft_is_hybrid
-  use ldaU,                 only : eth, lda_plus_u
+  use ldaU,                 only : eth, lda_plus_u, hubbard_lmax, niter_with_fixed_ns
   use extfield,             only : tefield, etotefield
   use paw_variables,        only : okpaw, ddd_paw, total_core_energy, only_paw
   use paw_onecenter,        only : PAW_potential
@@ -42,6 +42,8 @@ subroutine electrons_sirius_v2(scf_step)
   use cell_base,            only : omega
   use symme,                only : sym_rho
   use esm,                  only : do_comp_esm, esm_printpot, esm_ewald
+  USE basis,                ONLY : starting_pot
+
   !
   implicit none
   integer, intent(in) :: scf_step
@@ -78,13 +80,13 @@ subroutine electrons_sirius_v2(scf_step)
 
   ! create Density class
   call sirius_create_density()
-   
+
   ! create Potential class
   call sirius_create_potential()
-  
+
   ! get core density as it is not computed by QE when SIRIUS is triggered
   call get_rhoc_from_sirius()
-  
+
   ! get local part of pseudopotential
   !call get_vloc_from_sirius
 
@@ -95,7 +97,7 @@ subroutine electrons_sirius_v2(scf_step)
 
   ! put local potential to sirius
   call put_vltot_to_sirius()
-  
+
   ! create ground-state class
   call sirius_create_ground_state(kset_id)
 
@@ -114,6 +116,16 @@ subroutine electrons_sirius_v2(scf_step)
     ! get initial density
     call get_density_from_sirius
 
+    ! initialize hubbard initial occupancies
+    if (lda_plus_u) then
+       i = 2 * hubbard_lmax + 1
+       if (noncolin) then
+          call sirius_get_hubbard_occupancies_nc(rho%ns_nc(1,1,1,1), i)
+       else
+          call sirius_get_hubbard_occupancies(rho%ns(1,1,1,1), i)
+       endif
+!       call sirius_calculate_hubbard_potential()
+    ENDIF
     ! initialize effective potential from SIRIUS density
     ! transform initial density to real space
     do is = 1, nspin_mag
@@ -129,6 +141,21 @@ subroutine electrons_sirius_v2(scf_step)
       call PAW_symmetrize_ddd(ddd_paw)
     endif
     call put_potential_to_sirius
+  endif
+
+  if (lda_plus_u) then
+     i = 2 *hubbard_lmax + 1
+     if(noncolin) then
+        call sirius_set_hubbard_potential_nc(v%ns_nc(1,1,1,1), i)
+     else
+        call sirius_set_hubbard_potential(v%ns(1,1,1,1), i)
+     endif
+!     call sirius_calculate_hubbard_potential()
+     ! IF (noncolin) THEN
+     !    CALL write_ns_nc()
+     ! ELSE
+     !    CALL write_ns()
+     ! ENDIF
   endif
 
   ! initialize subspace before calling "sirius_find_eigen_states"
@@ -152,9 +179,9 @@ subroutine electrons_sirius_v2(scf_step)
   !  write(*,*)'this case has to be checked'
   !  !stop
   !endif
-  
+
   call sirius_start_timer(c_str("qe|electrons|scf"))
-  
+
   !if (diago_thr_init.eq.0.d0) then
   !  ethr = 1d-3
   !else
@@ -164,14 +191,14 @@ subroutine electrons_sirius_v2(scf_step)
   ! Ewald energy doesn't change during iterations
   if (do_comp_esm) then
      ewld = esm_ewald()
-  else 
+  else
     call sirius_get_energy_ewald(ewld)
     ewld = ewld * 2.d0
   endif
 
   do iter = 1, niter
     tr2_min = 0.d0
-    if (iter.eq.1) tr2_min = ethr * max(1.d0, nelec) 
+    if (iter.eq.1) tr2_min = ethr * max(1.d0, nelec)
 
     write(stdout, 9010)iter, ecutwfc, mixing_beta
 
@@ -206,6 +233,7 @@ subroutine electrons_sirius_v2(scf_step)
 
     call put_band_occupancies_to_sirius
 
+
     !  generate valence density
     call sirius_generate_valence_density(kset_id)
 
@@ -233,7 +261,7 @@ subroutine electrons_sirius_v2(scf_step)
 
     deband = delta_e()
 
-    ! transform density to real-space  
+    ! transform density to real-space
     do is = 1, nspin_mag
        psic(:) = 0.d0
        psic(dfftp%nl(:)) = rho%of_g(:,is)
@@ -243,6 +271,47 @@ subroutine electrons_sirius_v2(scf_step)
     end do
 
     if (lsda .or. noncolin ) call compute_magnetization()
+
+    if (lda_plus_u) then
+       if (iter > 1) then
+          call sirius_calculate_hubbard_occupancies()
+          i = 2 * hubbard_lmax + 1
+          if (noncolin) then
+             call sirius_get_hubbard_occupancies_nc(rho%ns_nc(1,1,1,1), i)
+             call symmetrize_ns_nc(rho%ns_nc)
+          else
+             call sirius_get_hubbard_occupancies(rho%ns(1,1,1,1), i)
+             call symmetrize_ns(rho%ns)
+          endif
+       !
+       ENDIF
+!       IF ( iverbosity > 0 .OR. (iter .eq. 1) ) THEN
+       If (.true.) then
+          IF (noncolin) THEN
+             CALL write_ns_nc()
+          ELSE
+             CALL write_ns()
+          ENDIF
+       ENDIF
+       !
+       IF ( (iter .eq. 1) .AND. starting_pot == 'atomic' ) THEN
+          CALL ns_adj()
+          IF (noncolin) THEN
+             rhoin%ns_nc = rho%ns_nc
+          ELSE
+             rhoin%ns = rho%ns
+          ENDIF
+       END IF
+       IF ( iter <= niter_with_fixed_ns ) THEN
+          WRITE( stdout, '(/,5X,"RESET ns to initial values (iter <= mixing_fixed_ns)",/)')
+          IF (noncolin) THEN
+             rho%ns_nc = rhoin%ns_nc
+          ELSE
+             rho%ns = rhoin%ns
+          ENDIF
+       END IF
+       !
+    END IF
 
     call sirius_start_timer(c_str("qe|mix"))
     ! mix density with QE
@@ -276,7 +345,7 @@ subroutine electrons_sirius_v2(scf_step)
       descf = delta_escf()
 
       call scf_type_copy(rhoin, rho)
-    else 
+    else
       write(stdout, '( 5X,"last descf = ", G18.10)' )descf
       vnew%of_r(:,:) = v%of_r(:,:)
       call v_of_rho(rho, rho_core, rhog_core, ehart, etxc, vtxc, eth, etotefield, charge, v)
@@ -289,7 +358,19 @@ subroutine electrons_sirius_v2(scf_step)
     endif
 
     call put_potential_to_sirius
-     
+
+    if (lda_plus_u) then
+       i = 2 *hubbard_lmax + 1
+       if(noncolin) then
+          call sirius_set_hubbard_occupancies_nc(rho%ns_nc(1,1,1,1), i)
+          call sirius_set_hubbard_potential_nc(v%ns_nc(1,1,1,1), i)
+       else
+          call sirius_set_hubbard_occupancies(rho%ns(1,1,1,1), i)
+          call sirius_set_hubbard_potential(v%ns(1,1,1,1), i)
+       endif
+       !call sirius_calculate_hubbard_potential()
+    endif
+
     call sirius_stop_timer(c_str("qe|veff"))
 
     !!== ! ... the Harris-Weinert-Foulkes energy is computed here using only
@@ -306,7 +387,7 @@ subroutine electrons_sirius_v2(scf_step)
         IF ( (noncolin .AND. domag) .OR. i_cons==1 .OR. nspin==2) CALL report_mag()
         !
      END IF
-    
+
     if (conv_elec.or.mod(iter, iprint).eq.0) then
        write(stdout, 9101)
        !IF ( lda_plus_U .AND. iverbosity == 0 ) THEN
@@ -326,6 +407,10 @@ subroutine electrons_sirius_v2(scf_step)
 
     if (okpaw) then
       etot = etot + epaw
+    endif
+
+    if (lda_plus_u) then
+       etot = etot + eth
     endif
 
     ! TODO: this has to be called correcly - there are too many dependencies
@@ -409,7 +494,7 @@ subroutine electrons_sirius_v2(scf_step)
   !!!
   !!! ... adds possible external contribution from plugins to the energy
   !!!
-  !!etot = etot + plugin_etot 
+  !!etot = etot + plugin_etot
   !!!
   !!CALL print_energies ( printout )
   !!!
@@ -447,7 +532,7 @@ subroutine electrons_sirius_v2(scf_step)
 
   !! rho(r) is needed in stres_gradcorr
   !if (sirius_veff) then
-  !  ! transform density to real-space  
+  !  ! transform density to real-space
   !  do is = 1, nspin_mag
   !     psic(:) = ( 0.d0, 0.d0 )
   !     psic(nl(:)) = rho%of_g(:,is)
@@ -466,14 +551,14 @@ subroutine electrons_sirius_v2(scf_step)
   !  !!==! update D-operator matrix
   !  !!==!call sirius_generate_d_operator_matrix()
   !endif
-  
+
   !call get_band_energies_from_sirius
 
   call sirius_stop_timer(c_str("qe|electrons"))
 
   !CALL sirius_print_timers()
   !CALL sirius_write_json_output()
-  
+
   !call sirius_delete_ground_state()
   !call sirius_delete_kset(kset_id)
   !call sirius_delete_density()
@@ -636,14 +721,14 @@ subroutine electrons_sirius_v2(scf_step)
              write( stdout, 9082 ) etot, hwf_energy, dr2
           end if
        end if
-       
+
        call plugin_print_energies()
        !
        IF ( lsda ) WRITE( stdout, 9017 ) magtot, absmag
        !
        IF ( noncolin .AND. domag ) &
             WRITE( stdout, 9018 ) magtot_nc(1:3), absmag
-       ! 
+       !
        !IF ( i_cons == 3 .OR. i_cons == 4 )  &
        !!     WRITE( stdout, 9071 ) bfield(1), bfield(2), bfield(3)
        !!IF ( i_cons /= 0 .AND. i_cons < 4 ) &
@@ -671,7 +756,7 @@ subroutine electrons_sirius_v2(scf_step)
             /'      -> PAW hartree energy PS =',F17.8,' Ry' &
             /'      -> PAW xc energy AE      =',F17.8,' Ry' &
             /'      -> PAW xc energy PS      =',F17.8,' Ry' &
-            /'      -> total E_H with PAW    =',F17.8,' Ry'& 
+            /'      -> total E_H with PAW    =',F17.8,' Ry'&
             /'      -> total E_XC with PAW   =',F17.8,' Ry' )
 9069 format( '     scf correction            =',F17.8,' Ry' )
 9070 format( '     smearing contrib. (-TS)   =',F17.8,' Ry' )
@@ -788,4 +873,3 @@ subroutine invert_mtrx(vlat, vlat_inv)
   vlat_inv(3,2)=(vlat(1,2)*vlat(3,1)-vlat(1,1)*vlat(3,2))*d1
   vlat_inv(3,3)=(vlat(1,1)*vlat(2,2)-vlat(1,2)*vlat(2,1))*d1
 end subroutine
-

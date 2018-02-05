@@ -38,7 +38,7 @@ FUNCTION set_hubbard_l( psd ) RESULT( hubbard_l )
      !
      ! ... other elements
      !
-     CASE( 'H' )
+     CASE( 'H', 'He' )
         !
         hubbard_l =  0
         !

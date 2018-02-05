@@ -19,6 +19,8 @@ subroutine setup_sirius()
   use noncollin_module, only : noncolin, npol, angle1, angle2
   use lsda_mod, only : lsda, nspin, starting_magnetization
   use cell_base, only : omega
+  use ldaU, only : lda_plus_U, Hubbard_J, Hubbard_U, Hubbard_alpha, &
+       & Hubbard_beta, is_Hubbard, lda_plus_u_kind, Hubbard_J0, U_projection
   use symm_base, only : nosym
   use spin_orb,  only : lspinorb
   use esm,       only : esm_local, esm_bc, do_comp_esm
@@ -144,6 +146,19 @@ subroutine setup_sirius()
      endif
   endif
 
+  if (lda_plus_U) then
+     call sirius_set_hubbard_correction()
+     if (lda_plus_u_kind == 0) then
+        call sirius_set_hubbard_simplified_method()
+     endif
+     if (U_projection == 'ortho-atomic') then
+        call sirius_set_orthogonalize_hubbard_orbitals()
+     endif
+
+     if (U_projection == 'norm-atomic') then
+        call sirius_set_normalize_hubbard_orbitals()
+     endif
+  endif
   ! set lattice vectors of the unit cell (length is in [a.u.])
   a1(:) = at(:, 1) * alat
   a2(:) = at(:, 2) * alat
@@ -196,11 +211,23 @@ subroutine setup_sirius()
                                        &upf(iat)%kbeta(1), upf(iat)%beta(1, 1), upf(iat)%mesh, bool_var)
     endif
 
+
     ! set the atomic radial functions
-    do iwf = 1, upf(iat)%nwfc
+     do iwf = 1, upf(iat)%nwfc
       l = upf(iat)%lchi(iwf)
-      call sirius_add_atom_type_chi(c_str(atm(iat)), l, upf(iat)%jchi(iwf), msh(iat), upf(iat)%chi(1, iwf), upf(iat)%oc(iwf))
+      if (upf(iat)%has_so) then
+         call sirius_add_atom_type_chi(c_str(atm(iat)), l, upf(iat)%jchi(iwf), msh(iat), upf(iat)%chi(1, iwf), upf(iat)%oc(iwf))
+      else
+         tmp = -1.0
+         call sirius_add_atom_type_chi(c_str(atm(iat)), l, tmp, msh(iat), upf(iat)%chi(1, iwf), upf(iat)%oc(iwf))
+      endif
+
     enddo
+
+    if (is_hubbard(iat)) then
+       call sirius_set_atom_type_hubbard(c_str(atm(iat)), Hubbard_U(iat), Hubbard_J(1,iat), &
+            &angle1(iat), angle2(iat), Hubbard_alpha(iat), Hubbard_beta(iat), Hubbard_J0(iat))
+    endif
 
     allocate(dion(upf(iat)%nbeta, upf(iat)%nbeta))
     ! convert to hartree

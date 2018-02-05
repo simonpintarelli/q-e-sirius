@@ -11,9 +11,9 @@ subroutine get_band_energies_from_sirius
   !
   real(8), allocatable :: band_e(:,:), tmp(:)
   integer :: ik, nk, nb, nfv
-  
+
   allocate(band_e(nbnd, nkstot))
-  
+
   ! get band energies
   if (nspin.ne.2) then
     ! non-magnetic or non-collinear case
@@ -31,16 +31,16 @@ subroutine get_band_energies_from_sirius
       band_e(1 : nbnd, ik) = tmp(1 : nbnd)
       band_e(1 : nbnd, nk + ik) = tmp(nbnd + 1 : 2 * nbnd)
     end do
-  
+
     deallocate(tmp)
-  
+
   endif
-  
+
   ! convert to Ry
   do ik = 1, nks
     et(:, ik) = 2.d0 * band_e(:, global_kpoint_index(nkstot, ik))
   enddo
-  
+
   deallocate(band_e)
 
 end subroutine get_band_energies_from_sirius
@@ -59,9 +59,9 @@ subroutine put_band_occupancies_to_sirius
   integer, external :: global_kpoint_index
   !
   real(8), allocatable :: bnd_occ(:, :), tmp(:)
-  real(8) :: maxocc
+  real(8) :: maxocc, checksum
   integer :: ik, ierr, nk, nb
-  
+
   ! compute occupancies
   allocate(bnd_occ(nbnd, nkstot))
   bnd_occ = 0.d0
@@ -74,13 +74,13 @@ subroutine put_band_occupancies_to_sirius
     bnd_occ(:, global_kpoint_index(nkstot, ik)) = maxocc * wg(:, ik) / wk(ik)
   enddo
   call mpi_allreduce(MPI_IN_PLACE, bnd_occ(1, 1), nbnd * nkstot, MPI_DOUBLE, MPI_SUM, inter_pool_comm, ierr)
-  
+
   if (nspin.ne.2) then
     ! set band occupancies
     do ik = 1, nkstot
       call sirius_set_band_occupancies(kset_id, ik, bnd_occ(1, ik), nbnd)
     enddo
-  else 
+  else
     nk = nkstot / 2
     nb = nbnd * 2
     allocate(tmp(nb))
@@ -91,7 +91,7 @@ subroutine put_band_occupancies_to_sirius
     enddo
     deallocate(tmp)
   endif
-  
+
   deallocate(bnd_occ)
 
 end subroutine put_band_occupancies_to_sirius
@@ -111,10 +111,10 @@ subroutine get_density_from_sirius
   complex(8), allocatable :: dens_mtrx(:,:,:)
   integer iat, ig, ih, jh, ijh, na, ispn
   complex(8) z1, z2
-  
+
   ! get rho(G)
   call sirius_get_pw_coeffs(c_str("rho"), rho%of_g(1, 1), ngm, mill(1, 1), intra_bgrp_comm)
-  
+
   if (nspin.eq.2) then
     call sirius_get_pw_coeffs(c_str("magz"), rho%of_g(1, 2), ngm, mill(1, 1), intra_bgrp_comm)
     ! convert to rho_{up}, rho_{dn}
@@ -299,7 +299,7 @@ subroutine put_potential_to_sirius
     enddo
 
     do ig = 1, ngm
-      z1 = v%of_g(ig, 1) 
+      z1 = v%of_g(ig, 1)
       z2 = v%of_g(ig, 2)
       v%of_g(ig, 1) = 0.5 * (z1 + z2)
       v%of_g(ig, 2) = 0.5 * (z1 - z2)
@@ -428,7 +428,7 @@ subroutine get_rhoc_from_sirius
   use sirius
   !
   implicit none
-  
+
   etxcc = 0.0d0
   if (any(upf(1:ntyp)%nlcc)) then
     call sirius_get_pw_coeffs(c_str("rhoc"), rhog_core(1), ngm, mill(1, 1), intra_bgrp_comm)
@@ -437,7 +437,7 @@ subroutine get_rhoc_from_sirius
     if (gamma_only) psic(dfftp%nlm(:)) = conjg(rhog_core(:))
     call invfft ('Rho', psic, dfftp)
     rho_core(:) = psic(:)
-  else 
+  else
     rhog_core(:) = 0.0d0
     rho_core(:)  = 0.0d0
   endif
@@ -498,3 +498,304 @@ subroutine get_vloc_from_sirius
 
 end subroutine get_vloc_from_sirius
 
+SUBROUTINE symmetrize_ns(ns)
+  USE io_global,            ONLY : stdout
+  USE kinds,                ONLY : DP
+  USE ions_base,            ONLY : nat, ityp
+  USE klist,                ONLY : nks, ngk
+  USE ldaU,                 ONLY : Hubbard_lmax, Hubbard_l, q_ae, wfcU, &
+       U_projection, is_hubbard, nwfcU, offsetU
+  USE symm_base,            ONLY : d1, d2, d3
+  USE lsda_mod,             ONLY : lsda, current_spin, nspin, isk
+  USE symm_base,            ONLY : nsym, irt
+  USE wvfct,                ONLY : nbnd, npwx, wg
+  USE control_flags,        ONLY : gamma_only
+  USE wavefunctions_module, ONLY : evc
+  USE io_files,             ONLY : nwordwfc, iunwfc, nwordwfcU, iunhub
+  USE buffers,              ONLY : get_buffer
+  USE mp_pools,             ONLY : inter_pool_comm
+  USE mp,                   ONLY : mp_sum
+  USE becmod,               ONLY : bec_type, calbec, &
+       allocate_bec_type, deallocate_bec_type
+
+  REAL(DP), INTENT(INOUT) :: ns(2*Hubbard_lmax+1,2*Hubbard_lmax+1,nspin,nat)
+  INTEGER :: ik, ibnd, is, i, na, nb, nt, isym, m1, m2, m0, m00, ldim, npw
+  REAL(DP) :: psum
+  ! counter on k points
+  !    "    "  bands
+  !    "    "  spins
+  REAL(DP) , ALLOCATABLE :: nr (:,:,:,:)
+  ldim = 2 * Hubbard_lmax + 1
+  ALLOCATE( nr(ldim,ldim,nspin,nat) )
+
+    DO na = 1, nat
+     nt = ityp(na)
+     DO is = 1, nspin
+        DO m1 = 1, 2 * Hubbard_l(nt) + 1
+           DO m2 = m1, 2 * Hubbard_l(nt) + 1
+              nr (m1, m2, is, na) = ns(m1, m2, is, na)
+              !write(*, *)
+              nr (m2, m1, is, na) = nr (m1, m2, is, na)
+           ENDDO
+        ENDDO
+     ENDDO
+  ENDDO
+
+  ns(:,:,:,:) = 0.d0
+  ! symmetrize the quantities nr -> ns
+  DO na = 1, nat
+     nt = ityp (na)
+     IF ( is_hubbard(nt) ) THEN
+        DO is = 1, nspin
+           DO m1 = 1, 2 * Hubbard_l(nt) + 1
+              DO m2 = 1, 2 * Hubbard_l(nt) + 1
+                 DO isym = 1, nsym
+                    nb = irt (isym, na)
+                    DO m0 = 1, 2 * Hubbard_l(nt) + 1
+                       DO m00 = 1, 2 * Hubbard_l(nt) + 1
+                          IF (Hubbard_l(nt).EQ.0) THEN
+                             ns(m1,m2,is,na) = ns(m1,m2,is,na) +  &
+                                   nr(m0,m00,is,nb) / nsym
+                          ELSE IF (Hubbard_l(nt).EQ.1) THEN
+                             ns(m1,m2,is,na) = ns(m1,m2,is,na) +  &
+                                   d1(m0 ,m1,isym) * nr(m0,m00,is,nb) * &
+                                   d1(m00,m2,isym) / nsym
+                          ELSE IF (Hubbard_l(nt).EQ.2) THEN
+                             ns(m1,m2,is,na) = ns(m1,m2,is,na) +  &
+                                   d2(m0 ,m1,isym) * nr(m0,m00,is,nb) * &
+                                   d2(m00,m2,isym) / nsym
+                          ELSE IF (Hubbard_l(nt).EQ.3) THEN
+                             ns(m1,m2,is,na) = ns(m1,m2,is,na) +  &
+                                   d3(m0 ,m1,isym) * nr(m0,m00,is,nb) * &
+                                   d3(m00,m2,isym) / nsym
+                          ELSE
+                             CALL errore ('new_ns', &
+                                         'angular momentum not implemented', &
+                                          ABS(Hubbard_l(nt)) )
+                          END IF
+                       ENDDO
+                    ENDDO
+                 ENDDO
+              ENDDO
+           ENDDO
+        ENDDO
+     ENDIF
+  ENDDO
+
+  ! Now we make the matrix ns(m1,m2) strictly hermitean
+  DO na = 1, nat
+     nt = ityp (na)
+     IF ( is_hubbard(nt) ) THEN
+        DO is = 1, nspin
+           DO m1 = 1, 2 * Hubbard_l(nt) + 1
+              DO m2 = m1, 2 * Hubbard_l(nt) + 1
+                 psum = ABS ( ns(m1,m2,is,na) - ns(m2,m1,is,na) )
+                 IF (psum.GT.1.d-10) THEN
+                    WRITE( stdout, * ) na, is, m1, m2
+                    WRITE( stdout, * ) ns (m1, m2, is, na)
+                    WRITE( stdout, * ) ns (m2, m1, is, na)
+                    CALL errore ('new_ns', 'non hermitean matrix', 1)
+                 ELSE
+                    ns(m1,m2,is,na) = 0.5d0 * (ns(m1,m2,is,na) + &
+                                               ns(m2,m1,is,na) )
+                    ns(m2,m1,is,na) = ns(m1,m2,is,na)
+                 ENDIF
+              ENDDO
+           ENDDO
+        ENDDO
+     ENDIF
+  ENDDO
+
+
+END SUBROUTINE symmetrize_ns
+
+SUBROUTINE symmetrize_ns_nc(ns)
+  USE io_global,            ONLY : stdout
+  USE kinds,                ONLY : DP
+  USE ions_base,            ONLY : nat, ityp
+  USE klist,                ONLY : nks, ngk
+  USE ldaU,                 ONLY : Hubbard_lmax, Hubbard_l, wfcU, &
+                                   d_spin_ldau, is_hubbard, nwfcU, offsetU
+  USE symm_base,            ONLY : d1, d2, d3
+  USE lsda_mod,             ONLY : lsda, current_spin, nspin, isk
+  USE noncollin_module, ONLY : noncolin, npol
+  USE symm_base,            ONLY : nsym, irt, time_reversal, t_rev
+  USE wvfct,                ONLY : nbnd, npwx, wg
+  USE control_flags,        ONLY : gamma_only
+  USE wavefunctions_module, ONLY : evc
+  USE gvect,                ONLY : gstart
+  USE io_files,             ONLY : nwordwfc, iunwfc, nwordwfcU, iunhub
+  USE buffers,              ONLY : get_buffer
+  USE mp_bands,             ONLY : intra_bgrp_comm
+  USE mp_pools,             ONLY : inter_pool_comm
+  USE mp,                   ONLY : mp_sum
+
+  IMPLICIT NONE
+  !
+  ! I/O variables
+  !
+  COMPLEX(DP), intent(inout) :: ns(2*Hubbard_lmax+1,2*Hubbard_lmax+1,nspin,nat)
+  INTEGER :: ik, ibnd, is, js, i, j, sigmay2, na, nb, nt, isym,  &
+             m1, m2, m3, m4, is1, is2, is3, is4, m0, m00, ldim, npw
+
+  COMPLEX(DP) , ALLOCATABLE :: nr (:,:,:,:,:), nr1 (:,:,:,:,:), proj(:,:)
+  REAL(DP) :: psum
+
+
+  ldim = 2 * hubbard_lmax + 1
+  ALLOCATE( nr(ldim,ldim,npol,npol,nat), nr1(ldim,ldim,npol,npol,nat) )
+
+  nr1(:,:,:,:,:) = 0.d0
+
+  do na = 1, nat
+     nt = ityp (na)
+     if ( is_hubbard(nt) ) then
+
+        do m1 = 1, 2 * Hubbard_l(nt) + 1
+           do m2 = 1, 2 * Hubbard_l(nt) + 1
+              do is1 = 1, npol
+                 do is2 = 1, npol
+                    nr(m1, m2, is1, is2, na) = ns(m1, m2, npol*(is1 -1) + is2, na)
+                 enddo
+              end do
+           enddo
+        ENDDO
+     ENDIF
+  enddo
+
+  do na = 1, nat
+    nt = ityp (na)
+    if ( is_hubbard(nt) ) then
+
+      do m1 = 1, 2 * Hubbard_l(nt) + 1
+        do m2 = 1, 2 * Hubbard_l(nt) + 1
+          do is1 = 1, npol
+            do is2 = 1, npol
+
+loopisym:     do isym = 1, nsym
+                nb = irt (isym, na)
+
+                do m3 = 1, 2 * Hubbard_l(nt) + 1
+                  do m4 = 1, 2 * Hubbard_l(nt) + 1
+                    do is3 = 1, npol
+                      do is4 = 1, npol
+
+                        if (Hubbard_l(nt).eq.0) then
+                          if (t_rev(isym).eq.1) then
+                            nr1(m1,m2,is1,is2,na) = nr1(m1,m2,is1,is2,na) +      &
+                              CONJG( d_spin_ldau(is1,is3,isym) )*                &
+                                     nr(m4,m3,is4,is3,nb)/nsym  *                &
+                                     d_spin_ldau(is2,is4,isym)
+                          else
+                            nr1(m1,m2,is1,is2,na) = nr1(m1,m2,is1,is2,na) +      &
+                              CONJG( d_spin_ldau(is1,is3,isym) )*                &
+                                     nr(m3,m4,is3,is4,nb)/nsym  *                &
+                                     d_spin_ldau(is2,is4,isym)
+                          endif
+                        elseif (Hubbard_l(nt).eq.1) then
+                          if (t_rev(isym).eq.1) then
+                            nr1(m1,m2,is1,is2,na) = nr1(m1,m2,is1,is2,na) +      &
+                              CONJG( d_spin_ldau(is1,is3,isym) )*d1(m1,m3,isym)* &
+                                     nr(m4,m3,is4,is3,nb)/nsym  *                &
+                                     d_spin_ldau(is2,is4,isym)  *d1(m2,m4,isym)
+                          else
+                            nr1(m1,m2,is1,is2,na) = nr1(m1,m2,is1,is2,na) +      &
+                              CONJG( d_spin_ldau(is1,is3,isym) )*d1(m1,m3,isym)* &
+                                     nr(m3,m4,is3,is4,nb)/nsym  *                &
+                                     d_spin_ldau(is2,is4,isym)  *d1(m2,m4,isym)
+                          endif
+                        elseif (Hubbard_l(nt).eq.2) then
+                          if (t_rev(isym).eq.1) then
+                            nr1(m1,m2,is1,is2,na) = nr1(m1,m2,is1,is2,na) +      &
+                              CONJG( d_spin_ldau(is1,is3,isym) )*d2(m1,m3,isym)* &
+                                     nr(m4,m3,is4,is3,nb)/nsym  *                &
+                                     d_spin_ldau(is2,is4,isym)  *d2(m2,m4,isym)
+                          else
+                            nr1(m1,m2,is1,is2,na) = nr1(m1,m2,is1,is2,na) +      &
+                              CONJG( d_spin_ldau(is1,is3,isym) )*d2(m1,m3,isym)* &
+                                     nr(m3,m4,is3,is4,nb)/nsym  *                &
+                                     d_spin_ldau(is2,is4,isym)  *d2(m2,m4,isym)
+                          endif
+                        elseif (Hubbard_l(nt).eq.3) then
+                          if (t_rev(isym).eq.1) then
+                            nr1(m1,m2,is1,is2,na) = nr1(m1,m2,is1,is2,na) +      &
+                              CONJG( d_spin_ldau(is1,is3,isym) )*d3(m1,m3,isym)* &
+                                     nr(m4,m3,is4,is3,nb)/nsym  *                &
+                                     d_spin_ldau(is2,is4,isym)  *d3(m2,m4,isym)
+                          else
+                            nr1(m1,m2,is1,is2,na) = nr1(m1,m2,is1,is2,na) +      &
+                              CONJG( d_spin_ldau(is1,is3,isym) )*d3(m1,m3,isym)* &
+                                     nr(m3,m4,is3,is4,nb)/nsym  *                &
+                                     d_spin_ldau(is2,is4,isym)  *d3(m2,m4,isym)
+                          endif
+                        else
+                          CALL errore ('new_ns', &
+                                         'angular momentum not implemented', &
+                                          ABS(Hubbard_l(nt)) )
+                        endif
+
+                      enddo
+                    enddo
+                  enddo
+                enddo
+
+              enddo  loopisym
+
+            enddo
+          enddo
+        enddo
+      enddo
+
+    endif
+  enddo
+!--
+
+!-- Setup the output matrix ns with combined spin index
+!
+  DO na = 1, nat
+     nt = ityp (na)
+     IF ( is_hubbard(nt) ) THEN
+        DO is1 = 1, npol
+         do is2 = 1, npol
+           i = npol*(is1-1) + is2
+           DO m1 = 1, 2 * Hubbard_l(nt) + 1
+              DO m2 = 1, 2 * Hubbard_l(nt) + 1
+                ns(m1,m2,i,na) = nr1(m1,m2,is1,is2,na)
+              ENDDO
+           ENDDO
+         enddo
+        ENDDO
+     ENDIF
+  ENDDO
+!--
+
+!-- make the matrix ns strictly hermitean
+!
+  DO na = 1, nat
+     nt = ityp (na)
+     IF ( is_hubbard(nt) ) THEN
+        DO is1 = 1, npol
+         do is2 = 1, npol
+           i = npol*(is1-1) + is2
+           j = is1 + npol*(is2-1)
+           DO m1 = 1, 2 * Hubbard_l(nt) + 1
+              DO m2 = 1, 2 * Hubbard_l(nt) + 1
+                 psum = ABS ( ns(m1,m2,i,na) - CONJG(ns(m2,m1,j,na)) )
+                 IF (psum.GT.1.d-10) THEN
+                    WRITE( stdout, * ) na, m1, m2, is1, is2
+                    WRITE( stdout, * ) ns (m1, m2, i, na)
+                    WRITE( stdout, * ) ns (m2, m1, j, na)
+                    CALL errore ('new_ns', 'non hermitean matrix', 1)
+                 ELSE
+                    ns (m2, m1, j, na) = CONJG( ns(m1, m2, i, na))
+                 ENDIF
+              ENDDO
+           ENDDO
+         enddo
+        ENDDO
+     ENDIF
+  ENDDO
+!--
+  DEALLOCATE ( nr, nr1 )
+
+END SUBROUTINE SYMMETRIZE_NS_NC
