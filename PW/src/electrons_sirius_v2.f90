@@ -145,12 +145,12 @@ subroutine electrons_sirius_v2(scf_step)
 
   if (lda_plus_u) then
      i = 2 *hubbard_lmax + 1
-     if(noncolin) then
-        call sirius_set_hubbard_potential_nc(v%ns_nc(1,1,1,1), i)
-     else
-        call sirius_set_hubbard_potential(v%ns(1,1,1,1), i)
-     endif
-!     call sirius_calculate_hubbard_potential()
+!     if(noncolin) then
+!        call sirius_set_hubbard_potential_nc(v%ns_nc(1,1,1,1), i)
+!     else
+!        call sirius_set_hubbard_potential(v%ns(1,1,1,1), i)
+!     endif
+     call sirius_calculate_hubbard_potential()
      ! IF (noncolin) THEN
      !    CALL write_ns_nc()
      ! ELSE

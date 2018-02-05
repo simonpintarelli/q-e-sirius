@@ -31,7 +31,7 @@ subroutine setup_sirius()
   real(8) :: a1(3), a2(3), a3(3), vlat(3, 3), vlat_inv(3, 3), v1(3), v2(3), bg_inv(3, 3), tmp
   real(8), allocatable :: dion(:, :), qij(:,:,:), vloc(:), wk_tmp(:), xk_tmp(:,:)
   integer, allocatable :: nk_loc(:)
-  integer :: lmax_beta
+  integer :: lmax_beta, zn
   logical(C_BOOL) bool_var
   !
   ! create context of simulation
@@ -190,7 +190,7 @@ subroutine setup_sirius()
 
     ! add new atom type
     bool_var = upf(iat)%has_so
-    call sirius_add_atom_type(c_str(atm(iat)), zn=nint(zv(iat)+0.001d0), mass=amass(iat), spin_orbit=bool_var)
+    call sirius_add_atom_type(c_str(atm(iat)), symbol=upf(iat)%psd, zn=nint(zv(iat)+0.001d0), mass=amass(iat), spin_orbit=bool_var)
 
     ! set radial grid
     call sirius_set_atom_type_radial_grid(c_str(atm(iat)), upf(iat)%mesh, upf(iat)%r(1))
@@ -199,11 +199,11 @@ subroutine setup_sirius()
 
 
     do i = 1, upf(iat)%nbeta
-       l = upf(iat)%lll(1);
-       if ((upf(iat)%has_so) .and. ( upf(iat)%jjj(1) < upf(iat)%lll(1))) then
-          l = - upf(iat)%lll(1);
+       l = upf(iat)%lll(i);
+       if ((upf(iat)%has_so) .and. ( upf(iat)%jjj(i) .le. upf(iat)%lll(i))) then
+          l = - upf(iat)%lll(i)
        endif
-    call sirius_add_atom_type_beta_radial_function(c_str(atm(iat)), upf(iat)%lll(i), upf(iat)%beta(1, i),&
+    call sirius_add_atom_type_beta_radial_function(c_str(atm(iat)), l, upf(iat)%beta(1, i),&
          &upf(iat)%kbeta(i))
     enddo
 
@@ -212,10 +212,10 @@ subroutine setup_sirius()
       l = upf(iat)%lchi(iwf)
       if (upf(iat)%has_so) then
          if (upf(iat)%jchi(iwf) < l) then
-            l = l * -1
+            l = -l
          endif
       endif
-      call sirius_add_atom_type_ps_atomic_wf(c_str(atm(iat)), l, upf(iat)%chi(1, iwf), msh(iat))
+      call sirius_add_atom_type_ps_atomic_wf(c_str(atm(iat)), l, upf(iat)%chi(1, iwf), upf(iat)%oc(iwf), msh(iat))
     enddo
 
     if (is_hubbard(iat)) then
