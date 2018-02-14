@@ -103,19 +103,14 @@ subroutine setup_sirius()
   num_ranks_k = nproc_image / npool
   i = sqrt(dble(num_ranks_k) + 1d-10)
   if (i * i .ne. num_ranks_k) then
-    stop ("not a square MPI grid")
-  endif
-
-  !dims(3) = npool
-  if (i.eq.1) then
-    dims(1) = 1
+    !stop ("not a square MPI grid")
+    dims(1) = num_ranks_k
     dims(2) = 1
-    call sirius_set_mpi_grid_dims(2, dims(1))
   else
     dims(1) = i
     dims(2) = i
-    call sirius_set_mpi_grid_dims(2, dims(1))
   endif
+  call sirius_set_mpi_grid_dims(2, dims(1))
 
   ! set |G| cutoff of the dense FFT grid
   ! convert from G^2/2 Rydbergs to |G| in [a.u.^-1]
