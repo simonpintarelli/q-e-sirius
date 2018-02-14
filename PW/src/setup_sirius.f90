@@ -95,11 +95,7 @@ subroutine setup_sirius()
   !endif
 
   ! set number of first-variational states
-  if (noncolin) then
-    call sirius_set_num_fv_states(nbnd / 2 + 1)
-  else
-    call sirius_set_num_fv_states(nbnd)
-  endif
+  call sirius_set_num_bands(nbnd)
 
   bool_var = gamma_only
   call sirius_set_gamma_point(bool_var)

@@ -9,7 +9,7 @@ subroutine get_band_energies_from_sirius
   !
   integer, external :: global_kpoint_index
   !
-  real(8), allocatable :: band_e(:,:), tmp(:)
+  real(8), allocatable :: band_e(:,:)
   integer :: ik, nk, nb, nfv
 
   allocate(band_e(nbnd, nkstot))
@@ -18,21 +18,16 @@ subroutine get_band_energies_from_sirius
   if (nspin.ne.2) then
     ! non-magnetic or non-collinear case
     do ik = 1, nkstot
-      call sirius_get_band_energies(kset_id, ik, band_e(1, ik), nbnd)
+      call sirius_get_band_energies(kset_id, ik, 0, band_e(1, ik))
     end do
   else
     ! collinear magnetic case
-    nb = nbnd * 2
     nk = nkstot / 2
-    allocate(tmp(nb))
     ! get band energies
     do ik = 1, nk
-      call sirius_get_band_energies(kset_id, ik, tmp(1), nb)
-      band_e(1 : nbnd, ik) = tmp(1 : nbnd)
-      band_e(1 : nbnd, nk + ik) = tmp(nbnd + 1 : 2 * nbnd)
+      call sirius_get_band_energies(kset_id, ik, 0, band_e(1, ik))
+      call sirius_get_band_energies(kset_id, ik, 1, band_e(1, ik + nk))
     end do
-
-    deallocate(tmp)
 
   endif
 
@@ -58,7 +53,7 @@ subroutine put_band_occupancies_to_sirius
   !
   integer, external :: global_kpoint_index
   !
-  real(8), allocatable :: bnd_occ(:, :), tmp(:)
+  real(8), allocatable :: bnd_occ(:, :)
   real(8) :: maxocc, checksum
   integer :: ik, ierr, nk, nb
 
@@ -78,18 +73,14 @@ subroutine put_band_occupancies_to_sirius
   if (nspin.ne.2) then
     ! set band occupancies
     do ik = 1, nkstot
-      call sirius_set_band_occupancies(kset_id, ik, bnd_occ(1, ik), nbnd)
+      call sirius_set_band_occupancies(kset_id, ik, 0, bnd_occ(1, ik))
     enddo
   else
     nk = nkstot / 2
-    nb = nbnd * 2
-    allocate(tmp(nb))
     do ik = 1, nk
-      tmp(1 : nbnd) = bnd_occ(1 : nbnd, ik)
-      tmp(nbnd + 1 : nb) = bnd_occ(1 : nbnd, ik + nk)
-      call sirius_set_band_occupancies(kset_id, ik, tmp(1), nb)
+      call sirius_set_band_occupancies(kset_id, ik, 0, bnd_occ(1, ik))
+      call sirius_set_band_occupancies(kset_id, ik, 1, bnd_occ(1, ik + nk))
     enddo
-    deallocate(tmp)
   endif
 
   deallocate(bnd_occ)
