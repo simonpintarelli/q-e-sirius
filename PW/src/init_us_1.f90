@@ -45,6 +45,7 @@ subroutine init_us_1
   USE mp,           ONLY : mp_sum
   USE input_parameters, ONLY : use_sirius, sirius_radial_integrals_aug,&
                               &sirius_radial_integrals_beta, sirius_spline_integration
+  use sirius
   !
   implicit none
   !

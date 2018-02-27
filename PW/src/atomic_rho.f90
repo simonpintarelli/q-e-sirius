@@ -43,6 +43,7 @@ subroutine atomic_rho (rhoa, nspina)
   USE fft_base,             ONLY : dfftp
   USE fft_interfaces,       ONLY : invfft
   USE input_parameters,     ONLY : sirius_spline_integration
+  use sirius
 
 
   !

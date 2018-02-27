@@ -181,7 +181,8 @@ subroutine setup_sirius()
 
     ! add new atom type
     bool_var = upf(iat)%has_so
-    call sirius_add_atom_type(c_str(atm(iat)), symbol=c_str(upf(iat)%psd), zn=nint(zv(iat)+0.001d0), mass=amass(iat), spin_orbit=bool_var)
+    call sirius_add_atom_type(c_str(atm(iat)), symbol=c_str(upf(iat)%psd), zn=nint(zv(iat)+0.001d0),&
+                             &mass=amass(iat), spin_orbit=bool_var)
 
     ! set radial grid
     call sirius_set_atom_type_radial_grid(c_str(atm(iat)), upf(iat)%mesh, upf(iat)%r(1))

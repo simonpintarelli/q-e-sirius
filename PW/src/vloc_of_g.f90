@@ -24,6 +24,7 @@ subroutine vloc_of_g (mesh, msh, rab, r, vloc_at, zp, tpiba2, ngl, &
   USE esm, ONLY : do_comp_esm, esm_bc
   USE Coul_cut_2D, ONLY: do_cutoff_2D, lz 
   USE input_parameters,     ONLY : sirius_spline_integration
+  use sirius
   implicit none
   !
   !    first the dummy variables

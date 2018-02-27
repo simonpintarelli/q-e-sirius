@@ -13,6 +13,7 @@ subroutine drhoc (ngl, gl, omega, tpiba2, mesh, r, rab, rhoc, rhocg)
   USE kinds
   USE constants, ONLY : pi, fpi
   USE input_parameters,     ONLY : sirius_spline_integration
+  use sirius
   implicit none
   !
   !    first the dummy variables
