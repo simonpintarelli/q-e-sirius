@@ -178,6 +178,12 @@ subroutine setup_sirius()
       write(*,'("  lmax =", I2)')upf(iat)%lmax
       write(*,'("  lmax_beta =", I2)')lmax_beta
     endif
+    if ((2 * lmax_beta + 1).ne.upf(iat)%nqlc) then
+      write(*,*)
+      write(*,'("Mismatch between lmax_beta and upf%nqlc for atom type", I2)')iat
+      write(*,'("  lmax_beta =", I2)')lmax_beta
+      write(*,'("  nqlc =", I2)')upf(iat)%nqlc
+    endif
 
     ! add new atom type
     bool_var = upf(iat)%has_so
@@ -191,11 +197,11 @@ subroutine setup_sirius()
 
     do i = 1, upf(iat)%nbeta
        l = upf(iat)%lll(i);
-       if ((upf(iat)%has_so) .and. ( upf(iat)%jjj(i) .le. upf(iat)%lll(i))) then
+       if ((upf(iat)%has_so) .and. (upf(iat)%jjj(i) .le. upf(iat)%lll(i))) then
           l = - upf(iat)%lll(i)
        endif
-    call sirius_add_atom_type_beta_radial_function(c_str(atm(iat)), l, upf(iat)%beta(1, i),&
-         &upf(iat)%kbeta(i))
+       call sirius_add_atom_type_beta_radial_function(c_str(atm(iat)), l, upf(iat)%beta(1, i),&
+                                                     &upf(iat)%kbeta(i))
     enddo
 
     ! set the atomic radial functions
@@ -227,7 +233,8 @@ subroutine setup_sirius()
 
     ! set radial function of augmentation charge
     if (upf(iat)%tvanp) then
-      do l = 0, upf(iat)%nqlc - 1
+      !do l = 0, upf(iat)%nqlc - 1
+      do l = 0, 2 * lmax_beta
         do i = 0, upf(iat)%nbeta - 1
           do j = i, upf(iat)%nbeta - 1
             ijv = j * (j + 1) / 2 + i + 1
@@ -243,8 +250,6 @@ subroutine setup_sirius()
       !  write(*,'("nqlc =", I2, ", but expecting ", I2)')upf(iat)%nqlc, 2 * upf(iat)%lmax + 1
       !  stop
       !endif
-      !call sirius_set_atom_type_q_rf(c_str(atm(iat)), upf(iat)%qfuncl(1, 1, 0), upf(iat)%lmax)
-      !call sirius_set_atom_type_q_rf(c_str(atm(iat)), upf(iat)%qfuncl(1, 1, 0), lmax_beta)
     endif
 
     if (upf(iat)%tpawp) then
