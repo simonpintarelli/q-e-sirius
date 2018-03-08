@@ -10,7 +10,7 @@ subroutine setup_sirius()
   use gvecw, only : ecutwfc
   use control_flags, only : gamma_only
   use mp_pools, only : inter_pool_comm, npool
-  use mp_images,        only : nproc_image
+  use mp_images,        only : nproc_image, intra_image_comm
   use mp, only : mp_sum, mp_bcast
   use wvfct, only : nbnd
   use parallel_include
@@ -35,7 +35,7 @@ subroutine setup_sirius()
   logical(C_BOOL) bool_var
   !
   ! create context of simulation
-  call sirius_create_simulation_context(c_str(trim(adjustl(sirius_cfg))), c_str("pseudopotential"))
+  call sirius_create_simulation_context(c_str(trim(adjustl(sirius_cfg))), c_str("pseudopotential"), intra_image_comm)
 
   !if (get_meta().ne.0.or.get_inlc().ne.0) then
   !  write(*,*)get_igcx()
