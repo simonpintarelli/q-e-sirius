@@ -35,8 +35,8 @@ subroutine setup_sirius()
   logical(C_BOOL) bool_var
   !
   ! create context of simulation
-  call sirius_create_simulation_context(c_str("{""parameters"" : {""electronic_structure_method"" : &
-                                               ""pseudopotential""}}"), intra_image_comm)
+  call sirius_create_simulation_context(c_str('{"parameters" : {"electronic_structure_method" : &
+                                               "pseudopotential"}}'), intra_image_comm)
   ! import config file
   call sirius_import_simulation_context_parameters(c_str(trim(adjustl(sirius_cfg))))
 
