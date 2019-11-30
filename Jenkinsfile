@@ -38,11 +38,10 @@ pipeline {
         //    }
         //}
     }
-    post {
-        always {
-            archiveArtifacts artifacts: '**/*.out', fingerprint: true
-            archiveArtifacts artifacts: '**/*.err', fingerprint: true
-        }
-    }
+    // post {
+    //     always {
+    //         archiveArtifacts artifacts: '**/*.out', fingerprint: true
+    //         archiveArtifacts artifacts: '**/*.err', fingerprint: true
+    //     }
+    // }
 }
-
