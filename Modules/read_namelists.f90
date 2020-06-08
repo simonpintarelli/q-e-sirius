@@ -33,7 +33,7 @@ MODULE read_namelists_module
   PUBLIC :: check_namelist_read ! made public upon request of A.Jay
   ! FIXME: should the following ones be public?
   PUBLIC :: control_defaults, system_defaults, &
-       electrons_defaults, wannier_ac_defaults, ions_defaults, &
+       electrons_defaults, nlcg_defaults, wannier_ac_defaults, ions_defaults, &
        cell_defaults, press_ai_defaults, wannier_defaults, control_bcast,&
        system_bcast, electrons_bcast, ions_bcast, cell_bcast, &
        press_ai_bcast, wannier_bcast, wannier_ac_bcast, control_checkin, &
@@ -446,7 +446,33 @@ MODULE read_namelists_module
        !
        RETURN
        !
-     END SUBROUTINE
+     END SUBROUTINE electrons_defaults
+
+     !
+     !=----------------------------------------------------------------------=!
+     !
+     !  Variables initialization for Namelist NLCG
+     !
+     !=----------------------------------------------------------------------=!
+     !
+     !-----------------------------------------------------------------------
+     SUBROUTINE nlcg_defaults( prog )
+             IMPLICIT NONE
+             !
+             CHARACTER(LEN=2) :: prog ! .. specify the calling probram
+
+             nlcg_maxiter = 300_DP
+             nlcg_restart = 10
+             nlcg_tau = 0.1_DP
+             nlcg_T = 300.0_DP
+             nlcg_kappa = 0.3_DP
+             nlcg_tol = 1.0E-9_DP
+             nlcg_smearing = 'FD'
+             nlcg_processing_unit = 'none'
+
+             RETURN
+     END SUBROUTINE nlcg_defaults
+
      !
      !=----------------------------------------------------------------------=!
      !
@@ -1063,7 +1089,35 @@ MODULE read_namelists_module
        !
        RETURN
        !
-     END SUBROUTINE
+     END SUBROUTINE electrons_bcast
+     !
+     !=----------------------------------------------------------------------=!
+     !
+     !  Broadcast variables values for Namelist NLCG
+     !
+     !=----------------------------------------------------------------------=!
+     !
+     !-----------------------------------------------------------------------
+     SUBROUTINE nlcg_bcast()
+       !-----------------------------------------------------------------------
+       !
+       USE io_global, ONLY: ionode_id
+       USE mp,        ONLY: mp_bcast
+       USE mp_images, ONLY : intra_image_comm
+       !
+       IMPLICIT NONE
+       !
+       CALL mp_bcast( nlcg_maxiter,          ionode_id, intra_image_comm )
+       CALL mp_bcast( nlcg_restart,          ionode_id, intra_image_comm )
+       CALL mp_bcast( nlcg_tau,              ionode_id, intra_image_comm )
+       CALL mp_bcast( nlcg_T,                ionode_id, intra_image_comm )
+       CALL mp_bcast( nlcg_kappa,            ionode_id, intra_image_comm )
+       CALL mp_bcast( nlcg_tol,              ionode_id, intra_image_comm )
+       CALL mp_bcast( nlcg_smearing,         ionode_id, intra_image_comm )
+       CALL mp_bcast( nlcg_processing_unit,  ionode_id, intra_image_comm )
+       RETURN
+       !
+     END SUBROUTINE nlcg_bcast
      !
      !
      !=----------------------------------------------------------------------=!
@@ -1560,6 +1614,49 @@ MODULE read_namelists_module
 !
        RETURN
      END SUBROUTINE
+     !=----------------------------------------------------------------------=!
+     !
+     !  Check input values for Namelist NLCG
+     !
+     !=----------------------------------------------------------------------=!
+     !
+     !-----------------------------------------------------------------------
+     SUBROUTINE nlcg_checkin( prog )
+       IMPLICIT NONE
+       LOGICAL :: allowed = .FALSE.
+       CHARACTER(LEN=20) :: sub_name = ' nlcg_checkin '
+       CHARACTER(LEN=2)  :: prog   ! ... specify the calling program
+       INTEGER           :: i
+
+       DO i = 1, SIZE(nlcg_smearing_allowed)
+         IF( TRIM(nlcg_smearing) == nlcg_smearing_allowed(i) ) allowed = .TRUE.
+       END DO
+       IF( .NOT. allowed ) &
+         CALL errore( sub_name, ' nlcg_smearing "'// &
+         & TRIM(nlcg_smearing)//'" not allowed ',1)
+
+       DO i = 1, SIZE(nlcg_processing_unit_allowed)
+         IF( TRIM(nlcg_processing_unit) == nlcg_processing_unit_allowed(i) ) allowed = .TRUE.
+       END DO
+       IF( .NOT. allowed ) &
+         CALL errore( sub_name, ' nlcg_processing_unit "'// &
+         & TRIM(nlcg_processing_unit)//'" not allowed ',1)
+
+       IF ( nlcg_T < 0.0_DP ) &
+         CALL errore(sub_name, 'nlcg_T out of range', 1)
+       IF ( nlcg_tau < 0.0_DP .or. nlcg_tau >= 1 ) &
+         CALL errore(sub_name, 'nlcg_tau out of range', 1)
+       IF ( nlcg_kappa < 0.0_DP ) &
+         CALL errore(sub_name, 'nlcg_kappa out of range', 1)
+       IF ( nlcg_tol < 0.0_DP ) &
+         CALL errore(sub_name, 'nlcg_tol out of range', 1)
+       IF ( nlcg_maxiter < 0 ) &
+         CALL errore(sub_name, 'nlcg_maxiter out of range', 1)
+       IF ( nlcg_restart < 0 ) &
+         CALL errore(sub_name, 'nlcg_restart out of range', 1)
+
+     END SUBROUTINE nlcg_checkin
+
      !
      !=----------------------------------------------------------------------=!
      !
@@ -1882,6 +1979,7 @@ MODULE read_namelists_module
        CALL control_defaults( prog )
        CALL system_defaults( prog )
        CALL electrons_defaults( prog )
+       CALL nlcg_defaults( prog )
        CALL ions_defaults( prog )
        CALL cell_defaults( prog )
        !
@@ -1926,6 +2024,18 @@ MODULE read_namelists_module
        !
        CALL electrons_bcast( )
        CALL electrons_checkin( prog )
+       !
+       ! ... NLCG namelist
+       !
+       ios = 0
+       IF( ionode ) THEN
+               READ( unit_loc, nlcg, iostat = ios )
+       END IF
+       CALL check_namelist_read(ios, unit_loc, "nlcg")
+       !
+       CALL nlcg_bcast( )
+       CALL nlcg_checkin( prog )
+
        !
        ! ... IONS namelist - must be read only if ionic motion is expected,
        ! ...                 or if code called by i-Pi via run_driver
