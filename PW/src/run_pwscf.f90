@@ -161,7 +161,7 @@ SUBROUTINE run_pwscf( exit_status )
        ! todo also retrieve  occupation numbers
      ENDIF
 
-     CALL sirius_stop_timer(string("qe|KS"))
+     CALL sirius_stop_timer("qe|KS")
      IF (use_sirius) THEN
        CALL sirius_get_parameters(sctx, evp_work_count=evp_work_count)
        CALL sirius_get_parameters(sctx, num_loc_op_applied=num_loc_op_applied)

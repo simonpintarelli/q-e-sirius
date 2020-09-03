@@ -979,8 +979,8 @@ subroutine put_density_to_sirius
     !  rho_tot(ig) = rho%of_g(ig, 1) + rho%of_g(ig, 2)
     !  mag(ig) = rho%of_g(ig, 1) - rho%of_g(ig, 2)
     !enddo
-    !call sirius_set_pw_coeffs(gs_handler, string("rho"), rho_tot(1), bool(.true.), ngm, mill(1, 1), intra_bgrp_comm)
-    !call sirius_set_pw_coeffs(gs_handler, string("magz"), mag(1), bool(.true.), ngm, mill(1, 1), intra_bgrp_comm)
+    !call sirius_set_pw_coeffs(gs_handler, "rho", rho_tot(1), bool(.true.), ngm, mill(1, 1), intra_bgrp_comm)
+    !call sirius_set_pw_coeffs(gs_handler, "magz", mag(1), bool(.true.), ngm, mill(1, 1), intra_bgrp_comm)
     !deallocate(rho_tot)
     !deallocate(mag)
     call sirius_set_pw_coeffs(gs_handler, "magz", rho%of_g(:, 2), .true., ngm, mill, intra_bgrp_comm)
@@ -1206,7 +1206,7 @@ subroutine put_potential_to_sirius
 !     vxcg(ig) = psic(dfftp%nl(ig)) * 0.5d0
 !  end do
 !  ! set XC potential
-!  call sirius_set_pw_coeffs(string("vxc"), vxcg(1), ngm, mill(1, 1), intra_bgrp_comm)
+!  call sirius_set_pw_coeffs("vxc", vxcg(1), ngm, mill(1, 1), intra_bgrp_comm)
 !  deallocate(vxcg)
 !
 !  ! update D-operator matrix
@@ -1338,7 +1338,7 @@ end subroutine get_wave_functions_from_sirius
 !    vg(ig) = psic(dfftp%nl(ig)) * 0.5d0 ! convert to Ha
 !  enddo
 !  ! set local potential
-!  call sirius_set_pw_coeffs(string("vloc"), vg(1), ngm, mill(1, 1), intra_bgrp_comm)
+!  call sirius_set_pw_coeffs("vloc", vg(1), ngm, mill(1, 1), intra_bgrp_comm)
 !  deallocate(vg)
 !end subroutine put_vltot_to_sirius
 
@@ -1360,7 +1360,7 @@ end subroutine get_wave_functions_from_sirius
 !
 !  etxcc = 0.0d0
 !  if (any(upf(1:ntyp)%nlcc)) then
-!    call sirius_get_pw_coeffs(string("rhoc"), rhog_core(1), ngm, mill(1, 1), intra_bgrp_comm)
+!    call sirius_get_pw_coeffs("rhoc", rhog_core(1), ngm, mill(1, 1), intra_bgrp_comm)
 !    psic(:) = (0.d0, 0.d0)
 !    psic(dfftp%nl(:)) = rhog_core(:)
 !    if (gamma_only) psic(dfftp%nlm(:)) = conjg(rhog_core(:))
@@ -1385,7 +1385,7 @@ end subroutine get_wave_functions_from_sirius
 !allocate(tmp(ngm))
 !vloc(:,:) = 0.d0
 !do nt = 1, ntyp
-!  call sirius_get_pw_coeffs_real(string(atm(nt)), string("vloc"), tmp(1), ngm, mill(1, 1), intra_bgrp_comm)
+!  call sirius_get_pw_coeffs_real(string(atm(nt)), "vloc", tmp(1), ngm, mill(1, 1), intra_bgrp_comm)
 !  do i = 1, ngm
 !    vloc(igtongl(i), nt) = tmp(i) * 2 ! convert to Ry
 !  enddo
@@ -1413,7 +1413,7 @@ end subroutine get_wave_functions_from_sirius
 !  !
 !  complex(8), allocatable :: vpw(:)
 !  allocate(vpw(ngm))
-!  call sirius_get_pw_coeffs(string("vloc"), vpw(1), ngm, mill(1, 1), intra_bgrp_comm)
+!  call sirius_get_pw_coeffs("vloc", vpw(1), ngm, mill(1, 1), intra_bgrp_comm)
 !  psic(:) = 0.d0
 !  psic(dfftp%nl(:)) = vpw(:)
 !  if (gamma_only) psic(dfftp%nlm(:)) = conjg(vpw(:))
@@ -1485,7 +1485,7 @@ implicit none
    select case(get_iexch())
    case(0)
    case(1)
-     call sirius_add_xc_functional(gs_handler, string("XC_LDA_X"))
+     call sirius_add_xc_functional(gs_handler, "XC_LDA_X")
    case default
      stop ("interface for this exchange functional is not implemented")
    end select
@@ -1495,9 +1495,9 @@ implicit none
    select case(get_igcx())
    case(0)
    case(2)
-     call sirius_add_xc_functional(gs_handler, string("XC_GGA_X_PW91"))
+     call sirius_add_xc_functional(gs_handler, "XC_GGA_X_PW91")
    case(3)
-     call sirius_add_xc_functional(gs_handler, string("XC_GGA_X_PBE"))
+     call sirius_add_xc_functional(gs_handler, "XC_GGA_X_PBE")
    case default
      write(*,*)get_igcx()
      stop ("interface for this gradient exchange functional is not implemented")
@@ -1508,9 +1508,9 @@ implicit none
    select case(get_icorr())
    case(0)
    case(1)
-     call sirius_add_xc_functional(gs_handler, string("XC_LDA_C_PZ"))
+     call sirius_add_xc_functional(gs_handler, "XC_LDA_C_PZ")
    case(4)
-     call sirius_add_xc_functional(gs_handler, string("XC_LDA_C_PW"))
+     call sirius_add_xc_functional(gs_handler, "XC_LDA_C_PW")
    case default
      stop ("interface for this correlation functional is not implemented")
    end select
@@ -1520,9 +1520,9 @@ implicit none
    select case(get_igcc())
    case(0)
    case(2)
-     call sirius_add_xc_functional(gs_handler, string("XC_GGA_C_PW91"))
+     call sirius_add_xc_functional(gs_handler, "XC_GGA_C_PW91")
    case(4)
-     call sirius_add_xc_functional(gs_handler, string("XC_GGA_C_PBE"))
+     call sirius_add_xc_functional(gs_handler, "XC_GGA_C_PBE")
    case default
      stop ("interface for this gradient correlation functional is not implemented")
    end select
@@ -1545,7 +1545,7 @@ subroutine insert_xc_functional_to_sirius
     select case(get_iexch())
     case(0)
     case(1)
-      call sirius_insert_xc_functional(gs_handler, string("XC_LDA_X"))
+      call sirius_insert_xc_functional(gs_handler, "XC_LDA_X")
     case default
       stop ("interface for this exchange functional is not implemented")
     end select
@@ -1555,15 +1555,15 @@ subroutine insert_xc_functional_to_sirius
     select case(get_igcx())
     case(0)
     case(2)
-      call sirius_insert_xc_functional(gs_handler, string("XC_GGA_X_PW91"))
+      call sirius_insert_xc_functional(gs_handler, "XC_GGA_X_PW91")
     case(3)
-      call sirius_insert_xc_functional(gs_handler, string("XC_GGA_X_PBE"))
+      call sirius_insert_xc_functional(gs_handler, "XC_GGA_X_PBE")
     case(10)
-      call sirius_insert_xc_functional(gs_handler, string("XC_GGA_X_PBE_SOL"))
+      call sirius_insert_xc_functional(gs_handler, "XC_GGA_X_PBE_SOL")
     case(21)
-      call sirius_insert_xc_functional(gs_handler, string("XC_GGA_X_PW86"))
+      call sirius_insert_xc_functional(gs_handler, "XC_GGA_X_PW86")
     case(22)
-      call sirius_insert_xc_functional(gs_handler, string("XC_GGA_X_B86"))
+      call sirius_insert_xc_functional(gs_handler, "XC_GGA_X_B86")
     case default
       write(*,*)get_igcx()
       stop ("interface for this gradient exchange functional is not implemented")
@@ -1574,9 +1574,9 @@ subroutine insert_xc_functional_to_sirius
     select case(get_icorr())
     case(0)
     case(1)
-      call sirius_insert_xc_functional(gs_handler, string("XC_LDA_C_PZ"))
+      call sirius_insert_xc_functional(gs_handler, "XC_LDA_C_PZ")
     case(4)
-      call sirius_insert_xc_functional(gs_handler, string("XC_LDA_C_PW"))
+      call sirius_insert_xc_functional(gs_handler, "XC_LDA_C_PW")
     case default
       stop ("interface for this correlation functional is not implemented")
     end select
@@ -1586,13 +1586,13 @@ subroutine insert_xc_functional_to_sirius
     select case(get_igcc())
     case(0)
     case(1)
-      call sirius_insert_xc_functional(gs_handler, string("XC_GGA_C_PW86"))
+      call sirius_insert_xc_functional(gs_handler, "XC_GGA_C_PW86")
     case(2)
-      call sirius_insert_xc_functional(gs_handler, string("XC_GGA_C_PW91"))
+      call sirius_insert_xc_functional(gs_handler, "XC_GGA_C_PW91")
     case(4)
-      call sirius_insert_xc_functional(gs_handler, string("XC_GGA_C_PBE"))
+      call sirius_insert_xc_functional(gs_handler, "XC_GGA_C_PBE")
     case(8)
-      call sirius_insert_xc_functional(gs_handler, string("XC_GGA_C_PBE_SOL"))
+      call sirius_insert_xc_functional(gs_handler, "XC_GGA_C_PBE_SOL")
     case default
       stop ("interface for this gradient correlation functional is not implemented")
     end select
