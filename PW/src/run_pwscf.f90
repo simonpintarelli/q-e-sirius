@@ -63,7 +63,11 @@ SUBROUTINE run_pwscf( exit_status )
   USE dfunct,               ONLY : newd
   USE mod_sirius
   USE mp_bands_util, ONLY : evp_work_count, num_loc_op_applied
-  USE input_parameters,     ONLY : use_nlcg
+  USE input_parameters,     ONLY : use_nlcg, nlcg_T, nlcg_tau, nlcg_tol,&
+    & nlcg_kappa, nlcg_maxiter, nlcg_restart, nlcg_smearing,&
+    & nlcg_processing_unit
+
+
 
   !
   IMPLICIT NONE
