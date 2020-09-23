@@ -156,7 +156,9 @@ SUBROUTINE run_pwscf( exit_status )
      END IF
      IF ( use_nlcg ) THEN
        CALL insert_xc_functional_to_sirius
-       CALL sirius_nlcg(gs_handler, ks_handler)
+       CALL sirius_nlcg_params(gs_handler, ks_handler, nlcg_T, TRIM(ADJUSTL(nlcg_smearing))&
+         &, nlcg_kappa, nlcg_tau, nlcg_tol, nlcg_maxiter, nlcg_restart,&
+         & TRIM(ADJUSTL(nlcg_processing_unit)))
        CALL get_band_occupancies_from_sirius
        ! todo also retrieve  occupation numbers
      ENDIF
