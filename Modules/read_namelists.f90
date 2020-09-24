@@ -471,7 +471,7 @@ MODULE read_namelists_module
              nlcg_processing_unit = 'none'
 
              RETURN
-     END SUBROUTINE nlcg_defaults
+     END SUBROUTINE
 
      !
      !=----------------------------------------------------------------------=!
@@ -1117,7 +1117,7 @@ MODULE read_namelists_module
        CALL mp_bcast( nlcg_processing_unit,  ionode_id, intra_image_comm )
        RETURN
        !
-     END SUBROUTINE nlcg_bcast
+     END SUBROUTINE
      !
      !
      !=----------------------------------------------------------------------=!
