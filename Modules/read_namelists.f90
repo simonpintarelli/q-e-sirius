@@ -35,9 +35,9 @@ MODULE read_namelists_module
   PUBLIC :: control_defaults, system_defaults, &
        electrons_defaults, nlcg_defaults, wannier_ac_defaults, ions_defaults, &
        cell_defaults, press_ai_defaults, wannier_defaults, control_bcast,&
-       system_bcast, electrons_bcast, ions_bcast, cell_bcast, &
+       system_bcast, electrons_bcast, nlcg_bcast, ions_bcast, cell_bcast, &
        press_ai_bcast, wannier_bcast, wannier_ac_bcast, control_checkin, &
-       system_checkin, electrons_checkin, ions_checkin, cell_checkin, &
+       system_checkin, electrons_checkin, nlcg_checkin, ions_checkin, cell_checkin, &
        wannier_checkin, wannier_ac_checkin, fixval
   !
   !  ... end of module-scope declarations
