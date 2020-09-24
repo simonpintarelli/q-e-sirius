@@ -1655,7 +1655,7 @@ MODULE read_namelists_module
        IF ( nlcg_restart < 0 ) &
          CALL errore(sub_name, 'nlcg_restart out of range', 1)
 
-     END SUBROUTINE nlcg_checkin
+     END SUBROUTINE
 
      !
      !=----------------------------------------------------------------------=!
