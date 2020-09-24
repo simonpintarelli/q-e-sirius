@@ -461,7 +461,7 @@ MODULE read_namelists_module
              !
              CHARACTER(LEN=2) :: prog ! .. specify the calling probram
 
-             nlcg_maxiter = 300_DP
+             nlcg_maxiter = 300
              nlcg_restart = 10
              nlcg_tau = 0.1_DP
              nlcg_T = 300.0_DP
