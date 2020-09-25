@@ -59,7 +59,7 @@ MODULE read_namelists_module
        IMPLICIT NONE
        !
        CHARACTER(LEN=2) :: prog   ! ... specify the calling program
-       CHARACTER(LEN=20) ::    temp_string 
+       CHARACTER(LEN=20) ::    temp_string
        !
        !
        IF ( prog == 'PW' ) THEN
@@ -105,10 +105,10 @@ MODULE read_namelists_module
           pseudo_dir = TRIM( pseudo_dir ) // '/espresso/pseudo/'
        END IF
        !
-       ! ... max number of md steps added to the xml file. Needs to be limited for very long 
-       !     md simulations 
-       CALL get_environment_variable('MAX_XML_STEPS', temp_string) 
-            IF ( TRIM(temp_string) .NE.  ' ')  READ(temp_string, *) max_xml_steps 
+       ! ... max number of md steps added to the xml file. Needs to be limited for very long
+       !     md simulations
+       CALL get_environment_variable('MAX_XML_STEPS', temp_string)
+            IF ( TRIM(temp_string) .NE.  ' ')  READ(temp_string, *) max_xml_steps
        refg          = 0.05_DP
        max_seconds   = 1.E+7_DP
        ekin_conv_thr = 1.E-6_DP
@@ -124,7 +124,7 @@ MODULE read_namelists_module
        lelfield = .FALSE.
        lorbm = .FALSE.
        nberrycyc  = 1
-       lecrpa   = .FALSE.   
+       lecrpa   = .FALSE.
        tqmmm = .FALSE.
        !
        saverho = .TRUE.
@@ -233,7 +233,7 @@ MODULE read_namelists_module
        ! ... EXX
        !
        ace=.TRUE.
-       n_proj = 0    
+       n_proj = 0
        localization_thr = 0.0_dp
        scdm=.FALSE.
        scdmden=1.0d0
@@ -279,7 +279,7 @@ MODULE read_namelists_module
        one_atom_occupations=.FALSE.
        !
        spline_ps = .false.
-       ! 
+       !
        real_space = .false.
        !
        ! ... DFT-D, Tkatchenko-Scheffler, XDM
@@ -567,7 +567,7 @@ MODULE read_namelists_module
        n_muller=0
        np_muller=1
        l_exit_muller=.false.
-       
+
 
        RETURN
        !
@@ -696,7 +696,7 @@ MODULE read_namelists_module
        wf_friction = 0.3_DP
 !=======================================================================
 !exx_wf related
-       exx_neigh        =  60 
+       exx_neigh        =  60
        vnbsp            =  0
        exx_poisson_eps  =  1.E-6_DP
        exx_dis_cutoff   =  8.0_DP
@@ -855,7 +855,7 @@ MODULE read_namelists_module
        CALL mp_bcast( nqx2,                   ionode_id, intra_image_comm )
        CALL mp_bcast( nqx3,                   ionode_id, intra_image_comm )
        CALL mp_bcast( exx_fraction,           ionode_id, intra_image_comm )
-       CALL mp_bcast( screening_parameter,    ionode_id, intra_image_comm ) 
+       CALL mp_bcast( screening_parameter,    ionode_id, intra_image_comm )
        CALL mp_bcast( gau_parameter,          ionode_id, intra_image_comm )
        CALL mp_bcast( exxdiv_treatment,       ionode_id, intra_image_comm )
        CALL mp_bcast( x_gamma_extrapolation,  ionode_id, intra_image_comm )
@@ -1173,7 +1173,7 @@ MODULE read_namelists_module
        CALL mp_bcast( w_2,              ionode_id, intra_image_comm )
        !
        CALL mp_bcast(l_mplathe,         ionode_id, intra_image_comm )
-       CALL mp_bcast(n_muller,          ionode_id, intra_image_comm ) 
+       CALL mp_bcast(n_muller,          ionode_id, intra_image_comm )
        CALL mp_bcast(np_muller,         ionode_id, intra_image_comm )
        CALL mp_bcast(l_exit_muller,     ionode_id, intra_image_comm )
 
@@ -2027,14 +2027,16 @@ MODULE read_namelists_module
        !
        ! ... NLCG namelist
        !
-       ios = 0
-       IF( ionode ) THEN
-               READ( unit_loc, nlcg, iostat = ios )
+       IF ( use_nlcg ) THEN
+         ios = 0
+         IF( ionode ) THEN
+           READ( unit_loc, nlcg, iostat = ios )
+         END IF
+         CALL check_namelist_read(ios, unit_loc, "nlcg")
+         !
+         CALL nlcg_bcast( )
+         CALL nlcg_checkin( prog )
        END IF
-       CALL check_namelist_read(ios, unit_loc, "nlcg")
-       !
-       CALL nlcg_bcast( )
-       CALL nlcg_checkin( prog )
 
        !
        ! ... IONS namelist - must be read only if ionic motion is expected,
@@ -2054,7 +2056,11 @@ MODULE read_namelists_module
              ! presumably, not found: rewind the file pointer to the location
              ! of the previous present section, in this case electrons
              REWIND( unit_loc )
-             READ( unit_loc, electrons, iostat = ios )
+             IF ( use_nlcg ) THEN
+               READ( unit_loc, nlcg, iostat = ios )
+             ELSE
+               READ( unit_loc, electrons, iostat = ios )
+             END IF
           END IF
           !
        END IF
@@ -2071,7 +2077,7 @@ MODULE read_namelists_module
           IF( TRIM( calculation ) == 'vc-relax' .OR. &
               TRIM( calculation ) == 'vc-cp'    .OR. &
               TRIM( calculation ) == 'vc-md'    .OR. &
-              TRIM( calculation ) == 'vc-md'    .OR. & 
+              TRIM( calculation ) == 'vc-md'    .OR. &
               TRIM( calculation ) == 'vc-cp-wf') THEN
              READ( unit_loc, cell, iostat = ios )
           END IF
